@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"math/rand"
 	"regexp"
+	"strconv"
 	"strings"
 	"time"
 )
@@ -13,6 +14,10 @@ var (
 	repeatedDashesRegex     *regexp.Regexp
 	dashesAtStartOrEndRegex *regexp.Regexp
 	validSlugRegex          *regexp.Regexp
+
+	// numericOnlyPrefix is prefixed to slugs that end up being purely numeric
+	// after sanitization.
+	numericOnlyPrefix = "slug"
 )
 
 func init() {
@@ -33,8 +38,7 @@ func Build(s string) string {
 		return ""
 	}
 
-	s = strings.ToLower(s)
-	s = nonAlphaNumericsRegex.ReplaceAllString(s, "-")
+	s = Slugify(s)
 	slug := fmt.Sprintf("%s-%v", s, random(1000, 9999))
 	return sanitize(slug)
 }
@@ -44,10 +48,30 @@ func BuildWithNumber(s string, number int) string {
 		return ""
 	}
 
-	s = strings.ToLower(s)
-	s = nonAlphaNumericsRegex.ReplaceAllString(s, "-")
+	s = Slugify(s)
 	slug := fmt.Sprintf("%s-%v", s, number)
 	return sanitize(slug)
+}
+
+func Slugify(s string) string {
+	if len(s) == 0 {
+		return ""
+	}
+
+	s = strings.ToLower(s)
+	s = nonAlphaNumericsRegex.ReplaceAllString(s, "-")
+	s = sanitize(s)
+
+	// Prefix with non-numeric character if slug is now purely numbers.
+	if _, err := strconv.Atoi(s); err == nil {
+		s = numericOnlyPrefix + s
+	}
+
+	if s == "" {
+		s = numericOnlyPrefix
+	}
+
+	return s
 }
 
 // IsValid is intended to be used as a test helper

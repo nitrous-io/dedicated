@@ -2,6 +2,7 @@ package snapshot
 
 import (
 	"database/sql"
+	"fmt"
 	"regexp"
 	"strings"
 
@@ -22,6 +23,8 @@ type Snapshot struct {
 	DisplayName   string        `db:"display_name"`
 	OriginalImage string        `db:"original_image"`
 	Size          sql.NullInt64 `db:"size"`
+
+	Downloads int64 `db:"downloads"`
 
 	CreatedAt pq.NullTime `db:"created_at"`
 	UpdatedAt pq.NullTime `db:"updated_at"`
@@ -82,6 +85,20 @@ func FindByImageID(d db.QueryReceiver, imageID int64) (*SnapshotWithOwner, error
 	return s, nil
 }
 
+func FindBySlug(d db.QueryReceiver, slug string) (*SnapshotWithOwner, error) {
+	s := &SnapshotWithOwner{}
+	if err := d.Get(s, `SELECT snapshots.*,
+			users.username AS owner_username,
+			users.name AS owner_name,
+			users.email AS owner_email
+		FROM snapshots
+			LEFT JOIN users ON users.id = snapshots.user_id
+		WHERE snapshots.slug = $1;`, slug); err != nil {
+		return nil, err
+	}
+	return s, nil
+}
+
 var nitrousStackPattern = regexp.MustCompile(`nitrous\/([^:]+):`)
 var stackPatterns = []struct {
 	needle string
@@ -105,13 +122,30 @@ var stackPatterns = []struct {
 
 func (s *Snapshot) Insert(d db.QueryReceiver) error {
 	nstmt, err := d.PrepareNamed(`INSERT INTO snapshots
-		(image_id, user_id, org_id, slug, namespace, name, tag, display_name, original_image, size)
-		VALUES (:image_id, :user_id, :org_id, :slug, :namespace, :name, :tag, :display_name, :original_image, :size)
+		(image_id, user_id, org_id, slug, namespace, name, tag, display_name, original_image, size, downloads)
+		VALUES (:image_id, :user_id, :org_id, :slug, :namespace, :name, :tag, :display_name, :original_image, :size, :downloads)
 		RETURNING *;`)
 	if err != nil {
 		return err
 	}
 	return nstmt.QueryRowx(s).StructScan(s)
+}
+
+func (s *Snapshot) Update(d db.QueryReceiver) error {
+	nstmt, err := d.PrepareNamed(`UPDATE snapshots
+		SET (image_id, user_id, org_id, slug, namespace, name, tag, display_name, original_image, size, downloads, updated_at)
+		= (:image_id, :user_id, :org_id, :slug, :namespace, :name, :tag, :display_name, :original_image, :size, :downloads, now())
+		WHERE id = :id
+		RETURNING *;`)
+	if err != nil {
+		return err
+	}
+	return nstmt.QueryRowx(s).StructScan(s)
+}
+
+func (s *Snapshot) IncrementDownloads(d db.QueryReceiver) error {
+	_, err := d.Exec(`UPDATE snapshots SET downloads = downloads + 1 WHERE id = $1;`, s.ID)
+	return err
 }
 
 func (s *Snapshot) Delete(d db.QueryReceiver) error {
@@ -130,4 +164,9 @@ func (s *Snapshot) Stack() string {
 		}
 	}
 	return ""
+}
+
+// Repository returns the fully specified Docker image repository.
+func (s *Snapshot) Repository() string {
+	return fmt.Sprintf("%s/%s:%s", s.Namespace, s.Name, s.Tag)
 }

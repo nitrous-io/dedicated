@@ -11,6 +11,7 @@ import (
 	"github.com/nitrous-io/dedicated/nitrous/controllers/containerkeys"
 	"github.com/nitrous-io/dedicated/nitrous/controllers/containers"
 	"github.com/nitrous-io/dedicated/nitrous/controllers/coupons"
+	"github.com/nitrous-io/dedicated/nitrous/controllers/dockerregistry"
 	"github.com/nitrous-io/dedicated/nitrous/controllers/events"
 	"github.com/nitrous-io/dedicated/nitrous/controllers/feedback"
 	"github.com/nitrous-io/dedicated/nitrous/controllers/freighterd"
@@ -112,18 +113,19 @@ func (s *Server) drawRoutes() {
 				"/subscriptions/promo_codes/{slug}": r("promocodes.ShowSubscriptionPromocode", promocodes.ShowSubscriptionPromocode),
 			},
 			"POST": {
-				"/oauth/token":                  r("oauth.IssueToken", oauth.IssueToken),
-				"/users/email_signup":           r("users.EmailCapture", users.EmailCapture),
-				"/users":                        r("users.Create", users.Create),
-				"/user/confirm":                 r("users.Confirm", users.Confirm),
-				"/user/resend_confirm":          r("users.ResendConfirmation", users.ResendConfirmation),
-				"/send_reset_password_token":    r("passwords.SendResetPasswordToken", passwords.SendResetPasswordToken),
-				"/reset_password":               r("passwords.ResetPassword", passwords.ResetPassword),
-				"/stripe_hook":                  r("stripehooks.ReceiveHook", stripehooks.ReceiveHook),
-				"/hosts/{slug}/freighterd_hook": r("freighterd.Webhook", freighterd.Webhook),
-				"/mailchimp_hook":               r("mailchimphooks.ReceiveHook", mailchimphooks.ReceiveHook),
-				"/github/authorize_to_login":    r("github.AuthorizeToLogin", github.AuthorizeToLogin),
-				"/github/authorize_to_signup":   r("github.AuthorizeToSignUp", github.AuthorizeToSignUp),
+				"/oauth/token":                   r("oauth.IssueToken", oauth.IssueToken),
+				"/users/email_signup":            r("users.EmailCapture", users.EmailCapture),
+				"/users":                         r("users.Create", users.Create),
+				"/user/confirm":                  r("users.Confirm", users.Confirm),
+				"/user/resend_confirm":           r("users.ResendConfirmation", users.ResendConfirmation),
+				"/send_reset_password_token":     r("passwords.SendResetPasswordToken", passwords.SendResetPasswordToken),
+				"/reset_password":                r("passwords.ResetPassword", passwords.ResetPassword),
+				"/stripe_hook":                   r("stripehooks.ReceiveHook", stripehooks.ReceiveHook),
+				"/hosts/{slug}/freighterd_hook":  r("freighterd.Webhook", freighterd.Webhook),
+				"/mailchimp_hook":                r("mailchimphooks.ReceiveHook", mailchimphooks.ReceiveHook),
+				"/docker/registry/notifications": r("dockerregistry.NotificationWebhook", dockerregistry.NotificationWebhook),
+				"/github/authorize_to_login":     r("github.AuthorizeToLogin", github.AuthorizeToLogin),
+				"/github/authorize_to_signup":    r("github.AuthorizeToSignUp", github.AuthorizeToSignUp),
 			},
 		}
 
@@ -210,6 +212,7 @@ func (s *Server) drawRoutes() {
 				"/hosts/{slug}/images/{image:.*}/push":     r("images.Push", mw.HostViaPath("slug", mw.TouchHost(images.Push)), EventImagePushed),
 				"/hosts/{slug}/images/{image:.*}/tag":      r("images.Tag", mw.HostViaPath("slug", mw.TouchHost(images.Tag)), EventImageTagged),
 				"/containers":                              r("containers.Create", containers.Create, EventContainerCreated),
+				"/containers/create_atomic":                r("containers.Create", containers.CreateAtomic),
 				"/containers/{slug}/commit":                r("containers.Commit", containers.Commit, EventContainerCommitted),
 				"/containers/{slug}/start":                 r("containers.Start", containers.Start, EventContainerStarted),
 				"/containers/{slug}/stop":                  r("containers.Stop", containers.Stop, EventContainerStopped),

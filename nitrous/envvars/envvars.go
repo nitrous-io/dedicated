@@ -38,7 +38,8 @@ var (
 	PreviewHostname    = os.Getenv("PREVIEW_HOSTNAME")
 	WebHostname        = os.Getenv("WEB_HOSTNAME")
 
-	DockerRegistryHostname = os.Getenv("DOCKER_REGISTRY_HOSTNAME")
+	DockerRegistryHostname     = os.Getenv("DOCKER_REGISTRY_HOSTNAME")
+	DockerRegistryWebhookToken = os.Getenv("DOCKER_REGISTRY_WEBHOOK_TOKEN")
 
 	BetaDashboardLocation = os.Getenv("BETA_DASHBOARD_LOCATION")
 	BetaLoginLocation     = os.Getenv("BETA_LOGIN_LOCATION")

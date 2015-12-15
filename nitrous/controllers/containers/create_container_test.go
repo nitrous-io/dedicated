@@ -104,10 +104,6 @@ var _ = Describe("CreateContainer", func() {
 			User:    u,
 		}
 
-		ports := make(map[string][]string)
-		ports["22"] = []string{"65022"}
-		ports["3000"] = []string{"63000"}
-
 		mockClient.CreatedContainer = &freighterclient.Container{
 			ID:      "deadbeef",
 			Name:    "elixir-web-1",

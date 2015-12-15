@@ -4,6 +4,8 @@ type EventName string
 
 const (
 	EventContainerCreated           EventName = "container.created"
+	EventContainerCreating          EventName = "container.creating"
+	EventContainerCreateFailed      EventName = "container.create_failed"
 	EventContainerDestroying        EventName = "container.destroying"
 	EventContainerDestroyed         EventName = "container.destroyed"
 	EventContainerStarting          EventName = "container.starting"

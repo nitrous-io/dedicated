@@ -32,6 +32,7 @@ import (
 	"github.com/nitrous-io/dedicated/nitrous/pkg/pubsub"
 	"github.com/nitrous-io/dedicated/nitrous/pkg/shellwords"
 	"github.com/nitrous-io/dedicated/nitrous/serializers"
+	"github.com/nitrous-io/dedicated/pkg/slugbuilder"
 	"github.com/nitrous-io/nitrous-common/hmactoken"
 )
 
@@ -85,7 +86,7 @@ var (
 	Stop    = WithContainerAndHost(stop, AllowCollab, TouchHost)
 	Restart = WithContainerAndHost(restart, AllowCollab, TouchHost)
 	Destroy = WithContainerAndHost(destroy, TouchHost)
-	Token   = WithContainerAndHost(token, AllowCollab)
+	Token   = WithContainerAndHost(ctoken, AllowCollab)
 )
 
 var (
@@ -304,9 +305,10 @@ func commit(cn *container.Container, h *host.Host, env *middleware.Env, w http.R
 		return errImageNameRequired
 	}
 
-	slug := fmt.Sprintf("%s:__snapshot__%s", name, time.Now().Format("20060102-150405"))
+	slug := slugbuilder.Slugify(name)
+	repo := fmt.Sprintf("%s:__snapshot__%s", slug, time.Now().Format("20060102-150405"))
 
-	created, err := cl.Commit(cn.CID, slug)
+	created, err := cl.Commit(cn.CID, repo)
 	if err == freighterclient.ErrImageExists {
 		env.Status = http.StatusBadRequest
 		env.Data = map[string]interface{}{
@@ -653,7 +655,7 @@ func destroy(cn *container.Container, h *host.Host, env *middleware.Env, w http.
 		})
 }
 
-func token(cn *container.Container, h *host.Host, env *middleware.Env, w http.ResponseWriter, r *http.Request) error {
+func ctoken(cn *container.Container, h *host.Host, env *middleware.Env, w http.ResponseWriter, r *http.Request) error {
 	// do not issue token if container is locked
 	if cn.IsLocked() {
 		return errContainerLocked
@@ -847,7 +849,21 @@ func PublishContainerEventToUsers(events *pubsub.Pubsub, name controllers.EventN
 // prepareConfig accepts a ContainerConfig and modifies it with user-specified settings
 func prepareConfig(c *freighterclient.ContainerConfig, form url.Values, hv map[string]*volume.Volume) error {
 	c.Env = append(c.Env, readParam(form, "env[]")...)
-	vols := readParam(form, "volume[]")
+	volParams := readParam(form, "volume[]")
+	var vols []string
+	if len(volParams) > 0 {
+		for _, v := range volParams {
+			if v == "/opt/nitrous:/.nitrous:ro" {
+				// this is occasionally present in user containers and results in a
+				// 'Volume not found' error when trying to reconfig.  We expect
+				// this to be automatically added on the freighter end if
+				// necessary, so excluding this should fix the bug with no unwanted
+				// effects.
+				continue
+			}
+			vols = append(vols, v)
+		}
+	}
 	for _, v := range volumeSlugs(vols) {
 		if _, ok := hv[v]; !ok {
 			return errVolumeNotFound
