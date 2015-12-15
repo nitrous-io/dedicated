@@ -210,6 +210,7 @@ func (s *Server) drawRoutes() {
 				"/hosts/{slug}/images/{image:.*}/push":     r("images.Push", mw.HostViaPath("slug", mw.TouchHost(images.Push)), EventImagePushed),
 				"/hosts/{slug}/images/{image:.*}/tag":      r("images.Tag", mw.HostViaPath("slug", mw.TouchHost(images.Tag)), EventImageTagged),
 				"/containers":                              r("containers.Create", containers.Create, EventContainerCreated),
+				"/containers/create_atomic":                r("containers.Create", containers.CreateAtomic),
 				"/containers/{slug}/commit":                r("containers.Commit", containers.Commit, EventContainerCommitted),
 				"/containers/{slug}/start":                 r("containers.Start", containers.Start, EventContainerStarted),
 				"/containers/{slug}/stop":                  r("containers.Stop", containers.Stop, EventContainerStopped),

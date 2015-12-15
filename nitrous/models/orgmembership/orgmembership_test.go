@@ -127,8 +127,27 @@ var _ = Describe("models/orgmembership", func() {
 			o := &orgmembership.OrgMembership{}
 			for role, expected := range testCases {
 				o.Role = role
+
 				result := o.SnapshotDeleteAllowed()
 				Expect(result).To(Equal(expected), fmt.Sprintf("expected SnapshotDeleteAllowed() for role %q to be %v, but got %v", role, expected, result))
+			}
+		})
+	})
+
+	Describe("SnapshotReadAllowed()", func() {
+		It("returns true for owners, admins and members", func() {
+			testCases := map[string]bool{
+				orgmembership.RoleOwner:   true,
+				orgmembership.RoleAdmin:   true,
+				orgmembership.RoleMember:  true,
+				orgmembership.RoleLimited: false,
+			}
+
+			o := &orgmembership.OrgMembership{}
+			for role, expected := range testCases {
+				o.Role = role
+				result := o.SnapshotReadAllowed()
+				Expect(result).To(Equal(expected), fmt.Sprintf("expected SnapshotReadAllowed() for role %q to be %v, but got %v", role, expected, result))
 			}
 		})
 	})
