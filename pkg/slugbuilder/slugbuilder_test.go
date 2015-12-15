@@ -23,15 +23,14 @@ func TestBuild(t *testing.T) {
 		{"hello_123", `hello-123-\d{4,}$`},
 		{"hello@example.com", `hello-example-com-\d{4,}$`},
 		{"hello world", `hello-world-\d{4,}$`},
-		{"향기로운-바람-69", `69-\d{4,}$`},
-		{"향기로운-바람", `\d{4,}$`}, // FIXME: this case should be normalized so that the slug is not purely numeric
+		{"향기로운-바람-69", `slug69-\d{4,}$`},
+		{"향기로운-바람", `slug-\d{4,}$`},
 	} {
 		o := slugbuilder.Build(tc[0])
 		if m, err := regexp.MatchString(tc[1], o); !m || err != nil {
 			t.Errorf("%s is not a valid slug. input string: %s", o, tc[0])
 		}
 	}
-
 }
 
 func TestBuildWithNumber(t *testing.T) {
@@ -50,12 +49,39 @@ func TestBuildWithNumber(t *testing.T) {
 		{"hello_123", "hello-123-1234"},
 		{"hello@example.com", "hello-example-com-1234"},
 		{"hello world", "hello-world-1234"},
-		{"향기로운-바람-69", "69-1234"},
+		{"향기로운-바람-69", "slug69-1234"},
+		{"향기로운-바람", "slug-1234"},
 	} {
 		o := slugbuilder.BuildWithNumber(tc[0], 1234)
 		if o != tc[1] {
 			t.Errorf("%s is not a valid slug. input string: %s", o, tc[0])
 		}
 	}
+}
 
+func TestSlugify(t *testing.T) {
+	// test for empty string
+	if slugbuilder.Slugify("") != "" {
+		t.Errorf("slug of an empty string must be empty")
+	}
+
+	for _, tc := range [][]string{
+		{"hello", "hello"},
+		{"HELLO", "hello"},
+		{"HellO", "hello"},
+		{"hello-123", "hello-123"},
+		{"-hello-", "hello"},
+		{"he--llo", "he-llo"},
+		{"hello_123", "hello-123"},
+		{"hello@example.com", "hello-example-com"},
+		{"hello world", "hello-world"},
+		{"향기로운-바람-69", "slug69"},
+		{"향기로운-바람", "slug"},
+		{"node4.2.1 12/3/2015 2:45:37 PM", "node4-2-1-12-3-2015-2-45-37-pm"},
+	} {
+		o := slugbuilder.Slugify(tc[0])
+		if o != tc[1] {
+			t.Errorf("%q is not a valid slug. input string: %q", o, tc[0])
+		}
+	}
 }
