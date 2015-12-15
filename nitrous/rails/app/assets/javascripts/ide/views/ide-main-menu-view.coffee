@@ -25,6 +25,9 @@ rulerMenu = menu 'Ruler', [
       column == App.get('router.ideEditorController.rulerColumn')
     ).property 'App.router.ideEditorController.rulerColumn'
 
+isOwner = (container) ->
+  App.get('user.id') == container.user_id
+
 themesMenu = menu 'Themes', _.map [
   { name: 'solarized dark', label: 'Solarized Dark' }
   { name: 'vibrant-ink', label: 'Vibrant Ink' }
@@ -398,6 +401,15 @@ App.IdeMainMenuView = Em.View.extend
         menuItem 'Clone from GitHub',
           callback: (controller) ->
             controller.gitCloneFromGitHub()
+      ]
+      menu 'Collaborate', [
+        menuItem 'Invite Collaborators',
+          disabled: (->
+            !App.get('host.slug') || !App.get('container.slug') || !isOwner(App.get('container'))
+          ).property 'App.host.slug', 'App.container.slug', 'App.container'
+
+          url: "/app/#/dashboard/workstations/#{App.get('host.slug')}/projects/#{App.get('container.slug')}/collaborators"
+          target: '_blank'
       ]
       menu 'Help', @get('helpMenuItems')
     ]
