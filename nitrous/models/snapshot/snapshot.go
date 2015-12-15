@@ -143,6 +143,11 @@ func (s *Snapshot) Update(d db.QueryReceiver) error {
 	return nstmt.QueryRowx(s).StructScan(s)
 }
 
+func (s *Snapshot) IncrementDownloads(d db.QueryReceiver) error {
+	_, err := d.Exec(`UPDATE snapshots SET downloads = downloads + 1 WHERE id = $1;`, s.ID)
+	return err
+}
+
 func (s *Snapshot) Delete(d db.QueryReceiver) error {
 	_, err := d.Exec(`DELETE FROM snapshots WHERE id = $1;`, s.ID)
 	return err
