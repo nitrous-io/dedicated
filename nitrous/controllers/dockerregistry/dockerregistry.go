@@ -70,8 +70,7 @@ func processEvent(event *notifications.Event, db ndb.QueryReceiver) error {
 			return err
 		}
 
-		snap.Downloads = snap.Downloads + 1
-		if err := snap.Update(db); err != nil {
+		if err := snap.IncrementDownloads(db); err != nil {
 			return err
 		}
 	default:
