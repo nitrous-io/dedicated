@@ -3626,12 +3626,7 @@ var _ = Describe("controllers/containers", func() {
 		var (
 			containerName = "elixir-web-1"
 			c             *container.Container
-			testParams    = &url.Values{
-				"env[]":       []string{"LANG=C", "NODE=nope"},
-				"volume[]":    []string{"music"},
-				"port[]":      []string{"3000:8080", "public::4552", "public:8081:11211"},
-				"publish_all": []string{"0"},
-			}
+			testParams    *url.Values
 		)
 
 		doRequest := func(params *url.Values) {
@@ -3641,6 +3636,13 @@ var _ = Describe("controllers/containers", func() {
 		}
 
 		BeforeEach(func() {
+			testParams = &url.Values{
+				"env[]":       []string{"LANG=C", "NODE=nope"},
+				"volume[]":    []string{"music"},
+				"port[]":      []string{"3000:8080", "public::4552", "public:8081:11211"},
+				"publish_all": []string{"0"},
+			}
+
 			v := &volume.Volume{HostID: hs.H.ID, Slug: "music"}
 			err := v.Insert(db)
 			Expect(err).To(BeNil())
@@ -3693,6 +3695,14 @@ var _ = Describe("controllers/containers", func() {
 			Expect(conf.PortBindings).To(ContainElement("3000:8080"))
 			Expect(conf.PortBindings).To(ContainElement("public::4552"))
 			Expect(conf.PortBindings).To(ContainElement("public:8081:11211"))
+		})
+
+		It("excludes the /opt/nitrous mount if present", func() {
+			testParams.Set("volume[]", "/opt/nitrous:/.nitrous:ro")
+
+			doRequest(testParams)
+			Expect(mockClient.ReconfigCalled).To(Equal(1))
+			Expect(mockClient.ReceivedConfig.Mounts).To(HaveLen(0))
 		})
 
 		It("responds with the container from Freighter and augments it with data from the database", func() {
