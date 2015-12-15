@@ -350,6 +350,37 @@ var _ = Describe("models/snapshot", func() {
 		})
 	})
 
+	Describe("IncrementDownloads()", func() {
+		It("increments the downloads field by 1", func() {
+			s := &snapshot.Snapshot{
+				ImageID:       i1.ID,
+				UserID:        u.ID,
+				OrgID:         sql.NullInt64{o1.ID, true},
+				Namespace:     "zerobotlabs",
+				Name:          "nestorbot",
+				Tag:           "latest",
+				DisplayName:   "Nestorbot dev",
+				OriginalImage: "golang:latest",
+			}
+			err := s.Insert(db)
+			Expect(err).To(BeNil())
+			Expect(s.Downloads).To(Equal(int64(0)))
+
+			s1 := &snapshot.Snapshot{}
+			err = db.QueryRowx("SELECT * FROM snapshots WHERE id = $1", s.ID).StructScan(s1)
+			Expect(err).To(BeNil())
+			Expect(s1.Downloads).To(Equal(int64(0)))
+
+			err = s1.IncrementDownloads(db)
+			Expect(err).To(BeNil())
+
+			s2 := &snapshot.Snapshot{}
+			err = db.QueryRowx("SELECT * FROM snapshots WHERE id = $1", s.ID).StructScan(s2)
+			Expect(err).To(BeNil())
+			Expect(s2.Downloads).To(Equal(int64(1)))
+		})
+	})
+
 	Describe("Delete()", func() {
 		It("removes the snapshot from the database", func() {
 			_, err := db.Exec(`INSERT INTO snapshots
