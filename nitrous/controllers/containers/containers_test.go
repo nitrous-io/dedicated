@@ -1484,6 +1484,34 @@ var _ = Describe("controllers/containers", func() {
 			Expect(j.Container.State).To(Equal("running"))
 		})
 
+		It("creates a slug from the name param", func() {
+			mockClient.CommitImage = &freighterclient.Image{
+				ID:          "1a",
+				Name:        "node4-2-1-12-3-2015-2-45-37-pm",
+				Tag:         "__snapshot__20140813-000000",
+				CreatedAt:   1903,
+				ActualSize:  13,
+				VirtualSize: 29,
+			}
+
+			// At one point we were prefilling the snapshot name like so.
+			doRequest("node4.2.1 12/3/2015 2:45:37 PM")
+
+			Expect(res.Code).To(Equal(http.StatusOK))
+			Expect(mockClient.CommitCalled).To(Equal(1))
+			Expect(mockClient.ReceivedID).To(Equal("deadbeef"))
+			Expect(mockClient.ReceivedName).To(MatchRegexp("node4-2-1-12-3-2015-2-45-37-pm:__snapshot__[0-9]{8}-[0-9]{6}"))
+
+			i, err := image.Find(db, u, hs.H, "node4-2-1-12-3-2015-2-45-37-pm:__snapshot__20140813-000000")
+			Expect(err).To(BeNil())
+			Expect(i.UserID).To(Equal(u.ID))
+			Expect(i.HostID).To(Equal(hs.H.ID))
+			Expect(i.FreighterID).To(Equal("1a"))
+			Expect(i.Name).To(Equal("node4.2.1 12/3/2015 2:45:37 PM"))
+			Expect(i.Slug).To(Equal("node4-2-1-12-3-2015-2-45-37-pm"))
+			Expect(i.Tag).To(Equal("__snapshot__20140813-000000"))
+		})
+
 		It("returns a server error when freighter fails", func() {
 			mockClient.InfoError = errors.New("you are not Chuck Norris")
 			doRequest("elixir-staging")

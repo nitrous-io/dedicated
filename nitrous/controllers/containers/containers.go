@@ -32,6 +32,7 @@ import (
 	"github.com/nitrous-io/dedicated/nitrous/pkg/pubsub"
 	"github.com/nitrous-io/dedicated/nitrous/pkg/shellwords"
 	"github.com/nitrous-io/dedicated/nitrous/serializers"
+	"github.com/nitrous-io/dedicated/pkg/slugbuilder"
 	"github.com/nitrous-io/nitrous-common/hmactoken"
 )
 
@@ -304,9 +305,10 @@ func commit(cn *container.Container, h *host.Host, env *middleware.Env, w http.R
 		return errImageNameRequired
 	}
 
-	slug := fmt.Sprintf("%s:__snapshot__%s", name, time.Now().Format("20060102-150405"))
+	slug := slugbuilder.Slugify(name)
+	repo := fmt.Sprintf("%s:__snapshot__%s", slug, time.Now().Format("20060102-150405"))
 
-	created, err := cl.Commit(cn.CID, slug)
+	created, err := cl.Commit(cn.CID, repo)
 	if err == freighterclient.ErrImageExists {
 		env.Status = http.StatusBadRequest
 		env.Data = map[string]interface{}{
