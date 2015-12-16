@@ -415,6 +415,43 @@ func (s *Server) restartHost(w http.ResponseWriter, r *http.Request) error {
 	return nil
 }
 
+func (s *Server) softRestartHost(w http.ResponseWriter, r *http.Request) error {
+	driver, err := s.driverFromRequest(r, nil)
+	if err != nil {
+		return mh.Error(err, fmt.Sprintf("softrestart.%s", r.Form.Get("provider")))
+	}
+	if driver.DriverName() != "amazon" {
+		return mh.Error(fmt.Errorf("only amazon driver supports softrestart"), fmt.Sprintf("softrestart.%s", driver.DriverName()))
+	}
+	label := fmt.Sprintf("softrestart.%s", driver.DriverName())
+	defer mh.UpdateSince(label, time.Now())
+
+	adriver, ok := driver.(*amazon.Host)
+	if !ok { // sanity check; should never happen
+		return fmt.Errorf("softRestart cast to amazon broken")
+	}
+
+	info, err := adriver.SoftRestart()
+	if err != nil {
+		return mh.Error(err, label)
+	}
+
+	resp := &Response{
+		StatusCode:     http.StatusOK,
+		Status:         "softrestarted",
+		Provider:       info.Provider,
+		ID:             info.ID,
+		VolumeID:       info.VolumeID,
+		Name:           info.Name,
+		IPAddress:      info.IPAddress,
+		FreighterdPort: info.FreighterdPort,
+		Region:         info.Region,
+		State:          info.State.String(),
+	}
+	writeResponse(w, resp)
+	return nil
+}
+
 // sleep waits for a defined seconds and then finishes the request
 // This is useful for testing graceful shutdown and should only be enabled in
 // debug mode
@@ -565,14 +602,15 @@ func (s *Server) createRouter() {
 			"/pools": s.listPools,
 		},
 		"POST": {
-			"/hosts":         s.createHost,
-			"/hosts/update":  s.updateHost,
-			"/hosts/respec":  s.respecHost,
-			"/hosts/delete":  s.deleteHost,
-			"/hosts/stop":    s.stopHost,
-			"/hosts/start":   s.startHost,
-			"/hosts/restart": s.restartHost,
-			"/pools/grow":    s.growPool,
+			"/hosts":              s.createHost,
+			"/hosts/update":       s.updateHost,
+			"/hosts/respec":       s.respecHost,
+			"/hosts/delete":       s.deleteHost,
+			"/hosts/stop":         s.stopHost,
+			"/hosts/start":        s.startHost,
+			"/hosts/restart":      s.restartHost,
+			"/hosts/soft_restart": s.softRestartHost,
+			"/pools/grow":         s.growPool,
 		},
 	}
 	if s.Config.Debug {
