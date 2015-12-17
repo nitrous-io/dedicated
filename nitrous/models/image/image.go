@@ -1,6 +1,7 @@
 package image
 
 import (
+	"database/sql"
 	"fmt"
 	"strconv"
 	"strings"
@@ -12,6 +13,7 @@ import (
 	"github.com/nitrous-io/dedicated/nitrous/db"
 	"github.com/nitrous-io/dedicated/nitrous/models/host"
 	"github.com/nitrous-io/dedicated/nitrous/models/user"
+	"github.com/nitrous-io/dedicated/nitrous/pkg/parsers"
 )
 
 type Image struct {
@@ -26,6 +28,11 @@ type Image struct {
 	// the optional tag, e.g. "ubuntu" or "quay.io/nitrousio/scratch"
 	Slug string `db:"slug"`
 	Tag  string `db:"tag"`
+
+	// OriginalImage is the original Docker image that the container was created
+	// from. Applies only to snapshots.
+	OriginalImage sql.NullString `db:"original_image"`
+	IsSnapshot    bool           `db:"is_snapshot"`
 
 	DeletedAt pq.NullTime `db:"deleted_at"`
 	CreatedAt *time.Time  `db:"created_at"`
@@ -99,8 +106,8 @@ func Find(d db.QueryReceiver, u *user.User, h *host.Host, identifier string) (*I
 
 func (i *Image) Insert(d db.QueryReceiver) error {
 	nstmt, err := d.PrepareNamed(`INSERT INTO images
-		(user_id, host_id, freighter_id, name, slug, tag)
-    VALUES (:user_id, :host_id, :freighter_id, :name, :slug, :tag)
+		(user_id, host_id, freighter_id, name, slug, tag, original_image, is_snapshot)
+    VALUES (:user_id, :host_id, :freighter_id, :name, :slug, :tag, :original_image, :is_snapshot)
 		RETURNING *;`)
 	if err != nil {
 		return err
@@ -110,8 +117,8 @@ func (i *Image) Insert(d db.QueryReceiver) error {
 
 func (i *Image) Update(d db.QueryReceiver) error {
 	nstmt, err := d.PrepareNamed(`UPDATE images
-		SET (user_id, host_id, freighter_id, name, slug, tag, updated_at)
-		= (:user_id, :host_id, :freighter_id, :name, :slug, :tag, now())
+		SET (user_id, host_id, freighter_id, name, slug, tag, original_image, is_snapshot, updated_at)
+		= (:user_id, :host_id, :freighter_id, :name, :slug, :tag, :original_image, :is_snapshot, now())
 		WHERE id = :id
 		RETURNING *;`)
 	if err != nil {
@@ -140,6 +147,13 @@ func (i *Image) FullRepository() string {
 		tag = DefaultTag
 	}
 	return fmt.Sprintf("%s:%s", i.Slug, tag)
+}
+
+func (i *Image) Stack() string {
+	if !i.OriginalImage.Valid {
+		return ""
+	}
+	return parsers.ParseStack(i.OriginalImage.String)
 }
 
 // ParseRepoAndTag extracts the repo name and tag from a repository string.

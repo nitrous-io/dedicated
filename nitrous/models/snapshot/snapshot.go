@@ -3,11 +3,10 @@ package snapshot
 import (
 	"database/sql"
 	"fmt"
-	"regexp"
-	"strings"
 
 	"github.com/lib/pq"
 	"github.com/nitrous-io/dedicated/nitrous/db"
+	"github.com/nitrous-io/dedicated/nitrous/pkg/parsers"
 )
 
 type Snapshot struct {
@@ -99,27 +98,6 @@ func FindBySlug(d db.QueryReceiver, slug string) (*SnapshotWithOwner, error) {
 	return s, nil
 }
 
-var nitrousStackPattern = regexp.MustCompile(`nitrous\/([^:]+):`)
-var stackPatterns = []struct {
-	needle string
-	stack  string
-}{
-	{"rails", "rails"},
-	{"ruby", "ruby"},
-	{"django", "django"},
-	{"python", "python"},
-	{"wordpress", "wordpress"},
-	{"php", "php"},
-	{"meteor", "meteor"},
-	{"nodejs", "nodejs"},
-	{"golang", "golang"},
-	{"rust", "rust"},
-	{"docker", "docker"},
-	{"discourse", "discourse"},
-	{"laravel", "laravel"},
-	{"html5", "html5"},
-}
-
 func (s *Snapshot) Insert(d db.QueryReceiver) error {
 	nstmt, err := d.PrepareNamed(`INSERT INTO snapshots
 		(image_id, user_id, org_id, slug, namespace, name, tag, display_name, original_image, size, downloads)
@@ -154,16 +132,7 @@ func (s *Snapshot) Delete(d db.QueryReceiver) error {
 }
 
 func (s *Snapshot) Stack() string {
-	if submatches := nitrousStackPattern.FindStringSubmatch(s.OriginalImage); len(submatches) == 2 {
-		return submatches[1]
-	}
-
-	for _, sp := range stackPatterns {
-		if strings.Contains(s.OriginalImage, sp.needle) {
-			return sp.stack
-		}
-	}
-	return ""
+	return parsers.ParseStack(s.OriginalImage)
 }
 
 // Repository returns the fully specified Docker image repository.

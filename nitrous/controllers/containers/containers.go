@@ -336,15 +336,17 @@ func commit(cn *container.Container, h *host.Host, env *middleware.Env, w http.R
 	}
 
 	img := &image.Image{
-		UserID:      env.User.ID,
-		HostID:      h.ID,
-		FreighterID: created.ID,
-		Name:        name,
-		Slug:        created.Name,
-		Tag:         created.Tag,
-		ActualSize:  created.ActualSize,
-		VirtualSize: created.VirtualSize,
-		BuiltAt:     builtAt,
+		UserID:        env.User.ID,
+		HostID:        h.ID,
+		FreighterID:   created.ID,
+		Name:          name,
+		Slug:          created.Name,
+		Tag:           created.Tag,
+		OriginalImage: sql.NullString{cn.Image, true},
+		IsSnapshot:    true,
+		ActualSize:    created.ActualSize,
+		VirtualSize:   created.VirtualSize,
+		BuiltAt:       builtAt,
 	}
 	if err := img.InsertOrUpdate(env.DB); err != nil { // log and continue
 		logrus.Errorf("containers.create: failed to insert or update image '%+v'", img)

@@ -1450,7 +1450,7 @@ var _ = Describe("controllers/containers", func() {
 			VerifyDelinquentUserResponse(res)
 		})
 
-		It("creates a new image record", func() {
+		It("creates a new image record of the snapshot", func() {
 			doRequest("elixir-staging")
 
 			i, err := image.Find(db, u, hs.H, "elixir-staging:__snapshot__20140813-000000:latest")
@@ -1461,6 +1461,8 @@ var _ = Describe("controllers/containers", func() {
 			Expect(i.Name).To(Equal("elixir-staging"))
 			Expect(i.Slug).To(MatchRegexp("elixir-staging:__snapshot__20140813-000000"))
 			Expect(i.Tag).To(Equal("latest"))
+			Expect(i.IsSnapshot).To(Equal(true))
+			Expect(i.OriginalImage.String).To(Equal("nitrous-base"))
 		})
 
 		It("returns image and container on success", func() {
