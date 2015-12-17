@@ -74,14 +74,6 @@ func processEvent(event *notifications.Event, db ndb.QueryReceiver) error {
 		}
 	case "pull":
 		logrus.Debugf("received pull event from Docker Registry for %q", event.Target.Repository)
-		snap, err := snapshot.FindBySlug(db, event.Target.Repository)
-		if err != nil {
-			return err
-		}
-
-		if err := snap.IncrementDownloads(db); err != nil {
-			return err
-		}
 	default:
 		logrus.Debugf("received %q event from Docker Registry, ignoring", event.Action)
 	}
