@@ -89,12 +89,13 @@ var _ = Describe("controllers/snapshots", func() {
 		Expect(err).To(BeNil())
 
 		i1 = &image.Image{
-			UserID:      u.ID,
-			HostID:      hs.H.ID,
-			FreighterID: "cafebabe",
-			Name:        "nestorbot",
-			Slug:        "nestorbot",
-			Tag:         "latest",
+			UserID:        u.ID,
+			HostID:        hs.H.ID,
+			FreighterID:   "cafebabe",
+			Name:          "nestorbot",
+			Slug:          "nestorbot",
+			Tag:           "latest",
+			OriginalImage: sql.NullString{"quay.io/nitrousio/golang:latest", true},
 		}
 		Expect(i1.Insert(db)).To(BeNil())
 
@@ -622,6 +623,7 @@ var _ = Describe("controllers/snapshots", func() {
 					Expect(snap.Name).To(Equal(fmt.Sprintf("%s-%d", i1.Slug, i1.ID)))
 					Expect(snap.Tag).To(Equal("latest"))
 					Expect(snap.DisplayName).To(Equal(i1.Name))
+					Expect(snap.OriginalImage).To(Equal(i1.OriginalImage.String))
 
 					Expect(snap.OwnerUsername.String).To(Equal(u.Username))
 					Expect(snap.OwnerName.String).To(Equal(u.Name))

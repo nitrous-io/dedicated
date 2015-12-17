@@ -200,7 +200,7 @@ func Publish(env *middleware.Env, w http.ResponseWriter, r *http.Request) error 
 			Name:          snapshotName,
 			Tag:           "latest",
 			DisplayName:   img.Name,
-			OriginalImage: img.Slug, // FIXME This should be the image repo of the container.
+			OriginalImage: img.OriginalImage.String,
 		}
 		if err := s.Insert(tx); err != nil {
 			publishFailure(err)
