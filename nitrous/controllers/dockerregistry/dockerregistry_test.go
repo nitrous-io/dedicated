@@ -176,7 +176,7 @@ var _ = Describe("controllers/dockerregistry", func() {
 			Expect(s.Size.Int64).To(Equal(int64(1234)))
 		})
 
-		It("responds with HTTTP 200 OK and does nothing snapshot does not exist", func() {
+		It("responds with HTTTP 404 Not Found when snapshot does not exist", func() {
 			res := doRequest(envvars.DockerRegistryWebhookToken, `{
 				"events": [
 					{
@@ -208,7 +208,7 @@ var _ = Describe("controllers/dockerregistry", func() {
 					}
 				]
 			}`)
-			Expect(res.Code).To(Equal(http.StatusOK))
+			Expect(res.Code).To(Equal(http.StatusNotFound))
 		})
 	})
 
@@ -226,7 +226,7 @@ var _ = Describe("controllers/dockerregistry", func() {
 			Expect(s.Downloads).To(Equal(prevDownloads + 1))
 		})
 
-		It("responds with HTTTP 200 OK and does nothing snapshot does not exist", func() {
+		It("responds with HTTTP 404 Not Found when snapshot does not exist", func() {
 			res := doRequest(envvars.DockerRegistryWebhookToken, `{
 				"events": [
 					{
@@ -258,7 +258,7 @@ var _ = Describe("controllers/dockerregistry", func() {
 					}
 				]
 			}`)
-			Expect(res.Code).To(Equal(http.StatusOK))
+			Expect(res.Code).To(Equal(http.StatusNotFound))
 		})
 	})
 
