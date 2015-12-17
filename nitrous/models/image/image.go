@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"github.com/jmoiron/sqlx"
+	"github.com/lib/pq"
 
 	"github.com/nitrous-io/dedicated/nitrous/db"
 	"github.com/nitrous-io/dedicated/nitrous/models/host"
@@ -26,8 +27,9 @@ type Image struct {
 	Slug string `db:"slug"`
 	Tag  string `db:"tag"`
 
-	CreatedAt *time.Time `db:"created_at"`
-	UpdatedAt *time.Time `db:"updated_at"`
+	DeletedAt pq.NullTime `db:"deleted_at"`
+	CreatedAt *time.Time  `db:"created_at"`
+	UpdatedAt *time.Time  `db:"updated_at"`
 
 	// These fields come from Freighter.
 	ActualSize  int64
@@ -42,9 +44,9 @@ func FindAll(d db.QueryReceiver, u *user.User, h *host.Host) ([]*Image, error) {
 	var err error
 	images := []*Image{}
 	if h == nil {
-		err = d.Select(&images, `SELECT * FROM images WHERE user_id = $1 ORDER BY id;`, u.ID)
+		err = d.Select(&images, `SELECT * FROM images WHERE user_id = $1 AND deleted_at IS NULL ORDER BY id;`, u.ID)
 	} else {
-		err = d.Select(&images, `SELECT * FROM images WHERE user_id = $1 AND host_id = $2 ORDER BY id;`, u.ID, h.ID)
+		err = d.Select(&images, `SELECT * FROM images WHERE user_id = $1 AND host_id = $2 AND deleted_at IS NULL ORDER BY id;`, u.ID, h.ID)
 	}
 	if err != nil {
 		return nil, err
@@ -77,12 +79,14 @@ func Find(d db.QueryReceiver, u *user.User, h *host.Host, identifier string) (*I
 	if err != nil {
 		nstmt, err = d.PrepareNamed(`SELECT * FROM images
 			WHERE user_id = :user_id AND host_id = :host_id
-			AND slug = :slug AND tag = :tag`)
+			AND slug = :slug AND tag = :tag
+			AND deleted_at IS NULL`)
 	} else {
 		params["id"] = id
 		nstmt, err = d.PrepareNamed(`SELECT * FROM images
 			WHERE user_id = :user_id AND host_id = :host_id
-			AND id = :id`)
+			AND id = :id
+			AND deleted_at IS NULL`)
 	}
 	if err != nil {
 		return nil, err
@@ -124,7 +128,7 @@ func (i *Image) InsertOrUpdate(d db.QueryReceiver) error {
 }
 
 func (i *Image) Delete(d db.QueryReceiver) error {
-	_, err := d.Exec(`DELETE FROM images WHERE id = $1`, i.ID)
+	_, err := d.Exec(`UPDATE images SET deleted_at = now() WHERE id = $1`, i.ID)
 	return err
 }
 
