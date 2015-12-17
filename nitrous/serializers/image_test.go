@@ -2,6 +2,7 @@ package serializers_test
 
 import (
 	"encoding/json"
+	"fmt"
 	"time"
 
 	"github.com/nitrous-io/dedicated/nitrous/models/image"
@@ -24,6 +25,7 @@ var _ = Describe("image serializer", func() {
 			Name:        "scratch image",
 			Slug:        "scratch",
 			Tag:         "latest",
+			IsSnapshot:  false,
 			ActualSize:  111111,
 			VirtualSize: 222222,
 			BuiltAt:     &builtAt,
@@ -36,7 +38,7 @@ var _ = Describe("image serializer", func() {
 		It("serializes to JSON", func() {
 			b, err := json.Marshal(serializers.SerializeImage(model))
 			Expect(err).To(BeNil())
-			Expect(b).To(MatchJSON(`{
+			Expect(b).To(MatchJSON((fmt.Sprintf(`{
 				"id": 10,
 				"user_id": 11,
 				"host_id": 12,
@@ -44,13 +46,15 @@ var _ = Describe("image serializer", func() {
 				"name": "scratch image",
 				"slug": "scratch",
 				"tag": "latest",
+				"is_snapshot": false,
+				"stack": "%s",
 				"repo": "scratch:latest",
 				"actual_size": 111111,
 				"virtual_size": 222222,
 				"built_at": "2013-10-01T00:00:00Z",
 				"created_at": "2013-11-01T00:00:00Z",
 				"updated_at": "2013-11-02T00:00:00Z"
-			}`))
+			}`, model.Stack()))))
 		})
 
 		It("serializes to null JSON when image is nil", func() {
@@ -64,7 +68,7 @@ var _ = Describe("image serializer", func() {
 		It("serializes to JSON", func() {
 			b, err := json.Marshal(serializers.SerializeImages([]*image.Image{model}))
 			Expect(err).To(BeNil())
-			Expect(b).To(MatchJSON(`[{
+			Expect(b).To(MatchJSON((fmt.Sprintf(`[{
 				"id": 10,
 				"user_id": 11,
 				"host_id": 12,
@@ -72,13 +76,15 @@ var _ = Describe("image serializer", func() {
 				"name": "scratch image",
 				"slug": "scratch",
 				"tag": "latest",
+				"is_snapshot": false,
+				"stack": "%s",
 				"repo": "scratch:latest",
 				"actual_size": 111111,
 				"virtual_size": 222222,
 				"built_at": "2013-10-01T00:00:00Z",
 				"created_at": "2013-11-01T00:00:00Z",
 				"updated_at": "2013-11-02T00:00:00Z"
-			}]`))
+			}]`, model.Stack()))))
 		})
 	})
 })

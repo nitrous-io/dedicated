@@ -191,11 +191,13 @@ var _ = Describe("models/image", func() {
 			Expect(err).To(BeNil())
 
 			i := &image.Image{
-				UserID:      hs.U.ID,
-				HostID:      hs.H.ID,
-				FreighterID: "cafebabe",
-				Slug:        "scratch",
-				Tag:         "latest",
+				UserID:        hs.U.ID,
+				HostID:        hs.H.ID,
+				FreighterID:   "cafebabe",
+				Slug:          "scratch",
+				Tag:           "latest",
+				OriginalImage: sql.NullString{"nitrousio/scratch", true},
+				IsSnapshot:    true,
 			}
 			err = i.Insert(db)
 			Expect(err).To(BeNil())
@@ -240,9 +242,9 @@ var _ = Describe("models/image", func() {
 		It("updates the image in the database", func() {
 			hs, err := test.CreateHostStack(db, nil)
 			Expect(err).To(BeNil())
-			_, err = db.Exec(`INSERT INTO images (user_id, host_id, freighter_id, name, slug, tag)
-				VALUES ($1, $2, $3, $4, $5, $6);`,
-				hs.U.ID, hs.H.ID, "cafebabe", "scratch image", "scratch", "latest")
+			_, err = db.Exec(`INSERT INTO images (user_id, host_id, freighter_id, name, slug, tag, original_image, is_snapshot)
+				VALUES ($1, $2, $3, $4, $5, $6, $7, $8);`,
+				hs.U.ID, hs.H.ID, "cafebabe", "scratch image", "scratch", "latest", "nitrousio/scratch", true)
 			Expect(err).To(BeNil())
 
 			img, err := image.Find(db, hs.U, hs.H, "scratch:latest")
@@ -353,6 +355,63 @@ var _ = Describe("models/image", func() {
 		It("defaults tag to 'latest'", func() {
 			i := &image.Image{Slug: "scratch"}
 			Expect(i.FullRepository()).To(Equal("scratch:latest"))
+		})
+	})
+
+	Describe("Stack()", func() {
+		It("returns stack if the original image is a known Nitrous images", func() {
+			testCases := []struct {
+				image    string
+				expected string
+			}{
+				{
+					image:    "quay.io/nitrous/rails:latest",
+					expected: "rails",
+				},
+				{
+					image:    "quay.io/nitrous/ubuntu:latest",
+					expected: "ubuntu",
+				},
+				{
+					image:    "quay.io/nitrous/jekyll:latest",
+					expected: "jekyll",
+				},
+			}
+
+			for _, tc := range testCases {
+				img := &image.Image{OriginalImage: sql.NullString{tc.image, true}}
+				Expect(img.Stack()).To(Equal(tc.expected))
+			}
+		})
+
+		It("guesses the stack from the original image name", func() {
+			testCases := []struct {
+				image    string
+				expected string
+			}{
+				{
+					image:    "rails:4.2",
+					expected: "rails",
+				},
+				{
+					image:    "ruby-on-rails:latest",
+					expected: "rails",
+				},
+				{
+					image:    "django:1.9",
+					expected: "django",
+				},
+			}
+
+			for _, tc := range testCases {
+				img := &image.Image{OriginalImage: sql.NullString{tc.image, true}}
+				Expect(img.Stack()).To(Equal(tc.expected))
+			}
+		})
+
+		It("returns an empty string for an unknown original image name", func() {
+			img := &image.Image{OriginalImage: sql.NullString{"busybox:latest", true}}
+			Expect(img.Stack()).To(Equal(""))
 		})
 	})
 
