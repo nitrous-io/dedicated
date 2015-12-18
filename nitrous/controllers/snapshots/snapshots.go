@@ -121,7 +121,7 @@ func Publish(env *middleware.Env, w http.ResponseWriter, r *http.Request) error 
 				UserID: env.User.ID,
 				Type:   token.TypeDockerRegistry,
 			}
-			if err := tok.Insert(env.DB); err != nil {
+			if err := tok.Insert(tx); err != nil {
 				tx.Rollback()
 				return err
 			}
