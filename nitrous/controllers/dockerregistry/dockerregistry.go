@@ -38,6 +38,15 @@ func NotificationWebhook(env *middleware.Env, w http.ResponseWriter, r *http.Req
 	for _, event := range j.Events {
 		if err := processEvent(event, env.DB); err != nil {
 			logrus.Errorf("error processing Docker Registry notification event %v, err: %v", event, err)
+			if err == sql.ErrNoRows {
+				// If we can't find a snapshot, we return an error so that the Docker
+				// Registry will re-attempt delivery. This is because the Docker
+				// Registry can potentially deliver the webhook notification before we
+				// actually save a snapshot to the database.
+				env.Status = http.StatusNotFound
+				env.Data = map[string]interface{}{}
+				return nil
+			}
 			// Continue processing other events, and never return an error, so
 			// that Docker Registry will not re-attempt delivery.
 		}
@@ -65,14 +74,6 @@ func processEvent(event *notifications.Event, db ndb.QueryReceiver) error {
 		}
 	case "pull":
 		logrus.Debugf("received pull event from Docker Registry for %q", event.Target.Repository)
-		snap, err := snapshot.FindBySlug(db, event.Target.Repository)
-		if err != nil {
-			return err
-		}
-
-		if err := snap.IncrementDownloads(db); err != nil {
-			return err
-		}
 	default:
 		logrus.Debugf("received %q event from Docker Registry, ignoring", event.Action)
 	}
