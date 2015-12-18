@@ -21,6 +21,7 @@ import (
 	"github.com/nitrous-io/dedicated/nitrous/models/snapshot"
 	"github.com/nitrous-io/dedicated/nitrous/models/token"
 	"github.com/nitrous-io/dedicated/nitrous/pkg/httperror"
+	"github.com/nitrous-io/dedicated/nitrous/pkg/pubsub"
 	"github.com/nitrous-io/dedicated/nitrous/serializers"
 	"github.com/nitrous-io/dedicated/pkg/slugbuilder"
 )
@@ -218,15 +219,17 @@ func Publish(env *middleware.Env, w http.ResponseWriter, r *http.Request) error 
 			return
 		}
 
-		env.Events.Publish(
-			controllers.NewEvent(controllers.EventSnapshotPublished, map[string]interface{}{
-				"org_slug": o.Slug,
-				"host_id":  h.ID,
-				"image_id": img.ID,
-				"snapshot": serializers.SerializeSnapshotWithOwner(swo),
-			}),
-			topic,
-		)
+		// Publish "snapshot published" event to all members of org.
+		evt := controllers.NewEvent(controllers.EventSnapshotPublished, map[string]interface{}{
+			"org_slug": o.Slug,
+			"host_id":  h.ID,
+			"image_id": img.ID,
+			"snapshot": serializers.SerializeSnapshotWithOwner(swo),
+		})
+		if err := broadcastToOrg(db, o.ID, env.Events, evt); err != nil {
+			logrus.Errorf("error looking up members of org when publishing snapshot published event, err: %v", err)
+			return
+		}
 	}()
 
 	env.SetEmptyResponseBody()
@@ -237,7 +240,7 @@ func Publish(env *middleware.Env, w http.ResponseWriter, r *http.Request) error 
 func Delete(env *middleware.Env, w http.ResponseWriter, r *http.Request) error {
 	db := env.DB
 
-	_, membership, err := findOrgAndMembership(env, r)
+	o, membership, err := findOrgAndMembership(env, r)
 	if err != nil {
 		return err
 	}
@@ -262,11 +265,19 @@ func Delete(env *middleware.Env, w http.ResponseWriter, r *http.Request) error {
 		}
 	}
 
+	// TODO We should actually send a delete API request to our private Docker registry.
+
 	if err := snap.Delete(db); err != nil {
 		return err
 	}
 
-	// TODO This should actually send a delete API request to our private Docker registry.
+	// Publish "snapshot deleted" event to all members of org.
+	evt := controllers.NewEvent(controllers.EventSnapshotDeleted, map[string]interface{}{
+		"snapshot": serializers.SerializeSnapshotWithOwner(snap),
+	})
+	if err := broadcastToOrg(db, o.ID, env.Events, evt); err != nil {
+		logrus.Errorf("error looking up members of org when publishing snapshot deleted event, err: %v", err)
+	}
 
 	env.Status = http.StatusOK
 	env.Data = map[string]interface{}{
@@ -298,4 +309,17 @@ func findOrgAndMembership(env *middleware.Env, r *http.Request) (*org.Org, *orgm
 	}
 
 	return o, membership, nil
+}
+
+func broadcastToOrg(d ndb.QueryReceiver, orgID int64, ps *pubsub.Pubsub, evt *controllers.Event) error {
+	members, err := orgmembership.FindAllByOrgID(d, orgID)
+	if err != nil {
+		return err
+	}
+	topics := []pubsub.Topic{}
+	for _, mem := range members {
+		topics = append(topics, pubsub.Topic(fmt.Sprintf("user-%d", mem.UserID)))
+	}
+	ps.Publish(evt, topics...)
+	return nil
 }
