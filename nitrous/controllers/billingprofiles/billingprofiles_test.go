@@ -255,7 +255,7 @@ var _ = Describe("controllers/billingprofiles", func() {
 					test.MarkDelinquentBP(db, bp)
 				})
 
-				ItReturnsTheCreatedBillingProfile(billingprofile.StatePaid)
+				ItReturnsTheCreatedBillingProfile(billingprofile.StateDelinquent)
 			})
 
 			Context("when the customer has an existing StripeID", func() {
