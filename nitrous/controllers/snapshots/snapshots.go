@@ -325,7 +325,9 @@ func broadcastToOrg(d ndb.QueryReceiver, orgID int64, ps *pubsub.Pubsub, evt *co
 	}
 	topics := []pubsub.Topic{}
 	for _, mem := range members {
-		topics = append(topics, pubsub.Topic(fmt.Sprintf("user-%d", mem.UserID)))
+		if mem.UserID.Valid {
+			topics = append(topics, pubsub.Topic(fmt.Sprintf("user-%d", mem.UserID.Int64)))
+		}
 	}
 	ps.Publish(evt, topics...)
 	return nil
