@@ -110,7 +110,7 @@ func createAtomic(h *host.Host, env *middleware.Env, w http.ResponseWriter, r *h
 
 		// Login to private Docker registry so that we'll be authenticated when
 		// pulling the snapshot later.
-		if err := loginToPrivateRegistry(tx, env.User, cl); err != nil {
+		if err := loginToPrivateRegistry(env.DB, env.User, cl); err != nil {
 			tx.Rollback()
 			return err
 		}
