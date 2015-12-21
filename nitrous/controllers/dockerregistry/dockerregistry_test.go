@@ -176,7 +176,7 @@ var _ = Describe("controllers/dockerregistry", func() {
 			Expect(s.Size.Int64).To(Equal(int64(1234)))
 		})
 
-		It("responds with HTTTP 200 OK and does nothing snapshot does not exist", func() {
+		It("responds with HTTTP 404 Not Found when snapshot does not exist", func() {
 			res := doRequest(envvars.DockerRegistryWebhookToken, `{
 				"events": [
 					{
@@ -208,25 +208,17 @@ var _ = Describe("controllers/dockerregistry", func() {
 					}
 				]
 			}`)
-			Expect(res.Code).To(Equal(http.StatusOK))
+			Expect(res.Code).To(Equal(http.StatusNotFound))
 		})
 	})
 
 	Context("pull event", func() {
-		It("increments a snapshot's number of downloads by 1", func() {
-			prevDownloads := snap1.Downloads
-
+		It("responds with HTTP 200 OK and does nothing", func() {
 			res := doRequest(envvars.DockerRegistryWebhookToken, pullEventPayload)
 			Expect(res.Code).To(Equal(http.StatusOK))
-
-			s, err := snapshot.FindByID(db, snap1.ID)
-			Expect(err).To(BeNil())
-
-			Expect(s.Slug).To(Equal(snap1.Slug))
-			Expect(s.Downloads).To(Equal(prevDownloads + 1))
 		})
 
-		It("responds with HTTTP 200 OK and does nothing snapshot does not exist", func() {
+		It("responds with HTTTP 200 OK when snapshot does not exist", func() {
 			res := doRequest(envvars.DockerRegistryWebhookToken, `{
 				"events": [
 					{
@@ -266,8 +258,6 @@ var _ = Describe("controllers/dockerregistry", func() {
 		It("processes all the events", func() {
 			// Size is initially 0.
 			Expect(snap1.Size.Int64).To(Equal(int64(0)))
-
-			prevDownloads := snap2.Downloads
 
 			res := doRequest(envvars.DockerRegistryWebhookToken, `{
 				"events": [
@@ -334,12 +324,6 @@ var _ = Describe("controllers/dockerregistry", func() {
 
 			Expect(s1.Slug).To(Equal(snap1.Slug))
 			Expect(s1.Size.Int64).To(Equal(int64(1234)))
-
-			s2, err := snapshot.FindByID(db, snap2.ID)
-			Expect(err).To(BeNil())
-
-			Expect(s2.Slug).To(Equal(snap2.Slug))
-			Expect(s2.Downloads).To(Equal(prevDownloads + 1))
 		})
 	})
 

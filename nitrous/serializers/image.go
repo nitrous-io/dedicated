@@ -15,6 +15,8 @@ type Image struct {
 	Slug        string     `json:"slug"`
 	Tag         string     `json:"tag"`
 	Repo        string     `json:"repo"`
+	IsSnapshot  bool       `json:"is_snapshot"`
+	Stack       string     `json:"stack"`
 	ActualSize  int64      `json:"actual_size"`
 	VirtualSize int64      `json:"virtual_size"`
 	BuiltAt     *time.Time `json:"built_at,omitempty"`
@@ -35,6 +37,8 @@ func SerializeImage(i *image.Image) *Image {
 		Name:        i.Name,
 		Slug:        i.Slug,
 		Tag:         i.Tag,
+		IsSnapshot:  i.IsSnapshot,
+		Stack:       i.Stack(),
 		Repo:        i.FullRepository(),
 		ActualSize:  i.ActualSize,
 		VirtualSize: i.VirtualSize,

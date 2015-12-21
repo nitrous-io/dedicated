@@ -336,15 +336,17 @@ func commit(cn *container.Container, h *host.Host, env *middleware.Env, w http.R
 	}
 
 	img := &image.Image{
-		UserID:      env.User.ID,
-		HostID:      h.ID,
-		FreighterID: created.ID,
-		Name:        name,
-		Slug:        created.Name,
-		Tag:         created.Tag,
-		ActualSize:  created.ActualSize,
-		VirtualSize: created.VirtualSize,
-		BuiltAt:     builtAt,
+		UserID:        env.User.ID,
+		HostID:        h.ID,
+		FreighterID:   created.ID,
+		Name:          name,
+		Slug:          created.Name,
+		Tag:           created.Tag,
+		OriginalImage: sql.NullString{cn.Image, true},
+		IsSnapshot:    true,
+		ActualSize:    created.ActualSize,
+		VirtualSize:   created.VirtualSize,
+		BuiltAt:       builtAt,
 	}
 	if err := img.InsertOrUpdate(env.DB); err != nil { // log and continue
 		logrus.Errorf("containers.create: failed to insert or update image '%+v'", img)
@@ -506,7 +508,7 @@ func start(cn *container.Container, h *host.Host, env *middleware.Env, w http.Re
 				"container_slug": cn.Slug,
 			})
 
-			// broadcast transitioning state
+			// Publish transitioning state
 			PublishContainerEvent(env, controllers.EventContainerStarting, cn, nil)
 
 			liveContainer, err := cl.Start(cn.CID, config)
@@ -549,7 +551,7 @@ func controlActionHandler(action actionFn, tempState container.State, eventName 
 		return doContainerExclusive(
 			cn, env, tempState, transitionLockTime,
 			func() error {
-				// broadcast transitioning state
+				// Publish transitioning state
 				evtName, err := getEventName(tempState)
 				if err != nil {
 					return err
@@ -620,7 +622,7 @@ func destroy(cn *container.Container, h *host.Host, env *middleware.Env, w http.
 	return doContainerExclusive(
 		cn, env, container.StateTerminating, transitionLockTime,
 		func() error {
-			// broadcast transitioning state
+			// Publish transitioning state
 			PublishContainerEvent(env, controllers.EventContainerDestroying, cn, nil)
 
 			cl, err := controllers.NewFreighterClient(db, h, env.UUID)

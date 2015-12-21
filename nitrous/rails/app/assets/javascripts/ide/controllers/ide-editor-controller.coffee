@@ -35,7 +35,7 @@ App.IdeEditorController = Em.ArrayController.extend App.IdeTabControllerMixin,
   removeTrailingWhitespaceOnSave: true
   keybindings: 'default'
   fontSize: null
-  autocomplete: true
+  autocomplete: false
 
   beta: false
 
@@ -70,6 +70,8 @@ App.IdeEditorController = Em.ArrayController.extend App.IdeTabControllerMixin,
     userSettings = App.get('userSettings') || {}
     _.each App.Editor.SETTINGS, (k) =>
       setting = userSettings[k.underscore()]
+      if k == 'autocomplete' # Ignore autocomplete for now.
+        return
       if setting?
         @set(k, setting)
       @addObserver(k, this, 'updateUserSettings')

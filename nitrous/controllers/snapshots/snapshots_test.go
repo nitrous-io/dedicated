@@ -89,12 +89,13 @@ var _ = Describe("controllers/snapshots", func() {
 		Expect(err).To(BeNil())
 
 		i1 = &image.Image{
-			UserID:      u.ID,
-			HostID:      hs.H.ID,
-			FreighterID: "cafebabe",
-			Name:        "nestorbot",
-			Slug:        "nestorbot",
-			Tag:         "latest",
+			UserID:        u.ID,
+			HostID:        hs.H.ID,
+			FreighterID:   "cafebabe",
+			Name:          "nestorbot",
+			Slug:          "nestorbot",
+			Tag:           "latest",
+			OriginalImage: sql.NullString{"quay.io/nitrousio/golang:latest", true},
 		}
 		Expect(i1.Insert(db)).To(BeNil())
 
@@ -575,9 +576,22 @@ var _ = Describe("controllers/snapshots", func() {
 				}
 			})
 
-			It("creates a snapshot record and publishes a snapshot published event", func() {
+			It("creates a snapshot record and publishes a snapshot published event to all members of the org", func() {
 				ch := svr.Events.Subscribe(u.Topic())
 				defer svr.Events.Unsubscribe(ch, u.Topic())
+
+				// Create another user as a member of the same org.
+				u2 := &user.User{
+					Username: "otheruser",
+					Password: "123456",
+					Email:    "otheruser@example.com",
+				}
+				Expect(test.WrapInTransaction(db, u2.Insert)).To(BeNil())
+				err := orgmembership.AddMember(db, o1.ID, u2.ID, orgmembership.RoleMember)
+				Expect(err).To(BeNil())
+
+				otherMemberCh := svr.Events.Subscribe(u2.Topic())
+				defer svr.Events.Unsubscribe(otherMemberCh, u2.Topic())
 
 				params := &url.Values{}
 				params.Set("host_id", strconv.FormatInt(hs.H.ID, 10))
@@ -597,6 +611,8 @@ var _ = Describe("controllers/snapshots", func() {
 					}
 				}()
 
+				var snap *snapshot.SnapshotWithOwner
+
 				select {
 				case <-time.After(50 * time.Millisecond):
 					Fail("Timed out waiting for snapshot published event")
@@ -608,7 +624,6 @@ var _ = Describe("controllers/snapshots", func() {
 					snapshots, err := snapshot.FindAllByOrgID(db, u.ID, o1.ID)
 					Expect(err).To(BeNil())
 
-					var snap *snapshot.SnapshotWithOwner
 					for _, s := range snapshots {
 						if s.ImageID == i1.ID {
 							snap = s
@@ -622,6 +637,7 @@ var _ = Describe("controllers/snapshots", func() {
 					Expect(snap.Name).To(Equal(fmt.Sprintf("%s-%d", i1.Slug, i1.ID)))
 					Expect(snap.Tag).To(Equal("latest"))
 					Expect(snap.DisplayName).To(Equal(i1.Name))
+					Expect(snap.OriginalImage).To(Equal(i1.OriginalImage.String))
 
 					Expect(snap.OwnerUsername.String).To(Equal(u.Username))
 					Expect(snap.OwnerName.String).To(Equal(u.Name))
@@ -643,12 +659,24 @@ var _ = Describe("controllers/snapshots", func() {
 					Expect(ok).To(BeTrue())
 					Expect(imageID).To(Equal(i1.ID))
 				}
+
+				evt := (<-otherMemberCh).(*controllers.Event)
+				Expect(evt.Name).To(Equal(controllers.EventSnapshotPublished))
+				evtData, ok := evt.Data.(map[string]interface{})
+				Expect(ok).To(BeTrue())
+
+				serialized, ok := evtData["snapshot"].(*serializers.Snapshot)
+				Expect(ok).To(BeTrue())
+				Expect(serialized).To(Equal(serializers.SerializeSnapshotWithOwner(snap)))
 			})
 		})
 	})
 
 	Describe("DELETE /orgs/{org_slug}/snapshots/{snapshot_id}", func() {
-		var snap1, snap2 *snapshot.Snapshot
+		var (
+			snap1, snap2 *snapshot.Snapshot
+			u2           *user.User
+		)
 
 		BeforeEach(func() {
 			snap1 = &snapshot.Snapshot{
@@ -665,7 +693,7 @@ var _ = Describe("controllers/snapshots", func() {
 			Expect(snap1.Insert(db)).To(BeNil())
 
 			// Create snapshot belonging to another user.
-			u2 := &user.User{
+			u2 = &user.User{
 				Username: "otheruser",
 				Password: "123456",
 				Email:    "otheruser@example.com",
@@ -772,6 +800,60 @@ var _ = Describe("controllers/snapshots", func() {
 				_, err = snapshot.FindByID(db, snap1.ID)
 				Expect(err).To(Equal(sql.ErrNoRows))
 			})
+
+			It("publishes a snapshot deleted event to all members of the org", func() {
+				err := orgmembership.AddMember(db, o1.ID, u.ID, orgmembership.RoleMember)
+				Expect(err).To(BeNil())
+
+				// Add other user to the same org.
+				err = orgmembership.AddMember(db, o1.ID, u2.ID, orgmembership.RoleMember)
+				Expect(err).To(BeNil())
+
+				ch := svr.Events.Subscribe(u.Topic())
+				defer svr.Events.Unsubscribe(ch, u.Topic())
+
+				otherMemberCh := svr.Events.Subscribe(u2.Topic())
+				defer svr.Events.Unsubscribe(otherMemberCh, u2.Topic())
+
+				swo, err := snapshot.FindByID(db, snap1.ID)
+				Expect(err).To(BeNil())
+
+				res := doRequest(o1.Slug, snap1.ID)
+				Expect(res.Code).To(Equal(http.StatusOK))
+
+				evtCh := make(chan *controllers.Event)
+				go func() {
+					for msg := range ch { // Ignore events we don't care about.
+						evt := msg.(*controllers.Event)
+						if evt.Name == controllers.EventSnapshotDeleted {
+							evtCh <- evt
+							break
+						}
+					}
+				}()
+
+				select {
+				case <-time.After(50 * time.Millisecond):
+					Fail("Timed out waiting for snapshot deleted event")
+				case evt := <-evtCh:
+					Expect(evt.Name).To(Equal(controllers.EventSnapshotDeleted))
+					evtData, ok := evt.Data.(map[string]interface{})
+					Expect(ok).To(BeTrue())
+
+					serialized, ok := evtData["snapshot"].(*serializers.Snapshot)
+					Expect(ok).To(BeTrue())
+					Expect(serialized).To(Equal(serializers.SerializeSnapshotWithOwner(swo)))
+				}
+
+				evt := (<-otherMemberCh).(*controllers.Event)
+				Expect(evt.Name).To(Equal(controllers.EventSnapshotDeleted))
+				evtData, ok := evt.Data.(map[string]interface{})
+				Expect(ok).To(BeTrue())
+
+				serialized, ok := evtData["snapshot"].(*serializers.Snapshot)
+				Expect(ok).To(BeTrue())
+				Expect(serialized).To(Equal(serializers.SerializeSnapshotWithOwner(swo)))
+			})
 		})
 
 		Context("when user is an admin member of the org", func() {
@@ -795,6 +877,57 @@ var _ = Describe("controllers/snapshots", func() {
 
 				_, err := snapshot.FindByID(db, snap2.ID)
 				Expect(err).To(Equal(sql.ErrNoRows))
+			})
+
+			It("publishes a snapshot deleted event to all members of the org", func() {
+				// Add other user to the same org.
+				err := orgmembership.AddMember(db, o1.ID, u2.ID, orgmembership.RoleMember)
+				Expect(err).To(BeNil())
+
+				ch := svr.Events.Subscribe(u.Topic())
+				defer svr.Events.Unsubscribe(ch, u.Topic())
+
+				otherMemberCh := svr.Events.Subscribe(u2.Topic())
+				defer svr.Events.Unsubscribe(otherMemberCh, u2.Topic())
+
+				swo, err := snapshot.FindByID(db, snap2.ID)
+				Expect(err).To(BeNil())
+
+				res := doRequest(o1.Slug, snap2.ID)
+				Expect(res.Code).To(Equal(http.StatusOK))
+
+				evtCh := make(chan *controllers.Event)
+				go func() {
+					for msg := range ch { // Ignore events we don't care about.
+						evt := msg.(*controllers.Event)
+						if evt.Name == controllers.EventSnapshotDeleted {
+							evtCh <- evt
+							break
+						}
+					}
+				}()
+
+				select {
+				case <-time.After(50 * time.Millisecond):
+					Fail("Timed out waiting for snapshot deleted event")
+				case evt := <-evtCh:
+					Expect(evt.Name).To(Equal(controllers.EventSnapshotDeleted))
+					evtData, ok := evt.Data.(map[string]interface{})
+					Expect(ok).To(BeTrue())
+
+					serialized, ok := evtData["snapshot"].(*serializers.Snapshot)
+					Expect(ok).To(BeTrue())
+					Expect(serialized).To(Equal(serializers.SerializeSnapshotWithOwner(swo)))
+				}
+
+				evt := (<-otherMemberCh).(*controllers.Event)
+				Expect(evt.Name).To(Equal(controllers.EventSnapshotDeleted))
+				evtData, ok := evt.Data.(map[string]interface{})
+				Expect(ok).To(BeTrue())
+
+				serialized, ok := evtData["snapshot"].(*serializers.Snapshot)
+				Expect(ok).To(BeTrue())
+				Expect(serialized).To(Equal(serializers.SerializeSnapshotWithOwner(swo)))
 			})
 		})
 	})
