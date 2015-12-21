@@ -508,7 +508,7 @@ func start(cn *container.Container, h *host.Host, env *middleware.Env, w http.Re
 				"container_slug": cn.Slug,
 			})
 
-			// broadcast transitioning state
+			// Publish transitioning state
 			PublishContainerEvent(env, controllers.EventContainerStarting, cn, nil)
 
 			liveContainer, err := cl.Start(cn.CID, config)
@@ -551,7 +551,7 @@ func controlActionHandler(action actionFn, tempState container.State, eventName 
 		return doContainerExclusive(
 			cn, env, tempState, transitionLockTime,
 			func() error {
-				// broadcast transitioning state
+				// Publish transitioning state
 				evtName, err := getEventName(tempState)
 				if err != nil {
 					return err
@@ -622,7 +622,7 @@ func destroy(cn *container.Container, h *host.Host, env *middleware.Env, w http.
 	return doContainerExclusive(
 		cn, env, container.StateTerminating, transitionLockTime,
 		func() error {
-			// broadcast transitioning state
+			// Publish transitioning state
 			PublishContainerEvent(env, controllers.EventContainerDestroying, cn, nil)
 
 			cl, err := controllers.NewFreighterClient(db, h, env.UUID)

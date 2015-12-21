@@ -50,6 +50,7 @@ const (
 	EventSnapshotPublishing         EventName = "snapshot.publishing"
 	EventSnapshotPublished          EventName = "snapshot.published"
 	EventSnapshotPublishFailed      EventName = "snapshot.publish_failed"
+	EventSnapshotDeleted            EventName = "snapshot.deleted"
 	EventRegistryAdded              EventName = "registry.added"
 	EventRegistryRemoved            EventName = "registry.removed"
 	EventVolumeCreated              EventName = "volume.created"

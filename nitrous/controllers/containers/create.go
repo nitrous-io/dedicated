@@ -246,7 +246,7 @@ func createAtomic(h *host.Host, env *middleware.Env, w http.ResponseWriter, r *h
 				vol, err := volume.Find(tx, cn.HostID, vslug)
 				if err != nil {
 					if err != sql.ErrNoRows {
-						publishFailure(fmt.Errorf("failed to retrieve volume %s on host %d: %v", vol, cn.HostID, err))
+						publishFailure(fmt.Errorf("failed to retrieve volume %v on host %d: %v", vol, cn.HostID, err))
 						return
 					}
 
