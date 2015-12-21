@@ -395,6 +395,33 @@ func Restart(h *host.Host, env *middleware.Env, w http.ResponseWriter, r *http.R
 	return nil
 }
 
+func SoftRestart(h *host.Host, env *middleware.Env, w http.ResponseWriter, r *http.Request) error {
+	PublishHostEvent(env, controllers.EventHostSoftRestarting, h)
+
+	if h.State != host.StateRunning {
+		return errHostRestartInvalidState
+	}
+
+	urlArgs := host.URLArgsFromHost(h)
+	info, err := HostbuilderClient.SoftRestart(h.Provider, h.MachineConfig(), hostbuilderHeaders(env), urlArgs)
+	if err != nil {
+		if e, ok := err.(net.Error); ok && e.Timeout() {
+			logrus.Errorf("hostbuilder timeout soft restarting host: %v", e)
+		}
+
+		PublishHostEvent(env, controllers.EventHostUpdated, h)
+		return err
+	}
+
+	h.State = host.StateRunning
+	h.IPAddress = sql.NullString{info.IPAddress, true}
+	h.FreighterdPort = sql.NullInt64{int64(info.FreighterdPort), true}
+
+	PublishHostEvent(env, controllers.EventHostSoftRestarted, h)
+	serializeHost(env, h)
+	return nil
+}
+
 func Respec(h *host.Host, env *middleware.Env, w http.ResponseWriter, r *http.Request) error {
 	db := env.DB
 

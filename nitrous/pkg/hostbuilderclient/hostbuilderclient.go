@@ -114,6 +114,10 @@ func (hb *Hostbuilder) Restart(provider string, config Config, headers http.Head
 	return hb.defaultRequestHandler("restart", provider, config, headers, urlArgs)
 }
 
+func (hb *Hostbuilder) SoftRestart(provider string, config Config, headers http.Header, urlArgs url.Values) (*hostbuilder.Response, error) {
+	return hb.defaultRequestHandler("soft_restart", provider, config, headers, urlArgs)
+}
+
 func (hb *Hostbuilder) List(provider string) ([]*hostbuilder.Response, error) {
 	endpoint := hb.URL + "/hosts"
 	p := &url.Values{}

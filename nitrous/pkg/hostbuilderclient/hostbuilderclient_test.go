@@ -304,6 +304,44 @@ var _ = Describe("pkg/hostbuilderclient", func() {
 		})
 	})
 
+	Describe("SoftRestart()", func() {
+		doRequest := func() (*hostbuilder.Response, error) {
+			header := http.Header{}
+			header.Set("NITROUS", "IS_AJAX")
+			return hb.SoftRestart("digitalocean", hostbuilderclient.Config{
+				"id": "hostid",
+			}, header, nil)
+		}
+
+		Context("when hostbuilder restarts the host", func() {
+			BeforeEach(func() {
+				header := http.Header{}
+				header.Set("NITROUS", "IS_AJAX")
+				prepareHandlers("POST", "/hosts/soft_restart", http.StatusOK, `{"status":"ok"}`, header)
+				hb = hostbuilderclient.NewHostbuilder(srv.URL())
+			})
+
+			It("returns no errors", func() {
+				_, err := doRequest()
+				Expect(err).To(BeNil())
+			})
+		})
+
+		Context("when hostbuilder fails to restart the host", func() {
+			BeforeEach(func() {
+				header := http.Header{}
+				header.Set("NITROUS", "IS_AJAX")
+				prepareHandlers("POST", "/hosts/soft_restart", http.StatusBadRequest, "some_error", header)
+				hb = hostbuilderclient.NewHostbuilder(srv.URL())
+			})
+
+			It("returns an error returned by hostbuilder", func() {
+				_, err := doRequest()
+				Expect(err.Error()).To(ContainSubstring("some_error"))
+			})
+		})
+	})
+
 	Describe("List()", func() {
 		It("returns a slice of hosts", func() {
 			prepareHandlers("GET", "/hosts", http.StatusOK, `{

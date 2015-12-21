@@ -2505,6 +2505,234 @@ var _ = Describe("controllers/hosts", func() {
 		})
 	})
 
+	Describe("POST /api/v0/hosts/{slug}/soft_restart", func() {
+		var hs *test.HostStack
+
+		doRequest := func(slug, token string, params *url.Values) {
+			req, err := test.NewFormRequest("POST", "/api/v0/hosts/"+slug+"/soft_restart", params)
+			Expect(err).To(BeNil())
+			req.Header.Set("Authorization", fmt.Sprintf("Bearer %s", token))
+			handler.ServeHTTP(res, req)
+		}
+
+		BeforeEach(func() {
+			var err error
+			hs, err = test.CreateHostStack(db, &test.HostStack{
+				H: &host.Host{
+					State:            host.StateRunning,
+					IPAddress:        sql.NullString{"127.0.0.1", true},
+					RegionIdentifier: sql.NullString{"us-east-1", true},
+					Hotswap:          true,
+				},
+				U: u,
+			})
+			Expect(err).To(BeNil())
+		})
+
+		It("sends the correct payload to hostbuilder", func() {
+			hb := hostbuilderclient.NewHostbuilder("www.example.com")
+			rt := &test.FakeRoundTripper{
+				Message: okResponse,
+				Status:  http.StatusOK,
+			}
+			replaceTransport(hb, rt)
+			hosts.HostbuilderClient = hb
+
+			doRequest(hs.H.Slug, t.Token, nil)
+
+			payload := &struct {
+				ID        string `json:"id"`
+				IPAddress string `json:"ip_address"`
+				Region    string `json:"region_id"`
+				Hotswap   bool   `json:"hotswap"`
+			}{}
+			json.Unmarshal([]byte(rt.Requests[0].FormValue("config")), payload)
+
+			Expect(payload.ID).To(Equal(hs.H.ProviderIdentifier.String))
+			Expect(payload.IPAddress).To(Equal(hs.H.IPAddress.String))
+			Expect(payload.Region).To(Equal("us-east-1"))
+			Expect(payload.Hotswap).To(Equal(true))
+		})
+
+		Context("when host is not in the running state", func() {
+			It("responds with HTTP 400 Bad Request", func() {
+				hb := hostbuilderclient.NewHostbuilder("www.example.com")
+				replaceTransport(hb, &test.FakeRoundTripper{
+					Message: okResponse,
+					Status:  http.StatusOK,
+				})
+
+				hosts.HostbuilderClient = hb
+
+				hs.H.State = host.StateStopped
+				err := hs.H.Update(db)
+				Expect(err).To(BeNil())
+
+				doRequest(hs.H.Slug, t.Token, nil)
+
+				Expect(res.Code).To(Equal(http.StatusBadRequest))
+
+				errType, errDesc := test.ErrorSlug(res.Body)
+				Expect(errType).To(Equal("invalid_state"))
+				Expect(errDesc).To(Equal("workspace is not running"))
+			})
+		})
+
+		Context("when hostbuilder successfully soft restarts the host", func() {
+			BeforeEach(func() {
+				hb := hostbuilderclient.NewHostbuilder("www.example.com")
+				replaceTransport(hb, &test.FakeRoundTripper{
+					Message: okResponse,
+					Status:  http.StatusOK,
+				})
+				hosts.HostbuilderClient = hb
+			})
+
+			It("responds with the host and status OK", func() {
+				doRequest(hs.H.Slug, t.Token, nil)
+				Expect(res.Code).To(Equal(http.StatusOK))
+
+				var j struct {
+					Host *serializers.Host `json:"host"`
+				}
+				err := json.NewDecoder(res.Body).Decode(&j)
+				Expect(err).To(BeNil())
+				Expect(j.Host.ID).To(Equal(hs.H.ID))
+				Expect(j.Host.Slug).To(Equal(hs.H.Slug))
+				Expect(j.Host.IPAddress).To(Equal("127.0.0.1"))
+				Expect(j.Host.FreighterdPort).To(Equal(int64(65333)))
+				Expect(j.Host.Size).To(Equal(""))
+				Expect(j.Host.State).To(Equal(host.StateRunning))
+				Expect(j.Host.Hostname).To(Equal(hs.H.Hostname()))
+				Expect(j.Host.RegionID).To(Equal(hs.R.ID))
+				Expect(j.Host.PlanID).To(Equal(hs.P.ID))
+				Expect(j.Host.CreatedAt).NotTo(BeNil())
+				Expect(j.Host.UpdatedAt).NotTo(BeNil())
+				Expect(j.Host.TerminatedAt).To(BeNil())
+			})
+
+			It("publishes host soft_restarting and soft_restarted events", func() {
+				ch := svr.Events.Subscribe(u.Topic())
+				defer svr.Events.Unsubscribe(ch, u.Topic())
+
+				doRequest(hs.H.Slug, t.Token, nil)
+
+				msgs := []pubsub.Message{}
+				finished := make(chan struct{})
+				go func() {
+					msgs = append(msgs, <-ch, <-ch)
+					close(finished)
+				}()
+
+				select {
+				case <-time.After(100 * time.Millisecond):
+					Fail("Timed out while waiting for events")
+				case <-finished:
+					evt, ok := msgs[0].(*controllers.Event)
+					Expect(ok).To(BeTrue())
+					Expect(evt.Name).To(Equal(controllers.EventHostSoftRestarting))
+					evtData, ok := evt.Data.(map[string]*serializers.Host)
+					Expect(ok).To(BeTrue())
+					Expect(evtData["host"].Slug).To(Equal(hs.H.Slug))
+					Expect(evtData["host"].State).To(Equal(host.StateRunning))
+
+					evt, ok = msgs[1].(*controllers.Event)
+					Expect(ok).To(BeTrue())
+					Expect(evt.Name).To(Equal(controllers.EventHostSoftRestarted))
+				}
+			})
+		})
+
+		Context("when the host does not belong to the user", func() {
+			var (
+				anotherUser  *user.User
+				anotherToken *token.Token
+			)
+
+			BeforeEach(func() {
+				anotherUser = &user.User{
+					Username: "the-others",
+					Password: "winter iz coming",
+					Email:    "the-others@the-north.gov",
+				}
+				err := test.WrapInTransaction(db, anotherUser.Insert)
+				Expect(err).To(BeNil())
+
+				anotherToken = &token.Token{
+					UserID: anotherUser.ID,
+					Token:  "another-users-token",
+				}
+				err = anotherToken.Insert(db)
+				Expect(err).To(BeNil())
+			})
+
+			It("responds with 404", func() {
+				doRequest(hs.H.Slug, anotherToken.Token, nil)
+
+				Expect(res.Code).To(Equal(http.StatusNotFound))
+			})
+
+			It("soft restarts the host when user is an admin", func() {
+				_, err := db.Exec("UPDATE users SET admin = true WHERE id = $1", anotherUser.ID)
+				Expect(err).To(BeNil())
+
+				hb := hostbuilderclient.NewHostbuilder("www.example.com")
+				replaceTransport(hb, &test.FakeRoundTripper{
+					Message: okResponse,
+					Status:  http.StatusOK,
+				})
+				hosts.HostbuilderClient = hb
+
+				doRequest(hs.H.Slug, anotherToken.Token, nil)
+				Expect(res.Code).To(Equal(http.StatusOK))
+
+				var j struct {
+					Host *serializers.Host `json:"host"`
+				}
+				err = json.NewDecoder(res.Body).Decode(&j)
+				Expect(err).To(BeNil())
+				Expect(j.Host.ID).To(Equal(hs.H.ID))
+				Expect(j.Host.State).To(Equal(host.StateRunning))
+			})
+		})
+
+		Context("when hostbuilder fails to soft restart the host", func() {
+			var origState string
+			BeforeEach(func() {
+				hb := hostbuilderclient.NewHostbuilder("www.example.com")
+				replaceTransport(hb, &test.FakeRoundTripper{
+					Message: errorResponse,
+					Status:  http.StatusBadRequest,
+				})
+
+				hosts.HostbuilderClient = hb
+
+				origState = hs.H.State
+				doRequest(hs.H.Slug, t.Token, nil)
+			})
+
+			It("responds with HTTP 500 Internal Server Error", func() {
+				Expect(res.Code).To(Equal(http.StatusInternalServerError))
+			})
+		})
+
+		Context("oauth token failure modes", func() {
+			BeforeEach(func() {
+				authTokenInputs.Path = "/api/v0/hosts/foo/restart"
+				authTokenInputs.Method = "POST"
+			})
+
+			test.ItRequiresAuthToken(&authTokenInputs)
+		})
+
+		It("should not be accessible by a collaborator", func() {
+			_, t := createCollaborator(hs)
+
+			doRequest(hs.H.Slug, t.Token, nil)
+			Expect(res.Code).To(Equal(http.StatusNotFound))
+		})
+	})
+
 	Describe("POST /api/v0/hosts/{slug}/respec", func() {
 		var (
 			hs *test.HostStack
