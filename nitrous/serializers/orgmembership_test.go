@@ -1,6 +1,7 @@
 package serializers_test
 
 import (
+	"database/sql"
 	"encoding/json"
 	"time"
 
@@ -16,30 +17,31 @@ var _ = Describe("orgmembership serializer", func() {
 		updatedAt = time.Date(2013, time.November, 2, 0, 0, 0, 0, time.UTC)
 	)
 	Describe("OrgMember", func() {
-		var model *orgmembership.OrgMember
+		var member *orgmembership.OrgMember
 
-		BeforeEach(func() {
-			model = &orgmembership.OrgMember{
-				OrgMembership: orgmembership.OrgMembership{
-					ID:        1,
-					OrgID:     2,
-					UserID:    3,
-					Role:      "owner",
-					CreatedAt: &createdAt,
-					UpdatedAt: &updatedAt,
-				},
-				OrgSlug:  "foobar-inc",
-				Username: "foo",
-				Name:     "Mr. Foo",
-				Email:    "foo@example.com",
-			}
-		})
+		Context("when user exists", func() {
+			BeforeEach(func() {
+				member = &orgmembership.OrgMember{
+					OrgMembership: orgmembership.OrgMembership{
+						ID:        1,
+						OrgID:     2,
+						UserID:    sql.NullInt64{3, true},
+						Role:      "owner",
+						CreatedAt: &createdAt,
+						UpdatedAt: &updatedAt,
+					},
+					OrgSlug:  "foobar-inc",
+					Username: "foo",
+					Name:     "Mr. Foo",
+					Email:    "foo@example.com",
+				}
+			})
 
-		Describe("SerializeOrgMember", func() {
-			It("serializes to JSON", func() {
-				b, err := json.Marshal(serializers.SerializeOrgMember(model))
-				Expect(err).To(BeNil())
-				Expect(b).To(MatchJSON(`{
+			Describe("SerializeOrgMember", func() {
+				It("serializes to JSON", func() {
+					b, err := json.Marshal(serializers.SerializeOrgMember(member))
+					Expect(err).To(BeNil())
+					Expect(b).To(MatchJSON(`{
 					"id": 1,
 					"org_id": 2,
 					"org_slug": "foobar-inc",
@@ -51,33 +53,33 @@ var _ = Describe("orgmembership serializer", func() {
 					"created_at": "2013-11-01T00:00:00Z",
 					"updated_at": "2013-11-02T00:00:00Z"
 				}`))
-			})
-		})
-
-		Describe("SerializeOrgMembers", func() {
-			var model2 *orgmembership.OrgMember
-
-			BeforeEach(func() {
-				model2 = &orgmembership.OrgMember{
-					OrgMembership: orgmembership.OrgMembership{
-						ID:        2,
-						OrgID:     3,
-						UserID:    4,
-						Role:      "member",
-						CreatedAt: &createdAt,
-						UpdatedAt: &updatedAt,
-					},
-					OrgSlug:  "macrosoft-corp",
-					Username: "bar",
-					Name:     "Ms. Bar",
-					Email:    "bar@example.com",
-				}
+				})
 			})
 
-			It("serializes to JSON", func() {
-				b, err := json.Marshal(serializers.SerializeOrgMembers([]*orgmembership.OrgMember{model, model2}))
-				Expect(err).To(BeNil())
-				Expect(b).To(MatchJSON(`[
+			Describe("SerializeOrgMembers", func() {
+				var member2 *orgmembership.OrgMember
+
+				BeforeEach(func() {
+					member2 = &orgmembership.OrgMember{
+						OrgMembership: orgmembership.OrgMembership{
+							ID:        2,
+							OrgID:     3,
+							UserID:    sql.NullInt64{4, true},
+							Role:      "member",
+							CreatedAt: &createdAt,
+							UpdatedAt: &updatedAt,
+						},
+						OrgSlug:  "macrosoft-corp",
+						Username: "bar",
+						Name:     "Ms. Bar",
+						Email:    "bar@example.com",
+					}
+				})
+
+				It("serializes to JSON", func() {
+					b, err := json.Marshal(serializers.SerializeOrgMembers([]*orgmembership.OrgMember{member, member2}))
+					Expect(err).To(BeNil())
+					Expect(b).To(MatchJSON(`[
 					{
 					"id": 1,
 					"org_id": 2,
@@ -103,6 +105,40 @@ var _ = Describe("orgmembership serializer", func() {
 						"updated_at": "2013-11-02T00:00:00Z"
 					}
 				]`))
+				})
+			})
+
+			Context("when pending email invite", func() {
+				BeforeEach(func() {
+					member = &orgmembership.OrgMember{
+						OrgMembership: orgmembership.OrgMembership{
+							ID:          1,
+							OrgID:       2,
+							InviteEmail: sql.NullString{"abc@foobar.com", true},
+							Role:        "member",
+							CreatedAt:   &createdAt,
+							UpdatedAt:   &updatedAt,
+						},
+					}
+				})
+
+				It("should include PendingEmail if InviteEmail is present", func() {
+					member.InviteEmail = sql.NullString{"abc@foobar.com", true}
+
+					m := serializers.SerializeOrgMembers([]*orgmembership.OrgMember{member})
+					b, err := json.Marshal(m)
+					Expect(err).To(BeNil())
+					Expect(b).To(MatchJSON(`[
+					{
+					"id": 1,
+					"org_id": 2,
+					"role": "member",
+					"pending_email": "abc@foobar.com",
+					"created_at": "2013-11-01T00:00:00Z",
+					"updated_at": "2013-11-02T00:00:00Z"
+					}
+				]`))
+				})
 			})
 		})
 	})
