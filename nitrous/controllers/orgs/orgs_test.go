@@ -12,7 +12,9 @@ import (
 	"github.com/gorilla/mux"
 	"github.com/jmoiron/sqlx"
 
+	"github.com/nitrous-io/dedicated/nitrous/controllers/orgs"
 	"github.com/nitrous-io/dedicated/nitrous/db"
+	"github.com/nitrous-io/dedicated/nitrous/envvars"
 	"github.com/nitrous-io/dedicated/nitrous/models/billingprofile"
 	"github.com/nitrous-io/dedicated/nitrous/models/org"
 	"github.com/nitrous-io/dedicated/nitrous/models/orgmembership"
@@ -20,6 +22,7 @@ import (
 	"github.com/nitrous-io/dedicated/nitrous/models/subscription"
 	"github.com/nitrous-io/dedicated/nitrous/models/token"
 	"github.com/nitrous-io/dedicated/nitrous/models/user"
+	"github.com/nitrous-io/dedicated/nitrous/pkg/mailer"
 	"github.com/nitrous-io/dedicated/nitrous/serializers"
 	"github.com/nitrous-io/dedicated/nitrous/server"
 	"github.com/nitrous-io/dedicated/nitrous/test"
@@ -685,6 +688,69 @@ var _ = Describe("controllers/orgs", func() {
 				})
 
 				test.ItRequiresAuthToken(&authTokenInputs)
+			})
+
+			Context("when org member added by email", func() {
+				var (
+					fakeMailer *test.FakeMailer
+					origMailer mailer.Mailer
+				)
+
+				BeforeEach(func() {
+					envvars.WebHostname = "nitrous.example"
+					origMailer = user.Mailer
+					fakeMailer = &test.FakeMailer{}
+					orgs.Mailer = fakeMailer
+				})
+
+				AfterEach(func() {
+					user.Mailer = origMailer
+				})
+
+				It("should not invite user to Nitrous if blacklisted", func() {
+					// Relies on `nitrous/.env-example` and `nitrous/dev/email-blacklist.txt`
+					doRequest(o.Slug, "robin@yopmail.fr")
+
+					Expect(res.Code).To(Equal(http.StatusNotFound))
+
+					errSlug, errDesc := test.ErrorSlug(res.Body)
+					Expect(errSlug).To(Equal("user_not_found"))
+					Expect(errDesc).To(Equal("the specified user could not be found"))
+
+					m, err := orgmembership.FindAllByOrgID(db, o.ID)
+					Expect(err).To(BeNil())
+					Expect(m).To(HaveLen(0))
+
+					Expect(fakeMailer.SendMailCalled).To(BeFalse())
+				})
+
+				It("should send invite email", func() {
+					doRequest(o.Slug, "bob@abc.com")
+
+					Expect(res.Code).To(Equal(http.StatusOK))
+
+					Eventually(func() interface{} {
+						orgMember := &orgmembership.OrgMembership{}
+						err := db.Get(orgMember, "SELECT * FROM org_memberships WHERE org_id = $1 AND invite_email = $2", o.ID, "bob@abc.com")
+						Expect(err).To(BeNil())
+						Expect(orgMember).ToNot(BeNil())
+						Expect(orgMember.UserID.Valid).To(BeFalse())
+
+						return orgMember.EmailSentAt.Valid
+					}).Should(BeTrue())
+
+					Expect(fakeMailer.SendMailCalled).To(BeTrue())
+					Expect(fakeMailer.From).To(Equal(envvars.SupportEmail))
+					Expect(fakeMailer.Tos).To(Equal([]string{"bob@abc.com"}))
+					Expect(fakeMailer.ReplyTo).To(Equal(envvars.SupportEmail))
+					Expect(fakeMailer.Subject).To(Equal(fmt.Sprintf("%s has invited you to organization %s!", u.Name, o.Name)))
+
+					Expect(fakeMailer.HTML).To(ContainSubstring(fmt.Sprintf("%s invited you to join the %s organization on Nitrous.", u.Name, o.Name)))
+					Expect(fakeMailer.HTML).To(ContainSubstring("You will be able to create projects"))
+
+					Expect(fakeMailer.Body).To(ContainSubstring(fmt.Sprintf("%s invited you to join the %s organization on Nitrous.", u.Name, o.Name)))
+					Expect(fakeMailer.Body).To(ContainSubstring("You will be able to create projects"))
+				})
 			})
 		})
 	})

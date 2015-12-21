@@ -10,19 +10,23 @@ import (
 	"github.com/gorilla/mux"
 	"github.com/jmoiron/sqlx"
 	"github.com/lib/pq"
+	"github.com/nitrous-io/dedicated/nitrous/envvars"
 	"github.com/nitrous-io/dedicated/nitrous/middleware"
 	"github.com/nitrous-io/dedicated/nitrous/models/billingprofile"
 	"github.com/nitrous-io/dedicated/nitrous/models/org"
 	"github.com/nitrous-io/dedicated/nitrous/models/orgmembership"
 	"github.com/nitrous-io/dedicated/nitrous/models/plan"
 	"github.com/nitrous-io/dedicated/nitrous/models/user"
+	"github.com/nitrous-io/dedicated/nitrous/pkg/blacklist"
 	"github.com/nitrous-io/dedicated/nitrous/pkg/httperror"
+	"github.com/nitrous-io/dedicated/nitrous/pkg/mailer"
 	"github.com/nitrous-io/dedicated/nitrous/serializers"
 )
 
 var (
 	errBannedEmail       = httperror.New(http.StatusBadRequest, "email_banned", "this email address is banned")
 	errNotFound          = httperror.New(http.StatusNotFound, "not_found", "requested resource could not be found")
+	errUserNotFound      = httperror.New(http.StatusNotFound, "user_not_found", "the specified user could not be found")
 	errNoPermission      = httperror.New(http.StatusForbidden, "permission_denied", "you do not have permission to edit members")
 	errCannotRemoveSelf  = httperror.New(http.StatusBadRequest, "invalid_action", "you cannot remove yourself from this organization")
 	errNotEduWhitelisted = httperror.New(http.StatusForbidden, "not_edu_whitelisted", "Please contact Nitrous to enable education support")
@@ -30,7 +34,12 @@ var (
 	validations = map[string]error{
 		"index_orgs_on_slug": httperror.New(http.StatusBadRequest, "validation_failed", "slug is taken"),
 	}
+	Mailer mailer.Mailer
 )
+
+func init() {
+	Mailer = mailer.NewSendGridMailer(envvars.SendgridUsername, envvars.SendgridPassword)
+}
 
 func Create(env *middleware.Env, w http.ResponseWriter, r *http.Request) error {
 	db := env.DB
@@ -310,7 +319,7 @@ func PutMember(env *middleware.Env, w http.ResponseWriter, r *http.Request) erro
 	u, err := user.FindByUsernameOrEmail(db, username)
 	if err != nil {
 		if err == sql.ErrNoRows {
-			return errNotFound
+			return handleNoUser(o, env, username)
 		}
 		return err
 	}
@@ -369,6 +378,22 @@ func PutMember(env *middleware.Env, w http.ResponseWriter, r *http.Request) erro
 	return nil
 }
 
+func handleNoUser(o *org.Org, env *middleware.Env, email string) error {
+	if !strings.Contains(email, "@") || blacklist.Check(email) {
+		return errUserNotFound
+	}
+
+	if err := inviteUser(env.DB, o, email, env.User); err != nil {
+		return err
+	}
+
+	env.Status = http.StatusOK
+	env.Data = map[string]interface{}{
+		"success": true,
+	}
+	return nil
+}
+
 func RemoveMember(env *middleware.Env, w http.ResponseWriter, r *http.Request) error {
 	db := env.DB
 	currentUser := env.User
@@ -415,7 +440,10 @@ func RemoveMember(env *middleware.Env, w http.ResponseWriter, r *http.Request) e
 	}
 
 	canRemove := true
-	isSelf := cuMembership.UserID == u.ID
+	isSelf := false
+	if cuMembership.UserID.Valid {
+		isSelf = cuMembership.UserID.Int64 == u.ID
+	}
 	if isSelf {
 		canLeave := cuMembership.Role == orgmembership.RoleAdmin || cuMembership.Role == orgmembership.RoleMember
 		if !canLeave {
