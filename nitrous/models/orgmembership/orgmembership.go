@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"time"
 
+	"github.com/lib/pq"
 	"github.com/nitrous-io/dedicated/nitrous/db"
 )
 
@@ -31,10 +32,15 @@ func (e InvalidRoleError) Error() string {
 }
 
 type OrgMembership struct {
-	ID     int64  `db:"id"`
-	OrgID  int64  `db:"org_id"`
-	UserID int64  `db:"user_id"`
-	Role   string `db:"role"`
+	ID     int64         `db:"id"`
+	OrgID  int64         `db:"org_id"`
+	UserID sql.NullInt64 `db:"user_id"`
+	Role   string        `db:"role"`
+
+	EmailSentAt pq.NullTime `db:"email_sent_at"`
+
+	InviteEmail sql.NullString `db:"invite_email"`
+	InviteCode  sql.NullString `db:"invite_code"`
 
 	CreatedAt *time.Time `db:"created_at"`
 	UpdatedAt *time.Time `db:"updated_at"`
@@ -116,7 +122,7 @@ func AddMember(d db.QueryReceiver, orgID, userID int64, role string) error {
 	}
 	om := &OrgMembership{
 		OrgID:  orgID,
-		UserID: userID,
+		UserID: sql.NullInt64{userID, true},
 		Role:   role,
 	}
 	s, err := d.PrepareNamed(`
