@@ -205,6 +205,7 @@ func (s *Server) drawRoutes() {
 				"/hosts/{slug}/start":                      r("hosts.Start", mw.HostViaPath("slug", mw.TouchHost(hosts.Start)), EventHostStarted),
 				"/hosts/{slug}/stop":                       r("hosts.Stop", mw.HostViaPath("slug", mw.TouchHost(hosts.Stop)), EventHostStopped),
 				"/hosts/{slug}/restart":                    r("hosts.Restart", mw.HostViaPath("slug", mw.TouchHost(hosts.Restart)), EventHostRestarted),
+				"/hosts/{slug}/soft_restart":               r("hosts.Restart", mw.HostViaPath("slug", mw.TouchHost(hosts.SoftRestart)), EventHostSoftRestarted),
 				"/hosts/{slug}/respec":                     r("hosts.Respec", mw.HostViaPath("slug", mw.TouchHost(hosts.Respec)), EventHostRespecced),
 				"/hosts/{slug}/volumes":                    r("volumes.Create", mw.HostViaPath("slug", mw.TouchHost(volumes.Create)), EventVolumeCreated),
 				"/hosts/{slug}/images":                     r("images.Build", mw.HostViaPath("slug", mw.TouchHost(images.Build)), EventImageBuilt),
