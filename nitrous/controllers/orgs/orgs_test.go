@@ -161,7 +161,7 @@ var _ = Describe("controllers/orgs", func() {
 				Expect(err).To(BeNil())
 
 				Expect(m).To(HaveLen(1))
-				Expect(m[0].Username).To(Equal("foo"))
+				Expect(m[0].Username.String).To(Equal("foo"))
 				Expect(m[0].Role).To(Equal("owner"))
 			})
 
@@ -179,7 +179,7 @@ var _ = Describe("controllers/orgs", func() {
 				Expect(err).To(BeNil())
 
 				Expect(m).To(HaveLen(1))
-				Expect(m[0].Username).To(Equal("foo"))
+				Expect(m[0].Username.String).To(Equal("foo"))
 				Expect(m[0].Role).To(Equal("owner"))
 			})
 		})
@@ -478,9 +478,9 @@ var _ = Describe("controllers/orgs", func() {
 										m, err := orgmembership.FindAllByOrgID(db, o.ID)
 										Expect(err).To(BeNil())
 										Expect(m).To(HaveLen(2))
-										Expect(m[0].Username).To(Equal(u.Username))
+										Expect(m[0].Username.String).To(Equal(u.Username))
 										Expect(m[0].Role).To(Equal(t.myRole))
-										Expect(m[1].Username).To(Equal(u2.Username))
+										Expect(m[1].Username.String).To(Equal(u2.Username))
 										// role should have been updated
 										Expect(m[1].Role).To(Equal(t.to))
 
@@ -512,9 +512,9 @@ var _ = Describe("controllers/orgs", func() {
 										m, err := orgmembership.FindAllByOrgID(db, o.ID)
 										Expect(err).To(BeNil())
 										Expect(m).To(HaveLen(2))
-										Expect(m[0].Username).To(Equal(u.Username))
+										Expect(m[0].Username.String).To(Equal(u.Username))
 										Expect(m[0].Role).To(Equal(t.myRole))
-										Expect(m[1].Username).To(Equal(u2.Username))
+										Expect(m[1].Username.String).To(Equal(u2.Username))
 										// role shouldn't have been updated
 										Expect(m[1].Role).To(Equal(t.from))
 
@@ -580,10 +580,10 @@ var _ = Describe("controllers/orgs", func() {
 										m, err := orgmembership.FindAllByOrgID(db, o.ID)
 										Expect(err).To(BeNil())
 										Expect(m).To(HaveLen(2))
-										Expect(m[0].Username).To(Equal(u.Username))
+										Expect(m[0].Username.String).To(Equal(u.Username))
 										Expect(m[0].Role).To(Equal(t.myRole))
 										// new org member should have been added with correct role
-										Expect(m[1].Username).To(Equal(u2.Username))
+										Expect(m[1].Username.String).To(Equal(u2.Username))
 										Expect(m[1].Role).To(Equal(t.role))
 
 										m, err = orgmembership.FindAllByOrgID(db, o2.ID)
@@ -615,7 +615,7 @@ var _ = Describe("controllers/orgs", func() {
 										Expect(err).To(BeNil())
 										// new org member shouldn't have been added
 										Expect(m).To(HaveLen(1))
-										Expect(m[0].Username).To(Equal(u.Username))
+										Expect(m[0].Username.String).To(Equal(u.Username))
 										Expect(m[0].Role).To(Equal(t.myRole))
 
 										m, err = orgmembership.FindAllByOrgID(db, o2.ID)
@@ -727,7 +727,7 @@ var _ = Describe("controllers/orgs", func() {
 				It("should send invite email", func() {
 					doRequest(o.Slug, "bob@abc.com")
 
-					Expect(res.Code).To(Equal(http.StatusOK))
+					Expect(res.Code).To(Equal(http.StatusCreated))
 
 					Eventually(func() interface{} {
 						orgMember := &orgmembership.OrgMembership{}
@@ -929,7 +929,7 @@ var _ = Describe("controllers/orgs", func() {
 								m, err := orgmembership.FindAllByOrgID(db, o.ID)
 								Expect(err).To(BeNil())
 								Expect(m).To(HaveLen(1))
-								Expect(m[0].Username).To(Equal(u.Username))
+								Expect(m[0].Username.String).To(Equal(u.Username))
 								Expect(m[0].Role).To(Equal(t.myRole))
 
 								var j struct {
@@ -951,9 +951,9 @@ var _ = Describe("controllers/orgs", func() {
 								m, err := orgmembership.FindAllByOrgID(db, o.ID)
 								Expect(err).To(BeNil())
 								Expect(m).To(HaveLen(2))
-								Expect(m[0].Username).To(Equal(u.Username))
+								Expect(m[0].Username.String).To(Equal(u.Username))
 								Expect(m[0].Role).To(Equal(t.myRole))
-								Expect(m[1].Username).To(Equal(u2.Username))
+								Expect(m[1].Username.String).To(Equal(u2.Username))
 								Expect(m[1].Role).To(Equal(t.targetUserRole))
 							})
 						}

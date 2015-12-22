@@ -31,9 +31,9 @@ var _ = Describe("orgmembership serializer", func() {
 						UpdatedAt: &updatedAt,
 					},
 					OrgSlug:  "foobar-inc",
-					Username: "foo",
-					Name:     "Mr. Foo",
-					Email:    "foo@example.com",
+					Username: sql.NullString{"foo", true},
+					Name:     sql.NullString{"Mr. Foo", true},
+					Email:    sql.NullString{"foo@example.com", true},
 				}
 			})
 
@@ -70,9 +70,9 @@ var _ = Describe("orgmembership serializer", func() {
 							UpdatedAt: &updatedAt,
 						},
 						OrgSlug:  "macrosoft-corp",
-						Username: "bar",
-						Name:     "Ms. Bar",
-						Email:    "bar@example.com",
+						Username: sql.NullString{"bar", true},
+						Name:     sql.NullString{"Ms. Bar", true},
+						Email:    sql.NullString{"bar@example.com", true},
 					}
 				})
 
