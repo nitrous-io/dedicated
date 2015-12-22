@@ -44,6 +44,7 @@ func Create(env *middleware.Env, w http.ResponseWriter, r *http.Request) error {
 	invitecode := r.FormValue("invite_code")
 	distinctID := r.FormValue("distinct_id")
 	gitHubUserName := r.FormValue("github_username")
+	org := r.FormValue("invited_by_org")
 
 	u := &user.User{
 		Email:    email,
@@ -141,9 +142,16 @@ func Create(env *middleware.Env, w http.ResponseWriter, r *http.Request) error {
 
 	confirmable := client != nil
 	if !confirmable && invitecode != "" {
-		err = db.Get(&confirmable, `SELECT COUNT(*) = 1 FROM container_collabs WHERE invite_email = $1 AND invite_code = $2 LIMIT 1`, u.Email, invitecode)
-		if err != nil {
-			return err
+		if org == "true" {
+			err = db.Get(&confirmable, `SELECT COUNT(*) = 1 FROM org_memberships WHERE invite_email = $1 AND invite_code = $2 LIMIT 1`, u.Email, invitecode)
+			if err != nil {
+				return err
+			}
+		} else {
+			err = db.Get(&confirmable, `SELECT COUNT(*) = 1 FROM container_collabs WHERE invite_email = $1 AND invite_code = $2 LIMIT 1`, u.Email, invitecode)
+			if err != nil {
+				return err
+			}
 		}
 	}
 
@@ -152,11 +160,18 @@ func Create(env *middleware.Env, w http.ResponseWriter, r *http.Request) error {
 		if err != nil {
 			return err
 		}
-		_, err = db.Exec("UPDATE container_collabs SET user_id = $1, invite_email = NULL, invite_code = NULL WHERE invite_email = $2", u.ID, u.Email)
-		if err != nil {
-			return err
+		if org == "true" {
+			_, err = db.Exec("UPDATE org_memberships SET user_id = $1, invite_email = NULL, invite_code = NULL WHERE invite_email = $2", u.ID, u.Email)
+			if err != nil {
+				return err
+			}
+		} else {
+			_, err = db.Exec("UPDATE container_collabs SET user_id = $1, invite_email = NULL, invite_code = NULL WHERE invite_email = $2", u.ID, u.Email)
+			if err != nil {
+				return err
+			}
+			notifySharedContainers(env, u)
 		}
-		notifySharedContainers(env, u)
 	} else {
 		err = u.SendConfirmationEmail(db, true)
 		if err != nil {
