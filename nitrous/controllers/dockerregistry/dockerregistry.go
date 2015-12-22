@@ -10,7 +10,6 @@ import (
 	ndb "github.com/nitrous-io/dedicated/nitrous/db"
 	"github.com/nitrous-io/dedicated/nitrous/envvars"
 	"github.com/nitrous-io/dedicated/nitrous/middleware"
-	"github.com/nitrous-io/dedicated/nitrous/models/snapshot"
 	"github.com/nitrous-io/dedicated/nitrous/pkg/httperror"
 )
 
@@ -62,16 +61,6 @@ func processEvent(event *notifications.Event, db ndb.QueryReceiver) error {
 	switch event.Action {
 	case "push":
 		logrus.Debugf("received push event from Docker Registry for %q", event.Target.Repository)
-		snap, err := snapshot.FindBySlug(db, event.Target.Repository)
-		if err != nil {
-			return err
-		}
-
-		size := event.Target.Descriptor.Size
-		snap.Size = sql.NullInt64{size, true}
-		if err := snap.Update(db); err != nil {
-			return err
-		}
 	case "pull":
 		logrus.Debugf("received pull event from Docker Registry for %q", event.Target.Repository)
 	default:
