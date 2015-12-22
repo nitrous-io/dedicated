@@ -101,6 +101,13 @@ var _ = Describe("controllers/snapshots", func() {
 
 		mockClient = &freighterclient.MockClient{}
 		test.StubDefaultFreighterFn(mockClient)
+
+		mockClient.InspectImageReturn = &freighterclient.Image{
+			ID:          "deadbeef",
+			Name:        "zerobotlabs/nestorbot",
+			Tag:         "latest",
+			VirtualSize: 8888,
+		}
 	})
 
 	AfterEach(func() {
@@ -638,6 +645,7 @@ var _ = Describe("controllers/snapshots", func() {
 					Expect(snap.Tag).To(Equal("latest"))
 					Expect(snap.DisplayName).To(Equal(i1.Name))
 					Expect(snap.OriginalImage).To(Equal(i1.OriginalImage.String))
+					Expect(snap.Size.Int64).To(Equal(mockClient.InspectImageReturn.VirtualSize))
 
 					Expect(snap.OwnerUsername.String).To(Equal(u.Username))
 					Expect(snap.OwnerName.String).To(Equal(u.Name))

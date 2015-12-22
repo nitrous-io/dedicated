@@ -191,6 +191,12 @@ func Publish(env *middleware.Env, w http.ResponseWriter, r *http.Request) error 
 			return
 		}
 
+		fImg, err := cl.InspectImage(snapshotRepo)
+		if err != nil {
+			publishFailure(err)
+			return
+		}
+
 		// Create snapshot record.
 		s := &snapshot.Snapshot{
 			ImageID:       img.ID,
@@ -202,6 +208,7 @@ func Publish(env *middleware.Env, w http.ResponseWriter, r *http.Request) error 
 			Tag:           "latest",
 			DisplayName:   img.Name,
 			OriginalImage: img.OriginalImage.String,
+			Size:          sql.NullInt64{fImg.VirtualSize, true},
 		}
 		if err := s.Insert(tx); err != nil {
 			publishFailure(err)
