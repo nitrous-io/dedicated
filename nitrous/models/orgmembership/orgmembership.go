@@ -65,10 +65,10 @@ func (o *OrgMembership) SnapshotReadAllowed() bool {
 type OrgMember struct {
 	OrgMembership
 
-	OrgSlug  string `db:"org_slug"`
-	Username string `db:"username"`
-	Email    string `db:"email"`
-	Name     string `db:"name"`
+	OrgSlug  string         `db:"org_slug"`
+	Username sql.NullString `db:"username"`
+	Email    sql.NullString `db:"email"`
+	Name     sql.NullString `db:"name"`
 }
 
 func FindAllByOrgID(d db.QueryReceiver, id int64) ([]*OrgMember, error) {
@@ -76,7 +76,7 @@ func FindAllByOrgID(d db.QueryReceiver, id int64) ([]*OrgMember, error) {
 	err := d.Select(&members, `
 		SELECT org_memberships.*, orgs.slug as org_slug, users.username, users.email, users.name
 		FROM org_memberships
-		INNER JOIN users ON org_memberships.user_id = users.id
+		LEFT JOIN users ON org_memberships.user_id = users.id
 		INNER JOIN orgs ON org_memberships.org_id = orgs.id
 		WHERE org_memberships.org_id = $1
 		ORDER BY org_memberships.id;

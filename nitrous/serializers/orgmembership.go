@@ -30,18 +30,23 @@ func SerializeOrgMember(o *orgmembership.OrgMember) *OrgMember {
 		ID:        o.ID,
 		OrgID:     o.OrgID,
 		OrgSlug:   o.OrgSlug,
-		Username:  o.Username,
-		Name:      o.Name,
-		Email:     o.Email,
 		Role:      o.Role,
 		CreatedAt: o.CreatedAt,
 		UpdatedAt: o.UpdatedAt,
 	}
 
+	if o.Name.Valid {
+		serialized.Name = o.Name.String
+	}
+	if o.Username.Valid {
+		serialized.Username = o.Username.String
+	}
+	if o.Email.Valid {
+		serialized.Email = o.Email.String
+	}
 	if o.InviteEmail.Valid {
 		serialized.PendingEmail = o.InviteEmail.String
 	}
-
 	if o.UserID.Valid {
 		serialized.UserID = o.UserID.Int64
 	}

@@ -387,9 +387,18 @@ func handleNoUser(o *org.Org, env *middleware.Env, email string) error {
 		return err
 	}
 
-	env.Status = http.StatusOK
+	env.Status = http.StatusCreated
+
+	members, err := orgmembership.FindAllByOrgID(env.DB, o.ID)
+	if err != nil {
+		if err != sql.ErrNoRows {
+			return err
+		}
+		members = []*orgmembership.OrgMember{}
+	}
+
 	env.Data = map[string]interface{}{
-		"success": true,
+		"members": serializers.SerializeOrgMembers(members),
 	}
 	return nil
 }
