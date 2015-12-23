@@ -96,7 +96,7 @@ RUN \
   apt-get install -y lxc-docker-1.7.1 && \
   apt-get clean
 
-# copy nitrous enhanced docker
+# copy nitrous fork of docker
 COPY support/docker-1.8.3-nitrous1 /usr/bin/docker
 
 # copy setup.sh
@@ -107,6 +107,9 @@ RUN chown $NITROUS_USERNAME:$NITROUS_USERNAME /home/$NITROUS_USERNAME/setup.sh
 USER $NITROUS_USERNAME
 RUN ln -s /home/$NITROUS_USERNAME/code /home/$NITROUS_USERNAME/workspace
 USER root
+
+# use 2222 for ssh tunnel, 7000 for web app
+EXPOSE 2222 7000
 
 # this is no longer available
 # ENV NITROUS_README_URL https://codepen.io/raingrove/full/WbyvaZ/
