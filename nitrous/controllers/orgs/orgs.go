@@ -29,6 +29,7 @@ var (
 	errNotFound          = httperror.New(http.StatusNotFound, "not_found", "requested resource could not be found")
 	errUserNotFound      = httperror.New(http.StatusNotFound, "user_not_found", "the specified user could not be found")
 	errNoPermission      = httperror.New(http.StatusForbidden, "permission_denied", "you do not have permission to edit members")
+	errDuplicateMember   = httperror.New(http.StatusBadRequest, "invalid_action", "you have already added this member")
 	errCannotRemoveSelf  = httperror.New(http.StatusBadRequest, "invalid_action", "you cannot remove yourself from this organization")
 	errNotEduWhitelisted = httperror.New(http.StatusForbidden, "not_edu_whitelisted", "Please contact Nitrous to enable education support")
 
@@ -385,6 +386,9 @@ func handleNoUser(o *org.Org, env *middleware.Env, email string) error {
 	}
 
 	if err := inviteUser(env.DB, o, email, env.User); err != nil {
+		if err.(*pq.Error).Code.Name() == "unique_violation" {
+			return errDuplicateMember
+		}
 		return err
 	}
 
