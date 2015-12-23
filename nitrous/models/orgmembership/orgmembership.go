@@ -143,9 +143,9 @@ func AddMember(d db.QueryReceiver, orgID, userID int64, role string) error {
 	return err
 }
 
-func AddPendingMember(d db.QueryReceiver, orgID int64, email, role string) (string, error) {
+func AddPendingMember(d db.QueryReceiver, orgID int64, email, role string) (*OrgMembership, error) {
 	if _, ok := ValidRoles[role]; !ok {
-		return "", InvalidRoleError{Role: role}
+		return nil, InvalidRoleError{Role: role}
 	}
 
 	token, err := securerandom.Alphanumeric(20)
@@ -157,14 +157,14 @@ func AddPendingMember(d db.QueryReceiver, orgID int64, email, role string) (stri
 	}
 	s, err := d.PrepareNamed(`
 		INSERT INTO org_memberships
-		(org_id, invite_email, role, email_sent_at)
-		VALUES (:org_id, :invite_email, :role, now())
-	`)
+		(org_id, invite_email, invite_code, role, email_sent_at)
+		VALUES (:org_id, :invite_email, :invite_code, :role, now())
+		RETURNING *;`)
 	if err != nil {
-		return "", err
+		return nil, err
 	}
 	_, err = s.Exec(om)
-	return token, err
+	return om, err
 }
 
 func UpdateMember(d db.QueryReceiver, orgID, userID int64, role string) error {

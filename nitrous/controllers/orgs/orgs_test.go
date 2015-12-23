@@ -749,9 +749,11 @@ var _ = Describe("controllers/orgs", func() {
 
 					Expect(fakeMailer.HTML).To(ContainSubstring(fmt.Sprintf("%s invited you to join the %s organization on Nitrous.", u.Name, o.Name)))
 					Expect(fakeMailer.HTML).To(ContainSubstring("You will be able to create projects"))
+					Expect(fakeMailer.HTML).To(ContainSubstring("/signup?invite="))
 
 					Expect(fakeMailer.Body).To(ContainSubstring(fmt.Sprintf("%s invited you to join the %s organization on Nitrous.", u.Name, o.Name)))
 					Expect(fakeMailer.Body).To(ContainSubstring("You will be able to create projects"))
+					Expect(fakeMailer.Body).To(ContainSubstring("/signup?invite="))
 				})
 			})
 		})

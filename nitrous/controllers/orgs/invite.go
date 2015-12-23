@@ -16,13 +16,13 @@ import (
 
 func inviteUser(d *db.Database, o *org.Org, email string, owner *user.User) error {
 	return d.WithTransaction(func(tx *sqlx.Tx) error {
-		// Don't add member if not notified by email
-		token, err := orgmembership.AddPendingMember(tx, o.ID, email, "member")
+		// Don't add member if invited member not notified by email
+		om, err := orgmembership.AddPendingMember(tx, o.ID, email, "member")
 		if err != nil {
 			return err
 		}
 
-		return sendEmail(o, email, owner, token)
+		return sendEmail(o, email, owner, om.InviteCode.String)
 	})
 }
 
@@ -39,10 +39,7 @@ func sendEmail(o *org.Org, email string, owner *user.User, token string) error {
 	}
 	query := url.Values{}
 	query.Set("invite", token)
-	query.Add("org", "true")
-	query.Encode()
-
-	urlString := fmt.Sprintf("%s?%s", baseUrl.String(), query)
+	urlString := fmt.Sprintf("%s?%s", baseUrl, query.Encode())
 
 	tmplData := struct {
 		Subject   string

@@ -409,11 +409,7 @@ func RemoveMember(env *middleware.Env, w http.ResponseWriter, r *http.Request) e
 	currentUser := env.User
 	slug := mux.Vars(r)["slug"]
 	identifier := mux.Vars(r)["identifier"]
-	byInviteEmail := false
-
-	if strings.Contains(identifier, "@") {
-		byInviteEmail = true
-	}
+	byInviteEmail := strings.Contains(identifier, "@")
 
 	if slug == "" || identifier == "" {
 		return errNotFound
