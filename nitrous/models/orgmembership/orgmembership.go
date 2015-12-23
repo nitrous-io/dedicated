@@ -8,6 +8,7 @@ import (
 
 	"github.com/lib/pq"
 	"github.com/nitrous-io/dedicated/nitrous/db"
+	"github.com/nitrous-io/dedicated/nitrous/pkg/securerandom"
 )
 
 const (
@@ -140,6 +141,30 @@ func AddMember(d db.QueryReceiver, orgID, userID int64, role string) error {
 	}
 	_, err = s.Exec(om)
 	return err
+}
+
+func AddPendingMember(d db.QueryReceiver, orgID int64, email, role string) (string, error) {
+	if _, ok := ValidRoles[role]; !ok {
+		return "", InvalidRoleError{Role: role}
+	}
+
+	token, err := securerandom.Alphanumeric(20)
+	om := &OrgMembership{
+		OrgID:       orgID,
+		InviteEmail: sql.NullString{email, true},
+		Role:        role,
+		InviteCode:  sql.NullString{token, true},
+	}
+	s, err := d.PrepareNamed(`
+		INSERT INTO org_memberships
+		(org_id, invite_email, role, email_sent_at)
+		VALUES (:org_id, :invite_email, :role, now())
+	`)
+	if err != nil {
+		return "", err
+	}
+	_, err = s.Exec(om)
+	return token, err
 }
 
 func UpdateMember(d db.QueryReceiver, orgID, userID int64, role string) error {

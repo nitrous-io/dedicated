@@ -692,19 +692,21 @@ var _ = Describe("controllers/orgs", func() {
 
 			Context("when org member added by email", func() {
 				var (
-					fakeMailer *test.FakeMailer
-					origMailer mailer.Mailer
+					fakeMailer                 *test.FakeMailer
+					origMailer, origOrgsMailer mailer.Mailer
 				)
 
 				BeforeEach(func() {
 					envvars.WebHostname = "nitrous.example"
 					origMailer = user.Mailer
+					origOrgsMailer = orgs.Mailer
 					fakeMailer = &test.FakeMailer{}
 					orgs.Mailer = fakeMailer
 				})
 
 				AfterEach(func() {
 					user.Mailer = origMailer
+					orgs.Mailer = origOrgsMailer
 				})
 
 				It("should not invite user to Nitrous if blacklisted", func() {

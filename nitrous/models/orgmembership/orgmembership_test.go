@@ -405,6 +405,59 @@ var _ = Describe("models/orgmembership", func() {
 		})
 	})
 
+	Describe("AddPendingMember()", func() {
+		Context("when an invalid role is given", func() {
+			It("returns error", func() {
+				_, err := orgmembership.AddPendingMember(db, o.ID, "member@bob.com", "destroyer")
+				Expect(err).To(MatchError("invalid role: destroyer"))
+			})
+		})
+
+		Context("when a non-existent org id is given", func() {
+			It("returns error", func() {
+				_, err := orgmembership.AddPendingMember(db, o.ID+9000, "member@bob.com", "member")
+				Expect(err).NotTo(BeNil())
+				Expect(err.Error()).To(ContainSubstring("violates foreign key constraint"))
+			})
+		})
+
+		Context("when email is provided", func() {
+			It("adds pending user as an org member", func() {
+				_, err := orgmembership.AddPendingMember(db, o.ID, "owner@bob.com", "owner")
+				Expect(err).To(BeNil())
+				_, err = orgmembership.AddPendingMember(db, o2.ID, "admin@bob.com", "admin")
+				Expect(err).To(BeNil())
+				_, err = orgmembership.AddPendingMember(db, o.ID, "member@bob.com", "member")
+				Expect(err).To(BeNil())
+
+				m, err := orgmembership.FindAllByOrgID(db, o.ID)
+				Expect(err).To(BeNil())
+				Expect(m).To(HaveLen(2))
+				Expect(m[0].InviteEmail.String).To(Equal("owner@bob.com"))
+				Expect(m[0].Role).To(Equal("owner"))
+				Expect(m[1].InviteEmail.String).To(Equal("member@bob.com"))
+				Expect(m[1].Role).To(Equal("member"))
+			})
+
+			Context("when pending user is already a member", func() {
+				It("returns error", func() {
+					_, err := orgmembership.AddPendingMember(db, o.ID, "owner@bob.com", "owner")
+					Expect(err).To(BeNil())
+					_, err = orgmembership.AddPendingMember(db, o.ID, "owner@bob.com", "owner")
+					Expect(err).NotTo(BeNil())
+				})
+			})
+		})
+
+		Context("when some other error occurs", func() {
+			It("returns error", func() {
+				db.Close()
+				_, err := orgmembership.AddPendingMember(db, o.ID, "owner@bob.com", "owner")
+				Expect(err).NotTo(BeNil())
+			})
+		})
+	})
+
 	Describe("UpdateMember()", func() {
 		Context("when an invalid role is given", func() {
 			It("returns error", func() {

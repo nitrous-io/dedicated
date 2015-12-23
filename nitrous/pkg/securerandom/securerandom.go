@@ -32,7 +32,7 @@ func Numeric(n uint) (string, error) {
 	return string(b), nil
 }
 
-// Alphanumberic generates a random alpha-numeric string of length n.
+// Alphanumeric generates a random alpha-numeric string of length n.
 func Alphanumeric(n uint) (string, error) {
 	b := make([]byte, n)
 	if _, err := rand.Read(b); err != nil {
