@@ -89,14 +89,16 @@ RUN \
   apt-get install -y dnsmasq && \
   apt-get clean
 
-# install required docker version
+# install required docker version this is for dependencies and setup; we copy
+# over the nitrous fork later
+# Oddly 1.8 is not available by default, so use 1.7.1
 RUN \
   apt-get update && \
-  apt-get install -y lxc-docker-1.6.0 && \
+  apt-get install -y lxc-docker-1.7.1 && \
   apt-get clean
 
 # copy nitrous enhanced docker
-COPY support/docker-1.6.0-nitrous1 /usr/bin/docker
+COPY support/docker-1.8.3-nitrous1 /usr/bin/docker
 
 # copy setup.sh
 
