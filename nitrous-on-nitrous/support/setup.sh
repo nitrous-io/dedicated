@@ -17,23 +17,18 @@ fi
 
 if [[ ! -f $dedi_path/hostbuilder/config.json ]]; then
   cp $dedi_path/hostbuilder/{sample_,}config.json
-  sed -i 's|vagrant|nitrous|' $dedi_path/hostbuilder/config.json
-  sed -i 's|workspace|code|' $dedi_path/hostbuilder/config.json
 fi
 
 if [[ ! -f $dedi_path/compass/config.json ]]; then
   cp $dedi_path/compass/{sample_,}config.json
-  sed -i 's|vagrant|nitrous|' $dedi_path/compass/config.json
 fi
 
 if [[ ! -f $dedi_path/tender/.env ]]; then
   cp $dedi_path/tender/.env{-example,}
-  sed -i 's|vagrant|nitrous|' $dedi_path/tender/.env
 fi
 
 if [[ ! -f $dedi_path/nitrous/.env ]]; then
   cp $dedi_path/nitrous/.env{-example,}
-  sed -i 's|vagrant|nitrous|' $dedi_path/nitrous/.env
   sed -i 's|\${PWD}|/home/nitrous/code/dedicated/nitrous|' $dedi_path/nitrous/.env
 fi
 
