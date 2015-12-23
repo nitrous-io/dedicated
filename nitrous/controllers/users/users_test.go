@@ -605,7 +605,7 @@ var _ = Describe("controllers/users", func() {
 
 					Expect(res.Code).To(Equal(http.StatusCreated))
 
-					mem, err := orgmembership.FindByUsernameAndOrgSlug(db, "foo", "foobar")
+					mem, err := orgmembership.FindByIdentifierAndOrgSlug(db, "foo", "foobar")
 					Expect(err).To(BeNil())
 					Expect(mem.Role).To(Equal(orgmembership.RoleLimited))
 				})
@@ -616,7 +616,7 @@ var _ = Describe("controllers/users", func() {
 
 					Expect(res.Code).To(Equal(http.StatusCreated))
 
-					mem, err := orgmembership.FindByUsernameAndOrgSlug(db, "foo", "foobar")
+					mem, err := orgmembership.FindByIdentifierAndOrgSlug(db, "foo", "foobar")
 					Expect(err).To(BeNil())
 					Expect(mem.Role).To(Equal(orgmembership.RoleMember))
 				})

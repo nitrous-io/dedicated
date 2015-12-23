@@ -54,7 +54,7 @@ func Index(env *middleware.Env, w http.ResponseWriter, r *http.Request) error {
 		subscriptions []*subscription.SubscriptionWithHostSlug
 	)
 	if orgSlug := mux.Vars(r)["org_slug"]; orgSlug != "" {
-		mem, err := orgmembership.FindByUsernameAndOrgSlug(env.DB, env.User.Username, orgSlug)
+		mem, err := orgmembership.FindByIdentifierAndOrgSlug(env.DB, env.User.Username, orgSlug)
 		if err != nil {
 			if err == sql.ErrNoRows {
 				return errOrgForbidden

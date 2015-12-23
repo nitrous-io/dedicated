@@ -3,6 +3,7 @@ package orgmembership
 import (
 	"database/sql"
 	"fmt"
+	"strconv"
 	"time"
 
 	"github.com/lib/pq"
@@ -87,16 +88,20 @@ func FindAllByOrgID(d db.QueryReceiver, id int64) ([]*OrgMember, error) {
 	return members, nil
 }
 
-func FindByUsernameAndOrgSlug(d db.QueryReceiver, username, slug string) (*OrgMembership, error) {
+// Identifier is usually the username or invite email
+func FindByIdentifierAndOrgSlug(d db.QueryReceiver, identifier, slug string) (*OrgMembership, error) {
 	member := &OrgMembership{}
 	err := d.Get(member, `
 		SELECT org_memberships.*
 		FROM org_memberships
-		INNER JOIN users ON org_memberships.user_id = users.id
+		LEFT JOIN users ON org_memberships.user_id = users.id
 		INNER JOIN orgs ON org_memberships.org_id = orgs.id
-		WHERE users.username = $1 AND orgs.slug = $2
+		WHERE (
+		  (users.username = $1 OR invite_email = $1)
+			AND orgs.slug = $2
+		)
 		ORDER BY org_memberships.id
-	`, username, slug)
+	`, identifier, slug)
 	if err != nil {
 		return nil, err
 	}
@@ -159,14 +164,25 @@ func UpdateMember(d db.QueryReceiver, orgID, userID int64, role string) error {
 	return nil
 }
 
-func RemoveMember(d db.QueryReceiver, orgID, userID int64) error {
-	r, err := d.Exec(`
+func RemoveMember(d db.QueryReceiver, orgID int64, identifier string) error {
+	var r sql.Result
+
+	id, err := strconv.ParseInt(identifier, 10, 64)
+	if err != nil {
+		r, err = d.Exec(`
+		DELETE FROM org_memberships
+		WHERE org_id = $1 AND invite_email = $2
+	`, orgID, identifier)
+	} else {
+		r, err = d.Exec(`
 		DELETE FROM org_memberships
 		WHERE org_id = $1 AND user_id = $2
-	`, orgID, userID)
+	`, orgID, id)
+	}
 	if err != nil {
 		return err
 	}
+
 	n, err := r.RowsAffected()
 	if err != nil {
 		return err

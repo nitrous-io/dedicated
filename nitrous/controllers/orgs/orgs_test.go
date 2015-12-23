@@ -848,7 +848,7 @@ var _ = Describe("controllers/orgs", func() {
 				doRequest(o.Slug, u.Username)
 				Expect(res.Code).To(Equal(http.StatusOK))
 
-				_, err = orgmembership.FindByUsernameAndOrgSlug(db, u.Username, o.Slug)
+				_, err = orgmembership.FindByIdentifierAndOrgSlug(db, u.Username, o.Slug)
 				Expect(err).To(Equal(sql.ErrNoRows))
 
 				j := map[string]interface{}{}
@@ -865,7 +865,7 @@ var _ = Describe("controllers/orgs", func() {
 				doRequest(o.Slug, u.Username)
 				Expect(res.Code).To(Equal(http.StatusOK))
 
-				_, err = orgmembership.FindByUsernameAndOrgSlug(db, u.Username, o.Slug)
+				_, err = orgmembership.FindByIdentifierAndOrgSlug(db, u.Username, o.Slug)
 				Expect(err).To(Equal(sql.ErrNoRows))
 
 				j := map[string]interface{}{}
@@ -882,7 +882,7 @@ var _ = Describe("controllers/orgs", func() {
 				doRequest(o.Slug, u.Username)
 				Expect(res.Code).To(Equal(http.StatusBadRequest))
 
-				_, err = orgmembership.FindByUsernameAndOrgSlug(db, u.Username, o.Slug)
+				_, err = orgmembership.FindByIdentifierAndOrgSlug(db, u.Username, o.Slug)
 				Expect(err).To(BeNil())
 
 				j := map[string]string{}

@@ -307,7 +307,7 @@ func findOrgAndMembership(env *middleware.Env, r *http.Request) (*org.Org, *orgm
 		return nil, nil, err
 	}
 
-	membership, err := orgmembership.FindByUsernameAndOrgSlug(db, env.User.Username, orgSlug)
+	membership, err := orgmembership.FindByIdentifierAndOrgSlug(db, env.User.Username, orgSlug)
 	if err != nil {
 		if err == sql.ErrNoRows {
 			return nil, nil, errNotOrgMember

@@ -4,6 +4,7 @@ import (
 	"database/sql"
 	"fmt"
 	"net/http"
+	"strconv"
 	"strings"
 
 	"github.com/Sirupsen/logrus"
@@ -203,7 +204,7 @@ func Show(env *middleware.Env, w http.ResponseWriter, r *http.Request) error {
 	}
 	o.UsedHosts = count
 
-	mem, err := orgmembership.FindByUsernameAndOrgSlug(db, user.Username, slug)
+	mem, err := orgmembership.FindByIdentifierAndOrgSlug(db, user.Username, slug)
 	if err != nil {
 		if err == sql.ErrNoRows {
 			return errNotFound
@@ -255,7 +256,7 @@ func ShowMembers(env *middleware.Env, w http.ResponseWriter, r *http.Request) er
 		return err
 	}
 
-	mem, err := orgmembership.FindByUsernameAndOrgSlug(db, user.Username, slug)
+	mem, err := orgmembership.FindByIdentifierAndOrgSlug(db, user.Username, slug)
 	if err != nil {
 		if err == sql.ErrNoRows {
 			return errNotFound
@@ -324,7 +325,7 @@ func PutMember(env *middleware.Env, w http.ResponseWriter, r *http.Request) erro
 		return err
 	}
 
-	cuMembership, err := orgmembership.FindByUsernameAndOrgSlug(db, currentUser.Username, slug)
+	cuMembership, err := orgmembership.FindByIdentifierAndOrgSlug(db, currentUser.Username, slug)
 	if err != nil {
 		if err == sql.ErrNoRows {
 			return errNoPermission
@@ -341,7 +342,7 @@ func PutMember(env *middleware.Env, w http.ResponseWriter, r *http.Request) erro
 		return errNoPermission
 	}
 
-	m, err := orgmembership.FindByUsernameAndOrgSlug(db, u.Username, o.Slug)
+	m, err := orgmembership.FindByIdentifierAndOrgSlug(db, u.Username, o.Slug)
 	if err != nil {
 		if err != sql.ErrNoRows {
 			return err
@@ -407,9 +408,14 @@ func RemoveMember(env *middleware.Env, w http.ResponseWriter, r *http.Request) e
 	db := env.DB
 	currentUser := env.User
 	slug := mux.Vars(r)["slug"]
-	username := mux.Vars(r)["username"]
+	identifier := mux.Vars(r)["identifier"]
+	byInviteEmail := false
 
-	if slug == "" || username == "" {
+	if strings.Contains(identifier, "@") {
+		byInviteEmail = true
+	}
+
+	if slug == "" || identifier == "" {
 		return errNotFound
 	}
 
@@ -421,14 +427,17 @@ func RemoveMember(env *middleware.Env, w http.ResponseWriter, r *http.Request) e
 		return err
 	}
 
-	u, err := user.FindByUsername(db, username)
-	if err != nil {
-		if err == sql.ErrNoRows {
-			return errNotFound
+	var u *user.User
+	if !byInviteEmail {
+		u, err = user.FindByUsername(db, identifier)
+		if err != nil {
+			if err == sql.ErrNoRows {
+				return errNotFound
+			}
 		}
 	}
 
-	cuMembership, err := orgmembership.FindByUsernameAndOrgSlug(db, currentUser.Username, slug)
+	cuMembership, err := orgmembership.FindByIdentifierAndOrgSlug(db, currentUser.Username, slug)
 	if err != nil {
 		if err == sql.ErrNoRows {
 			return errNoPermission
@@ -440,7 +449,7 @@ func RemoveMember(env *middleware.Env, w http.ResponseWriter, r *http.Request) e
 		return httperror.New(http.StatusBadRequest, "invalid_role", fmt.Sprintf("%s is not a valid role", cuMembership.Role))
 	}
 
-	m, err := orgmembership.FindByUsernameAndOrgSlug(db, username, o.Slug)
+	m, err := orgmembership.FindByIdentifierAndOrgSlug(db, identifier, o.Slug)
 	if err != nil {
 		if err == sql.ErrNoRows {
 			return errNotFound
@@ -450,7 +459,7 @@ func RemoveMember(env *middleware.Env, w http.ResponseWriter, r *http.Request) e
 
 	canRemove := true
 	isSelf := false
-	if cuMembership.UserID.Valid {
+	if cuMembership.UserID.Valid && u != nil {
 		isSelf = cuMembership.UserID.Int64 == u.ID
 	}
 	if isSelf {
@@ -466,7 +475,11 @@ func RemoveMember(env *middleware.Env, w http.ResponseWriter, r *http.Request) e
 		return errNoPermission
 	}
 
-	err = orgmembership.RemoveMember(db, o.ID, u.ID)
+	if u != nil {
+		err = orgmembership.RemoveMember(db, o.ID, strconv.FormatInt(u.ID, 10))
+	} else {
+		err = orgmembership.RemoveMember(db, o.ID, identifier)
+	}
 	if err != nil {
 		if err == sql.ErrNoRows {
 			return errNotFound

@@ -267,7 +267,7 @@ func (s *Server) drawRoutes() {
 				"/logout":                                  r("oauth.Logout", oauth.Logout),
 				"/user":                                    r("users.Delete", users.Delete, EventUserDeleted),
 				"/admin/users/{id}/ban":                    r("admin.BanUser", admin.BanUser),
-				"/orgs/{slug}/members/{username}":          r("orgs.RemoveMember", orgs.RemoveMember, EventOrgMemberRemoved),
+				"/orgs/{slug}/members/{identifier}":        r("orgs.RemoveMember", orgs.RemoveMember, EventOrgMemberRemoved),
 				"/orgs/{org_slug}/snapshots/{snapshot_id}": r("snapshots.Delete", snapshots.Delete),
 				"/containers/{slug}/container_keys/github": r("containerkeys.RemoveFromGitHub", containerkeys.RemoveFromGitHub, EventContainerGitHubKeyRemoved),
 			},
