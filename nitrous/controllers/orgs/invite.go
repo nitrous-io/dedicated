@@ -6,6 +6,7 @@ import (
 	"html"
 	"net/url"
 
+	"github.com/jmoiron/sqlx"
 	"github.com/nitrous-io/dedicated/nitrous/db"
 	"github.com/nitrous-io/dedicated/nitrous/envvars"
 	"github.com/nitrous-io/dedicated/nitrous/models/org"
@@ -14,11 +15,18 @@ import (
 )
 
 func inviteUser(d *db.Database, o *org.Org, email string, owner *user.User) error {
-	token, err := orgmembership.AddPendingMember(d, o.ID, email, "member")
-	if err != nil {
-		return err
-	}
+	return d.WithTransaction(func(tx *sqlx.Tx) error {
+		// Don't add member if not notified by email
+		token, err := orgmembership.AddPendingMember(tx, o.ID, email, "member")
+		if err != nil {
+			return err
+		}
 
+		return sendEmail(o, email, owner, token)
+	})
+}
+
+func sendEmail(o *org.Org, email string, owner *user.User, token string) error {
 	host := envvars.WebHostname
 	if host == "" {
 		host = "www.nitrous.io"
@@ -63,4 +71,5 @@ func inviteUser(d *db.Database, o *org.Org, email string, owner *user.User) erro
 
 	from := envvars.SupportEmail
 	return Mailer.SendMail(from, []string{email}, []string{from}, nil, from, tmplData.Subject, txtBuf.String(), htmlBuf.String())
+
 }
