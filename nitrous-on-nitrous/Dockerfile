@@ -7,7 +7,7 @@ RUN \
   apt-get install -y \
     postgresql=9.3+154 \
     postgresql-contrib=9.3+154 \
-    libpq-dev=9.3.6-0ubuntu0.14.04 && \
+    libpq-dev=9.3.10-0ubuntu0.14.04 && \
   apt-get clean
 
 COPY support/pg_hba.conf /etc/postgresql/9.3/main/pg_hba.conf
@@ -27,7 +27,6 @@ RUN \
   /bin/bash -l -c \
     'go get github.com/onsi/ginkgo/ginkgo && \
     go get github.com/onsi/gomega && \
-    go get github.com/nitrous-io/goop && \
     go get github.com/ddollar/forego'
 
 USER root
@@ -109,4 +108,5 @@ USER $NITROUS_USERNAME
 RUN ln -s /home/$NITROUS_USERNAME/code /home/$NITROUS_USERNAME/workspace
 USER root
 
-ENV NITROUS_README_URL https://codepen.io/raingrove/full/WbyvaZ/
+# this is no longer available
+# ENV NITROUS_README_URL https://codepen.io/raingrove/full/WbyvaZ/
