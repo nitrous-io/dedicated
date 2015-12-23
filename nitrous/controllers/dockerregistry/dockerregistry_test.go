@@ -162,21 +162,12 @@ var _ = Describe("controllers/dockerregistry", func() {
 	})
 
 	Context("push event", func() {
-		It("updates a snapshot's size", func() {
-			// Size is initially 0.
-			Expect(snap1.Size.Int64).To(Equal(int64(0)))
-
+		It("responds with HTTP 200 OK and does nothing", func() {
 			res := doRequest(envvars.DockerRegistryWebhookToken, pushEventPayload)
 			Expect(res.Code).To(Equal(http.StatusOK))
-
-			s, err := snapshot.FindByID(db, snap1.ID)
-			Expect(err).To(BeNil())
-
-			Expect(s.Slug).To(Equal(snap1.Slug))
-			Expect(s.Size.Int64).To(Equal(int64(1234)))
 		})
 
-		It("responds with HTTTP 404 Not Found when snapshot does not exist", func() {
+		It("responds with HTTP 200 OK when snapshot does not exist", func() {
 			res := doRequest(envvars.DockerRegistryWebhookToken, `{
 				"events": [
 					{
@@ -208,7 +199,7 @@ var _ = Describe("controllers/dockerregistry", func() {
 					}
 				]
 			}`)
-			Expect(res.Code).To(Equal(http.StatusNotFound))
+			Expect(res.Code).To(Equal(http.StatusOK))
 		})
 	})
 
@@ -218,7 +209,7 @@ var _ = Describe("controllers/dockerregistry", func() {
 			Expect(res.Code).To(Equal(http.StatusOK))
 		})
 
-		It("responds with HTTTP 200 OK when snapshot does not exist", func() {
+		It("responds with HTTP 200 OK when snapshot does not exist", func() {
 			res := doRequest(envvars.DockerRegistryWebhookToken, `{
 				"events": [
 					{
@@ -256,9 +247,6 @@ var _ = Describe("controllers/dockerregistry", func() {
 
 	Context("combination of multiple events", func() {
 		It("processes all the events", func() {
-			// Size is initially 0.
-			Expect(snap1.Size.Int64).To(Equal(int64(0)))
-
 			res := doRequest(envvars.DockerRegistryWebhookToken, `{
 				"events": [
 					{
@@ -318,12 +306,6 @@ var _ = Describe("controllers/dockerregistry", func() {
 				]
 			}`)
 			Expect(res.Code).To(Equal(http.StatusOK))
-
-			s1, err := snapshot.FindByID(db, snap1.ID)
-			Expect(err).To(BeNil())
-
-			Expect(s1.Slug).To(Equal(snap1.Slug))
-			Expect(s1.Size.Int64).To(Equal(int64(1234)))
 		})
 	})
 

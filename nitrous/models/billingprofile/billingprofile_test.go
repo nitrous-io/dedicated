@@ -381,6 +381,7 @@ var _ = Describe("models/billingprofile", func() {
 			bp, err = u.BillingProfile(db)
 			Expect(err).To(BeNil())
 		})
+
 		It("should return an error if the card is banned", func() {
 			u2 := &user.User{
 				Username: "bad",
@@ -423,6 +424,22 @@ var _ = Describe("models/billingprofile", func() {
 			Expect(bp.StripeFingerprint.String).To(Equal("H0SJieNrXmTdq3qs"))
 			Expect(bp.State).To(Equal(billingprofile.StatePaid))
 			Expect(bp.PendingActivation).To(BeFalse())
+		})
+
+		It("does not set the state to paid if the transition does not make sense", func() {
+			strCard := &stripe.Card{
+				Fingerprint: "H0SJieNrXmTdq3qs",
+				LastFour:    "1901",
+				Brand:       "AMEX",
+				Month:       8,
+				Year:        2019,
+			}
+			for _, s := range []string{billingprofile.StateExempt,
+				billingprofile.StateDelinquent, billingprofile.StatePaymentDue} {
+				bp.State = s
+				Expect(bp.SetCard(db, strCard)).To(BeNil())
+				Expect(bp.State).To(Equal(s))
+			}
 		})
 	})
 

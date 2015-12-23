@@ -191,9 +191,6 @@ func (b *BillingProfile) UpdateCard(d *db.Database, token string) error {
 	if err := b.SetCard(d, crd); err != nil {
 		return err
 	}
-	if b.State == StateNoCard || b.State == StateFree {
-		b.State = StatePaid
-	}
 
 	tx, err := d.Beginx()
 	if err != nil {
@@ -227,7 +224,11 @@ func (b *BillingProfile) SetCard(d *db.Database, crd *stripe.Card) error {
 	b.ExpYear = sql.NullInt64{int64(crd.Year), true}
 	b.StripeFingerprint = sql.NullString{crd.Fingerprint, true}
 	b.PendingActivation = false
-	b.State = StatePaid
+	if b.State == StateNoCard || b.State == StateFree {
+		// delinquent, exempt, and payment_due states should all not become
+		// 'paid' if the card is changed
+		b.State = StatePaid
+	}
 
 	return nil
 }
