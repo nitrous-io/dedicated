@@ -167,18 +167,32 @@ func AddPendingMember(d db.QueryReceiver, orgID int64, email, role string) (*Org
 	return om, err
 }
 
-func UpdateMember(d db.QueryReceiver, orgID, userID int64, role string) error {
+func UpdateMember(d db.QueryReceiver, orgID int64, identifier, role string) error {
 	if _, ok := ValidRoles[role]; !ok {
 		return InvalidRoleError{Role: role}
 	}
-	r, err := d.Exec(`
+
+	var r sql.Result
+
+	id, err := strconv.ParseInt(identifier, 10, 64)
+	if err != nil {
+		r, err = d.Exec(`
 		UPDATE org_memberships
 		SET role = $1, updated_at = now()
-		WHERE org_id = $2 AND user_id = $3
-	`, role, orgID, userID)
+		WHERE org_id = $2 AND invite_email = $3;
+	`, role, orgID, identifier)
+	} else {
+		r, err = d.Exec(`
+		UPDATE org_memberships
+		SET role = $1, updated_at = now()
+		WHERE org_id = $2 AND user_id = $3;
+	`, role, orgID, id)
+
+	}
 	if err != nil {
 		return err
 	}
+
 	n, err := r.RowsAffected()
 	if err != nil {
 		return err

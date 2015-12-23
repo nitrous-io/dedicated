@@ -288,16 +288,16 @@ func PutMember(env *middleware.Env, w http.ResponseWriter, r *http.Request) erro
 	db := env.DB
 	currentUser := env.User
 	slug := strings.ToLower(mux.Vars(r)["slug"])
-	username := strings.ToLower(mux.Vars(r)["username"])
-	if username == "" {
-		username = strings.ToLower(r.FormValue("username"))
+	identifier := strings.ToLower(mux.Vars(r)["identifier"])
+	if identifier == "" {
+		identifier = strings.ToLower(r.FormValue("username"))
 	}
 
-	if slug == "" || username == "" {
+	if slug == "" || identifier == "" {
 		return errNotFound
 	}
 
-	if currentUser.Username == username || currentUser.Email == username {
+	if currentUser.Username == identifier || currentUser.Email == identifier {
 		return httperror.New(http.StatusBadRequest, "invalid_action", "you cannot edit yourself")
 	}
 
@@ -318,10 +318,10 @@ func PutMember(env *middleware.Env, w http.ResponseWriter, r *http.Request) erro
 		return err
 	}
 
-	u, err := user.FindByUsernameOrEmail(db, username)
+	u, err := user.FindByUsernameOrEmail(db, identifier)
 	if err != nil {
 		if err == sql.ErrNoRows {
-			return handleNoUser(o, env, username)
+			return handleNoUser(o, env, identifier, role)
 		}
 		return err
 	}
@@ -357,7 +357,7 @@ func PutMember(env *middleware.Env, w http.ResponseWriter, r *http.Request) erro
 			return errNoPermission
 		}
 
-		if err := orgmembership.UpdateMember(db, o.ID, u.ID, role); err != nil {
+		if err := orgmembership.UpdateMember(db, o.ID, strconv.FormatInt(u.ID, 10), role); err != nil {
 			if err == sql.ErrNoRows {
 				return errNotFound
 			}
@@ -380,14 +380,19 @@ func PutMember(env *middleware.Env, w http.ResponseWriter, r *http.Request) erro
 	return nil
 }
 
-func handleNoUser(o *org.Org, env *middleware.Env, email string) error {
+func handleNoUser(o *org.Org, env *middleware.Env, email, role string) error {
 	if !strings.Contains(email, "@") || blacklist.Check(email) {
 		return errUserNotFound
 	}
 
-	if err := inviteUser(env.DB, o, email, env.User); err != nil {
-		if err.(*pq.Error).Code.Name() == "unique_violation" {
-			return errDuplicateMember
+	if err := orgmembership.UpdateMember(env.DB, o.ID, email, role); err != nil {
+		if err == sql.ErrNoRows {
+			if err := inviteUser(env.DB, o, email, env.User); err != nil {
+				if err.(*pq.Error).Code.Name() == "unique_violation" {
+					return errDuplicateMember
+				}
+				return err
+			}
 		}
 		return err
 	}

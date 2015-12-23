@@ -463,14 +463,14 @@ var _ = Describe("models/orgmembership", func() {
 	Describe("UpdateMember()", func() {
 		Context("when an invalid role is given", func() {
 			It("returns error", func() {
-				err := orgmembership.UpdateMember(db, o.ID, u.ID, "destroyer")
+				err := orgmembership.UpdateMember(db, o.ID, strconv.FormatInt(u.ID, 10), "destroyer")
 				Expect(err).To(MatchError("invalid role: destroyer"))
 			})
 		})
 
 		Context("when a non-existent org id is given", func() {
 			It("returns error", func() {
-				err := orgmembership.UpdateMember(db, o.ID+9000, u.ID, "member")
+				err := orgmembership.UpdateMember(db, o.ID+9000, strconv.FormatInt(u.ID, 10), "member")
 				Expect(err).NotTo(BeNil())
 				Expect(err).To(MatchError(sql.ErrNoRows))
 			})
@@ -478,7 +478,7 @@ var _ = Describe("models/orgmembership", func() {
 
 		Context("when a non-existent user id is given", func() {
 			It("returns error", func() {
-				err := orgmembership.UpdateMember(db, o.ID, u.ID+9000, "member")
+				err := orgmembership.UpdateMember(db, o.ID, strconv.FormatInt(u.ID+9000, 10), "member")
 				Expect(err).NotTo(BeNil())
 				Expect(err).To(MatchError(sql.ErrNoRows))
 			})
@@ -487,11 +487,11 @@ var _ = Describe("models/orgmembership", func() {
 		Context("when a user with a given id exists", func() {
 			Context("when user is not already a member", func() {
 				It("returns error", func() {
-					err := orgmembership.UpdateMember(db, o.ID, u.ID, "admin")
+					err := orgmembership.UpdateMember(db, o.ID, strconv.FormatInt(u.ID, 10), "admin")
 					Expect(err).NotTo(BeNil())
-					err = orgmembership.UpdateMember(db, o2.ID, u2.ID, "member")
+					err = orgmembership.UpdateMember(db, o2.ID, strconv.ForamtInt(u2.ID, 10), "member")
 					Expect(err).NotTo(BeNil())
-					err = orgmembership.UpdateMember(db, o.ID, u3.ID, "owner")
+					err = orgmembership.UpdateMember(db, o.ID, strconv.FormatInt(u3.ID, 10), "owner")
 					Expect(err).NotTo(BeNil())
 				})
 			})
@@ -504,11 +504,11 @@ var _ = Describe("models/orgmembership", func() {
 				err = orgmembership.AddMember(db, o.ID, u3.ID, "member")
 				Expect(err).To(BeNil())
 
-				err = orgmembership.UpdateMember(db, o.ID, u.ID, "admin")
+				err = orgmembership.UpdateMember(db, o.ID, strconv.FormatInt(u.ID, 10), "admin")
 				Expect(err).To(BeNil())
-				err = orgmembership.UpdateMember(db, o2.ID, u2.ID, "member")
+				err = orgmembership.UpdateMember(db, o2.ID, strconv.FormatInt(u2.ID, 10), "member")
 				Expect(err).To(BeNil())
-				err = orgmembership.UpdateMember(db, o.ID, u3.ID, "owner")
+				err = orgmembership.UpdateMember(db, o.ID, strconv.FormatInt(u3.ID, 10), "owner")
 				Expect(err).To(BeNil())
 
 				m, err := orgmembership.FindAllByOrgID(db, o.ID)
@@ -538,7 +538,7 @@ var _ = Describe("models/orgmembership", func() {
 				err := orgmembership.AddMember(db, o.ID, u.ID, "owner")
 				Expect(err).To(BeNil())
 				db.Close()
-				err = orgmembership.UpdateMember(db, o.ID, u.ID, "owner")
+				err = orgmembership.UpdateMember(db, o.ID, strconv.FormatInt(u.ID, 10), "owner")
 				Expect(err).NotTo(BeNil())
 			})
 		})
