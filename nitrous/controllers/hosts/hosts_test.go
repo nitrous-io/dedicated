@@ -2373,35 +2373,32 @@ var _ = Describe("controllers/hosts", func() {
 					Expect(h.State).To(Equal(host.StateRunning))
 				})
 
-				It("does not publish container stopped events", func() {
+				It("does not publish container stopped events for stopping containers", func() {
 					ch := svr.Events.Subscribe(u.Topic())
 					defer svr.Events.Unsubscribe(ch, u.Topic())
 
 					doRequest(hs.H.Slug, t.Token, params)
 					Expect(res.Code).To(Equal(http.StatusOK))
 
-					stopEvents := []*controllers.Event{}
-					finished := make(chan struct{})
+					evtCh := make(chan *controllers.Event)
 					go func() {
 						for msg := range ch {
 							if e := msg.(*controllers.Event); e.Name == controllers.EventContainerStopped {
-								stopEvents = append(stopEvents, e)
+								evtCh <- e
 							}
 						}
 					}()
 
-					go func() {
-						time.After(50 * time.Millisecond)
-						close(finished)
-					}()
-
-					var slugs []string
 					select {
-					case <-finished:
-						slugs = append(slugs, checkStoppedEvent(stopEvents[0]))
+					case <-time.After(50 * time.Millisecond):
+						Fail("timed out waiting for container stopped event")
+					case evt := <-evtCh:
+						var slugs []string
+						slugs = append(slugs, checkStoppedEvent(evt))
+						Expect(slugs[0]).To(Equal(c2.Slug)) // python-box
 					}
-					Expect(stopEvents).To(HaveLen(1))
-					Expect(slugs[0]).To(Equal(c2.Slug)) // python-box
+
+					Consistently(evtCh).ShouldNot(Receive())
 				})
 			})
 		})
@@ -2482,24 +2479,25 @@ var _ = Describe("controllers/hosts", func() {
 							if e := msg.(*controllers.Event); e.Name == controllers.EventContainerStopped {
 								stopEvents = append(stopEvents, e)
 							}
+							if len(stopEvents) == 2 {
+								close(finished)
+								break
+							}
 						}
-					}()
-
-					go func() {
-						time.After(50 * time.Millisecond)
-						close(finished)
 					}()
 
 					var slugs []string
 					select {
+					case <-time.After(50 * time.Millisecond):
+						Fail("Timed out waiting for container stopped events")
 					case <-finished:
 						Expect(stopEvents).To(HaveLen(2))
 						slugs = append(slugs, checkStoppedEvent(stopEvents[0]))
 						slugs = append(slugs, checkStoppedEvent(stopEvents[1]))
+						sort.Strings(slugs)
+						Expect(slugs[0]).To(Equal(c2.Slug))
+						Expect(slugs[1]).To(Equal(c1.Slug))
 					}
-					sort.Strings(slugs)
-					Expect(slugs[0]).To(Equal(c2.Slug))
-					Expect(slugs[1]).To(Equal(c1.Slug))
 				})
 			})
 		})
