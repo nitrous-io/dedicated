@@ -29,7 +29,7 @@ var (
 	errNotFound          = httperror.New(http.StatusNotFound, "not_found", "requested resource could not be found")
 	errUserNotFound      = httperror.New(http.StatusNotFound, "user_not_found", "the specified user could not be found")
 	errNoPermission      = httperror.New(http.StatusForbidden, "permission_denied", "you do not have permission to edit members")
-	errDuplicateMember   = httperror.New(http.StatusBadRequest, "invalid_action", "you have already added this member")
+	errEditSelfForbidden = httperror.New(http.StatusBadRequest, "invalid_action", "you cannot edit yourself")
 	errCannotRemoveSelf  = httperror.New(http.StatusBadRequest, "invalid_action", "you cannot remove yourself from this organization")
 	errNotEduWhitelisted = httperror.New(http.StatusForbidden, "not_edu_whitelisted", "Please contact Nitrous to enable education support")
 
@@ -100,7 +100,7 @@ func Create(env *middleware.Env, w http.ResponseWriter, r *http.Request) error {
 			return err
 		}
 
-		if err := orgmembership.AddMember(tx, o.ID, user.ID, orgmembership.RoleOwner); err != nil {
+		if _, err := orgmembership.AddMember(tx, o.ID, strconv.FormatInt(user.ID, 10), orgmembership.RoleOwner); err != nil {
 			return err
 		}
 
@@ -297,8 +297,8 @@ func PutMember(env *middleware.Env, w http.ResponseWriter, r *http.Request) erro
 		return errNotFound
 	}
 
-	if currentUser.Username == identifier || currentUser.Email == identifier {
-		return httperror.New(http.StatusBadRequest, "invalid_action", "you cannot edit yourself")
+	if env.User.Username == identifier || env.User.Email == identifier {
+		return errEditSelfForbidden
 	}
 
 	role := strings.ToLower(r.FormValue("role"))
@@ -310,7 +310,7 @@ func PutMember(env *middleware.Env, w http.ResponseWriter, r *http.Request) erro
 		return httperror.New(http.StatusBadRequest, "invalid_role", fmt.Sprintf("%s is not a valid role", role))
 	}
 
-	o, err := org.FindBySlug(db, slug)
+	o, err := org.FindBySlug(env.DB, slug)
 	if err != nil {
 		if err == sql.ErrNoRows {
 			return errNotFound
@@ -321,43 +321,79 @@ func PutMember(env *middleware.Env, w http.ResponseWriter, r *http.Request) erro
 	u, err := user.FindByUsernameOrEmail(db, identifier)
 	if err != nil {
 		if err == sql.ErrNoRows {
-			return handleNoUser(o, env, identifier, role)
+			// We will send an invite email if the email provided does not exist in the user database.
+			if !strings.Contains(identifier, "@") || blacklist.Check(identifier) {
+				return errUserNotFound
+			}
+		} else {
+			return err
 		}
-		return err
 	}
 
-	cuMembership, err := orgmembership.FindByIdentifierAndOrgSlug(db, currentUser.Username, slug)
+	permissibleRoles, err := getPermissibleRoles(env, strconv.FormatInt(currentUser.ID, 10), o.Slug)
 	if err != nil {
-		if err == sql.ErrNoRows {
-			return errNoPermission
-		}
 		return err
 	}
 
-	permissableRoles, ok := orgmembership.ValidRoles[cuMembership.Role]
-	if !ok {
-		return httperror.New(http.StatusBadRequest, "invalid_role", fmt.Sprintf("%s is not a valid role", cuMembership.Role))
-	}
-
-	if !containsString(permissableRoles, role) {
+	if !containsString(permissibleRoles, role) {
 		return errNoPermission
 	}
 
-	m, err := orgmembership.FindByIdentifierAndOrgSlug(db, u.Username, o.Slug)
+	if u != nil {
+		identifier = strconv.FormatInt(u.ID, 10)
+	}
+
+	if err := handleUpdateOrAddMember(env, o, permissibleRoles, identifier, role); err != nil {
+		return err
+	}
+
+	return serializeOrgMembersData(env, o)
+}
+
+func getPermissibleRoles(env *middleware.Env, identifier, orgSlug string) ([]string, error) {
+	cuMembership, err := orgmembership.FindByIdentifierAndOrgSlug(env.DB, identifier, orgSlug)
+	if err != nil {
+		if err == sql.ErrNoRows {
+			return nil, errNoPermission
+		}
+		return nil, err
+	}
+
+	permissibleRoles, ok := orgmembership.ValidRoles[cuMembership.Role]
+	if !ok {
+		return nil, httperror.New(http.StatusBadRequest, "invalid_role", fmt.Sprintf("%s is not a valid role", cuMembership.Role))
+	}
+
+	return permissibleRoles, nil
+}
+
+func handleUpdateOrAddMember(env *middleware.Env, o *org.Org, permissibleRoles []string, identifier, role string) error {
+	m, err := orgmembership.FindByIdentifierAndOrgSlug(env.DB, identifier, o.Slug)
 	if err != nil {
 		if err != sql.ErrNoRows {
 			return err
 		}
-		if err = orgmembership.AddMember(db, o.ID, u.ID, role); err != nil {
+		err := env.DB.WithTransaction(func(tx *sqlx.Tx) error {
+			om, err := orgmembership.AddMember(env.DB, o.ID, identifier, role)
+			if err != nil {
+				return err
+			}
+			if om.InviteEmail.Valid && om.InviteCode.Valid {
+				if err := inviteUser(env.DB, o, om.InviteCode.String, identifier, env.User); err != nil {
+					return err
+				}
+			}
+			return nil
+		})
+		if err != nil {
 			return err
 		}
 		env.Status = http.StatusCreated
 	} else {
-		if !containsString(permissableRoles, m.Role) {
+		if !containsString(permissibleRoles, m.Role) {
 			return errNoPermission
 		}
-
-		if err := orgmembership.UpdateMember(db, o.ID, strconv.FormatInt(u.ID, 10), role); err != nil {
+		if err := orgmembership.UpdateMember(env.DB, o.ID, identifier, role); err != nil {
 			if err == sql.ErrNoRows {
 				return errNotFound
 			}
@@ -365,40 +401,10 @@ func PutMember(env *middleware.Env, w http.ResponseWriter, r *http.Request) erro
 		}
 		env.Status = http.StatusOK
 	}
-
-	members, err := orgmembership.FindAllByOrgID(db, o.ID)
-	if err != nil {
-		if err != sql.ErrNoRows {
-			return err
-		}
-		members = []*orgmembership.OrgMember{}
-	}
-
-	env.Data = map[string]interface{}{
-		"members": serializers.SerializeOrgMembers(members),
-	}
 	return nil
 }
 
-func handleNoUser(o *org.Org, env *middleware.Env, email, role string) error {
-	if !strings.Contains(email, "@") || blacklist.Check(email) {
-		return errUserNotFound
-	}
-
-	if err := orgmembership.UpdateMember(env.DB, o.ID, email, role); err != nil {
-		if err == sql.ErrNoRows {
-			if err := inviteUser(env.DB, o, email, env.User); err != nil {
-				if err.(*pq.Error).Code.Name() == "unique_violation" {
-					return errDuplicateMember
-				}
-				return err
-			}
-		}
-		return err
-	}
-
-	env.Status = http.StatusCreated
-
+func serializeOrgMembersData(env *middleware.Env, o *org.Org) error {
 	members, err := orgmembership.FindAllByOrgID(env.DB, o.ID)
 	if err != nil {
 		if err != sql.ErrNoRows {
@@ -406,7 +412,6 @@ func handleNoUser(o *org.Org, env *middleware.Env, email, role string) error {
 		}
 		members = []*orgmembership.OrgMember{}
 	}
-
 	env.Data = map[string]interface{}{
 		"members": serializers.SerializeOrgMembers(members),
 	}

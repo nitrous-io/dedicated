@@ -759,7 +759,7 @@ var _ = Describe("CreateAtomic", func() {
 			})
 
 			It("responds with HTTP 403 Forbidden when user is a limited member of the snapshot's org", func() {
-				err := orgmembership.AddMember(db, o1.ID, u.ID, orgmembership.RoleLimited)
+				_, err := orgmembership.AddMember(db, o1.ID, strconv.FormatInt(u.ID, 10), orgmembership.RoleLimited)
 				Expect(err).To(BeNil())
 
 				params := &url.Values{}
@@ -777,7 +777,7 @@ var _ = Describe("CreateAtomic", func() {
 
 			Context("when user is a member of the snapshot's org", func() {
 				BeforeEach(func() {
-					err := orgmembership.AddMember(db, o1.ID, u.ID, orgmembership.RoleMember)
+					_, err := orgmembership.AddMember(db, o1.ID, strconv.FormatInt(u.ID, 10), orgmembership.RoleMember)
 					Expect(err).To(BeNil())
 				})
 

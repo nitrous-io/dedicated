@@ -673,7 +673,8 @@ var _ = Describe("models/billingprofile", func() {
 			err := test.WrapInTransaction(db, u2.Insert)
 			Expect(err).To(BeNil())
 
-			Expect(orgmembership.AddMember(db, o.ID, u2.ID, orgmembership.RoleAdmin)).To(BeNil())
+			err = orgmembership.AddMember(db, o.ID, strconv.FormatInt(u2.ID, 10), orgmembership.RoleAdmin)
+			Expect(err).To(BeNil())
 
 			orgs, err := billingprofile.FindForOrgs(db, []int64{o.ID}, u2.ID)
 			Expect(err).To(BeNil())
@@ -690,7 +691,8 @@ var _ = Describe("models/billingprofile", func() {
 			err := test.WrapInTransaction(db, u2.Insert)
 			Expect(err).To(BeNil())
 
-			Expect(orgmembership.AddMember(db, o.ID, u2.ID, orgmembership.RoleOwner)).To(BeNil())
+			err = orgmembership.AddMember(db, o.ID, strconv.FormatInt(u2.ID, 10), orgmembership.RoleOwner)
+			Expect(err).To(BeNil())
 
 			orgs, err := billingprofile.FindForOrgs(db, []int64{o.ID}, u2.ID)
 			Expect(err).To(BeNil())
@@ -707,7 +709,8 @@ var _ = Describe("models/billingprofile", func() {
 			err := test.WrapInTransaction(db, u2.Insert)
 			Expect(err).To(BeNil())
 
-			Expect(orgmembership.AddMember(db, o.ID, u2.ID, orgmembership.RoleMember)).To(BeNil())
+			err = orgmembership.AddMember(db, o.ID, strconv.FormatInt(u2.ID, 10), orgmembership.RoleMember)
+			Expect(err).To(BeNil())
 
 			orgs, err := billingprofile.FindForOrgs(db, []int64{o.ID}, u2.ID)
 			Expect(err).To(BeNil())

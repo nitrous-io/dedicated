@@ -211,44 +211,88 @@ var _ = Describe("models/orgmembership", func() {
 				Expect(err).To(BeNil())
 			})
 
-			It("returns an org membership", func() {
-				m, err := orgmembership.FindByIdentifierAndOrgSlug(db, u.Username, o.Slug)
-				Expect(err).To(BeNil())
-				Expect(m.OrgID).To(Equal(o.ID))
-				Expect(m.UserID.Int64).To(Equal(u.ID))
-				Expect(m.Role).To(Equal("owner"))
+			Context("when username is provided", func() {
+				It("returns an org membership", func() {
+					m, err := orgmembership.FindByIdentifierAndOrgSlug(db, u.Username, o.Slug)
+					Expect(err).To(BeNil())
+					Expect(m.OrgID).To(Equal(o.ID))
+					Expect(m.UserID.Int64).To(Equal(u.ID))
+					Expect(m.Role).To(Equal("owner"))
 
-				m, err = orgmembership.FindByIdentifierAndOrgSlug(db, u2.Username, o2.Slug)
-				Expect(err).To(BeNil())
-				Expect(m.OrgID).To(Equal(o2.ID))
-				Expect(m.UserID.Int64).To(Equal(u2.ID))
-				Expect(m.Role).To(Equal("admin"))
+					m, err = orgmembership.FindByIdentifierAndOrgSlug(db, u2.Username, o2.Slug)
+					Expect(err).To(BeNil())
+					Expect(m.OrgID).To(Equal(o2.ID))
+					Expect(m.UserID.Int64).To(Equal(u2.ID))
+					Expect(m.Role).To(Equal("admin"))
 
-				m, err = orgmembership.FindByIdentifierAndOrgSlug(db, u3.Username, o.Slug)
-				Expect(err).To(BeNil())
-				Expect(m.OrgID).To(Equal(o.ID))
-				Expect(m.UserID.Int64).To(Equal(u3.ID))
-				Expect(m.Role).To(Equal("member"))
-			})
+					m, err = orgmembership.FindByIdentifierAndOrgSlug(db, u3.Username, o.Slug)
+					Expect(err).To(BeNil())
+					Expect(m.OrgID).To(Equal(o.ID))
+					Expect(m.UserID.Int64).To(Equal(u3.ID))
+					Expect(m.Role).To(Equal("member"))
+				})
 
-			Context("when there is no match", func() {
-				It("returns error", func() {
-					_, err := orgmembership.FindByIdentifierAndOrgSlug(db, u.Username, o2.Slug)
-					Expect(err).To(MatchError(sql.ErrNoRows))
-					_, err = orgmembership.FindByIdentifierAndOrgSlug(db, u2.Username, o.Slug)
-					Expect(err).To(MatchError(sql.ErrNoRows))
-					_, err = orgmembership.FindByIdentifierAndOrgSlug(db, u3.Username, o2.Slug)
-					Expect(err).To(MatchError(sql.ErrNoRows))
+				Context("when there is no match", func() {
+					It("returns error", func() {
+						_, err := orgmembership.FindByIdentifierAndOrgSlug(db, u.Username, o2.Slug)
+						Expect(err).To(MatchError(sql.ErrNoRows))
+						_, err = orgmembership.FindByIdentifierAndOrgSlug(db, u2.Username, o.Slug)
+						Expect(err).To(MatchError(sql.ErrNoRows))
+						_, err = orgmembership.FindByIdentifierAndOrgSlug(db, u3.Username, o2.Slug)
+						Expect(err).To(MatchError(sql.ErrNoRows))
+					})
+				})
+
+				Context("when some other error occurs", func() {
+					It("returns error", func() {
+						db.Close()
+						_, err := orgmembership.FindByIdentifierAndOrgSlug(db, u.Username, o.Slug)
+						Expect(err).NotTo(BeNil())
+					})
 				})
 			})
 
-			Context("when some other error occurs", func() {
-				It("returns error", func() {
-					db.Close()
-					_, err := orgmembership.FindByIdentifierAndOrgSlug(db, u.Username, o.Slug)
-					Expect(err).NotTo(BeNil())
+			Context("when userid is provided", func() {
+				It("returns an org membership", func() {
+					m, err := orgmembership.FindByIdentifierAndOrgSlug(db, strconv.FormatInt(u.ID, 10), o.Slug)
+					Expect(err).To(BeNil())
+					Expect(m.OrgID).To(Equal(o.ID))
+					Expect(m.UserID.Int64).To(Equal(u.ID))
+					Expect(m.Role).To(Equal("owner"))
+
+					m, err = orgmembership.FindByIdentifierAndOrgSlug(db, strconv.FormatInt(u2.ID, 10), o2.Slug)
+					Expect(err).To(BeNil())
+					Expect(m.OrgID).To(Equal(o2.ID))
+					Expect(m.UserID.Int64).To(Equal(u2.ID))
+					Expect(m.Role).To(Equal("admin"))
+
+					m, err = orgmembership.FindByIdentifierAndOrgSlug(db, strconv.FormatInt(u3.ID, 10), o.Slug)
+					Expect(err).To(BeNil())
+					Expect(m.OrgID).To(Equal(o.ID))
+					Expect(m.UserID.Int64).To(Equal(u3.ID))
+					Expect(m.Role).To(Equal("member"))
+				})
+
+				Context("when there is no match", func() {
+					It("returns error", func() {
+						_, err := orgmembership.FindByIdentifierAndOrgSlug(db, strconv.FormatInt(u.ID, 10), o2.Slug)
+						Expect(err).To(MatchError(sql.ErrNoRows))
+						_, err = orgmembership.FindByIdentifierAndOrgSlug(db, strconv.FormatInt(u2.ID, 10), o.Slug)
+						Expect(err).To(MatchError(sql.ErrNoRows))
+						_, err = orgmembership.FindByIdentifierAndOrgSlug(db, strconv.FormatInt(u3.ID, 10), o2.Slug)
+						Expect(err).To(MatchError(sql.ErrNoRows))
+					})
+				})
+
+				Context("when some other error occurs", func() {
+					It("returns error", func() {
+						db.Close()
+						_, err := orgmembership.FindByIdentifierAndOrgSlug(db, strconv.FormatInt(u.ID, 10), o.Slug)
+						Expect(err).NotTo(BeNil())
+					})
 				})
 			})
+
 		})
 
 		Context("when user pending email invite", func() {
@@ -343,14 +387,14 @@ var _ = Describe("models/orgmembership", func() {
 	Describe("AddMember()", func() {
 		Context("when an invalid role is given", func() {
 			It("returns error", func() {
-				err := orgmembership.AddMember(db, o.ID, u.ID, "destroyer")
+				_, err := orgmembership.AddMember(db, o.ID, strconv.FormatInt(u.ID, 10), "destroyer")
 				Expect(err).To(MatchError("invalid role: destroyer"))
 			})
 		})
 
 		Context("when a non-existent org id is given", func() {
 			It("returns error", func() {
-				err := orgmembership.AddMember(db, o.ID+9000, u.ID, "member")
+				_, err := orgmembership.AddMember(db, o.ID+9000, strconv.FormatInt(u.ID, 10), "member")
 				Expect(err).NotTo(BeNil())
 				Expect(err.Error()).To(ContainSubstring("violates foreign key constraint"))
 			})
@@ -358,7 +402,7 @@ var _ = Describe("models/orgmembership", func() {
 
 		Context("when a non-existent user id is given", func() {
 			It("returns error", func() {
-				err := orgmembership.AddMember(db, o.ID, u.ID+9000, "member")
+				_, err := orgmembership.AddMember(db, o.ID, strconv.FormatInt(u.ID+9000, 10), "member")
 				Expect(err).NotTo(BeNil())
 				Expect(err.Error()).To(ContainSubstring("violates foreign key constraint"))
 			})
@@ -366,11 +410,11 @@ var _ = Describe("models/orgmembership", func() {
 
 		Context("when a user with a given id exists", func() {
 			It("adds user as an org member", func() {
-				err := orgmembership.AddMember(db, o.ID, u.ID, "owner")
+				_, err := orgmembership.AddMember(db, o.ID, strconv.FormatInt(u.ID, 10), "owner")
 				Expect(err).To(BeNil())
-				err = orgmembership.AddMember(db, o2.ID, u2.ID, "admin")
+				_, err = orgmembership.AddMember(db, o2.ID, strconv.FormatInt(u2.ID, 10), "admin")
 				Expect(err).To(BeNil())
-				err = orgmembership.AddMember(db, o.ID, u3.ID, "member")
+				_, err = orgmembership.AddMember(db, o.ID, strconv.FormatInt(u3.ID, 10), "member")
 				Expect(err).To(BeNil())
 
 				m, err := orgmembership.FindAllByOrgID(db, o.ID)
@@ -388,9 +432,9 @@ var _ = Describe("models/orgmembership", func() {
 
 			Context("when user is already a member", func() {
 				It("returns error", func() {
-					err := orgmembership.AddMember(db, o.ID, u.ID, "owner")
+					_, err := orgmembership.AddMember(db, o.ID, strconv.FormatInt(u.ID, 10), "owner")
 					Expect(err).To(BeNil())
-					err = orgmembership.AddMember(db, o.ID, u.ID, "owner")
+					_, err = orgmembership.AddMember(db, o.ID, strconv.FormatInt(u.ID, 10), "owner")
 					Expect(err).NotTo(BeNil())
 				})
 			})
@@ -399,63 +443,63 @@ var _ = Describe("models/orgmembership", func() {
 		Context("when some other error occurs", func() {
 			It("returns error", func() {
 				db.Close()
-				err := orgmembership.AddMember(db, o.ID, u.ID, "owner")
+				_, err := orgmembership.AddMember(db, o.ID, strconv.FormatInt(u.ID, 10), "owner")
 				Expect(err).NotTo(BeNil())
 			})
 		})
-	})
 
-	Describe("AddPendingMember()", func() {
-		Context("when an invalid role is given", func() {
-			It("returns error", func() {
-				_, err := orgmembership.AddPendingMember(db, o.ID, "member@bob.com", "destroyer")
-				Expect(err).To(MatchError("invalid role: destroyer"))
-			})
-		})
-
-		Context("when a non-existent org id is given", func() {
-			It("returns error", func() {
-				_, err := orgmembership.AddPendingMember(db, o.ID+9000, "member@bob.com", "member")
-				Expect(err).NotTo(BeNil())
-				Expect(err.Error()).To(ContainSubstring("violates foreign key constraint"))
-			})
-		})
-
-		Context("when email is provided", func() {
-			It("adds pending user as an org member", func() {
-				_, err := orgmembership.AddPendingMember(db, o.ID, "owner@bob.com", "owner")
-				Expect(err).To(BeNil())
-				_, err = orgmembership.AddPendingMember(db, o2.ID, "admin@bob.com", "admin")
-				Expect(err).To(BeNil())
-				_, err = orgmembership.AddPendingMember(db, o.ID, "member@bob.com", "member")
-				Expect(err).To(BeNil())
-
-				m, err := orgmembership.FindAllByOrgID(db, o.ID)
-				Expect(err).To(BeNil())
-				Expect(m).To(HaveLen(2))
-				Expect(m[0].InviteEmail.String).To(Equal("owner@bob.com"))
-				Expect(m[0].Role).To(Equal("owner"))
-				Expect(m[0].InviteCode.Valid).To(BeTrue())
-				Expect(m[1].InviteEmail.String).To(Equal("member@bob.com"))
-				Expect(m[1].Role).To(Equal("member"))
-				Expect(m[1].InviteCode.Valid).To(BeTrue())
-			})
-
-			Context("when pending user is already a member", func() {
+		Context("when pending email is given", func() {
+			Context("when an invalid role is given", func() {
 				It("returns error", func() {
-					_, err := orgmembership.AddPendingMember(db, o.ID, "owner@bob.com", "owner")
-					Expect(err).To(BeNil())
-					_, err = orgmembership.AddPendingMember(db, o.ID, "owner@bob.com", "owner")
-					Expect(err).NotTo(BeNil())
+					_, err := orgmembership.AddMember(db, o.ID, "member@bob.com", "destroyer")
+					Expect(err).To(MatchError("invalid role: destroyer"))
 				})
 			})
-		})
 
-		Context("when some other error occurs", func() {
-			It("returns error", func() {
-				db.Close()
-				_, err := orgmembership.AddPendingMember(db, o.ID, "owner@bob.com", "owner")
-				Expect(err).NotTo(BeNil())
+			Context("when a non-existent org id is given", func() {
+				It("returns error", func() {
+					_, err := orgmembership.AddMember(db, o.ID+9000, "member@bob.com", "member")
+					Expect(err).NotTo(BeNil())
+					Expect(err.Error()).To(ContainSubstring("violates foreign key constraint"))
+				})
+			})
+
+			Context("when email is provided", func() {
+				It("adds pending user as an org member", func() {
+					_, err := orgmembership.AddMember(db, o.ID, "owner@bob.com", "owner")
+					Expect(err).To(BeNil())
+					_, err = orgmembership.AddMember(db, o2.ID, "admin@bob.com", "admin")
+					Expect(err).To(BeNil())
+					_, err = orgmembership.AddMember(db, o.ID, "member@bob.com", "member")
+					Expect(err).To(BeNil())
+
+					m, err := orgmembership.FindAllByOrgID(db, o.ID)
+					Expect(err).To(BeNil())
+					Expect(m).To(HaveLen(2))
+					Expect(m[0].InviteEmail.String).To(Equal("owner@bob.com"))
+					Expect(m[0].Role).To(Equal("owner"))
+					Expect(m[0].InviteCode.Valid).To(BeTrue())
+					Expect(m[1].InviteEmail.String).To(Equal("member@bob.com"))
+					Expect(m[1].Role).To(Equal("member"))
+					Expect(m[1].InviteCode.Valid).To(BeTrue())
+				})
+
+				Context("when pending user is already a member", func() {
+					It("returns error", func() {
+						_, err := orgmembership.AddMember(db, o.ID, "owner@bob.com", "owner")
+						Expect(err).To(BeNil())
+						_, err = orgmembership.AddMember(db, o.ID, "owner@bob.com", "owner")
+						Expect(err).NotTo(BeNil())
+					})
+				})
+			})
+
+			Context("when some other error occurs", func() {
+				It("returns error", func() {
+					db.Close()
+					_, err := orgmembership.AddMember(db, o.ID, "owner@bob.com", "owner")
+					Expect(err).NotTo(BeNil())
+				})
 			})
 		})
 	})
@@ -489,7 +533,7 @@ var _ = Describe("models/orgmembership", func() {
 				It("returns error", func() {
 					err := orgmembership.UpdateMember(db, o.ID, strconv.FormatInt(u.ID, 10), "admin")
 					Expect(err).NotTo(BeNil())
-					err = orgmembership.UpdateMember(db, o2.ID, strconv.ForamtInt(u2.ID, 10), "member")
+					err = orgmembership.UpdateMember(db, o2.ID, strconv.FormatInt(u2.ID, 10), "member")
 					Expect(err).NotTo(BeNil())
 					err = orgmembership.UpdateMember(db, o.ID, strconv.FormatInt(u3.ID, 10), "owner")
 					Expect(err).NotTo(BeNil())
@@ -497,11 +541,11 @@ var _ = Describe("models/orgmembership", func() {
 			})
 
 			It("updates user's role", func() {
-				err := orgmembership.AddMember(db, o.ID, u.ID, "owner")
+				_, err := orgmembership.AddMember(db, o.ID, strconv.FormatInt(u.ID, 10), "owner")
 				Expect(err).To(BeNil())
-				err = orgmembership.AddMember(db, o2.ID, u2.ID, "admin")
+				_, err = orgmembership.AddMember(db, o2.ID, strconv.FormatInt(u2.ID, 10), "admin")
 				Expect(err).To(BeNil())
-				err = orgmembership.AddMember(db, o.ID, u3.ID, "member")
+				_, err = orgmembership.AddMember(db, o.ID, strconv.FormatInt(u3.ID, 10), "member")
 				Expect(err).To(BeNil())
 
 				err = orgmembership.UpdateMember(db, o.ID, strconv.FormatInt(u.ID, 10), "admin")
@@ -533,9 +577,58 @@ var _ = Describe("models/orgmembership", func() {
 			})
 		})
 
+		Context("when updating pending member", func() {
+			Context("when pending user is not already a member", func() {
+				It("returns error", func() {
+					err := orgmembership.UpdateMember(db, o.ID, "bob@admin.com", "admin")
+					Expect(err).NotTo(BeNil())
+					err = orgmembership.UpdateMember(db, o2.ID, "bob@member.com", "member")
+					Expect(err).NotTo(BeNil())
+					err = orgmembership.UpdateMember(db, o.ID, "bob@owner.com", "owner")
+					Expect(err).NotTo(BeNil())
+				})
+			})
+
+			It("updates pending user's role", func() {
+				_, err := orgmembership.AddMember(db, o.ID, "bob@owner.com", "owner")
+				Expect(err).To(BeNil())
+				_, err = orgmembership.AddMember(db, o2.ID, "bob@member.com", "member")
+				Expect(err).To(BeNil())
+				_, err = orgmembership.AddMember(db, o.ID, "bob@admin.com", "admin")
+				Expect(err).To(BeNil())
+
+				err = orgmembership.UpdateMember(db, o.ID, "bob@owner.com", "admin")
+				Expect(err).To(BeNil())
+				err = orgmembership.UpdateMember(db, o2.ID, "bob@member.com", "owner")
+				Expect(err).To(BeNil())
+				err = orgmembership.UpdateMember(db, o.ID, "bob@admin.com", "member")
+				Expect(err).To(BeNil())
+
+				m, err := orgmembership.FindAllByOrgID(db, o.ID)
+				Expect(err).To(BeNil())
+				Expect(m).To(HaveLen(2))
+				Expect(m[0].Username.Valid).To(BeFalse())
+				Expect(m[0].Name.Valid).To(BeFalse())
+				Expect(m[0].InviteEmail.String).To(Equal("bob@owner.com"))
+				Expect(m[0].Role).To(Equal("admin"))
+				Expect(m[1].Username.Valid).To(BeFalse())
+				Expect(m[1].InviteEmail.String).To(Equal("bob@admin.com"))
+				Expect(m[1].Name.Valid).To(BeFalse())
+				Expect(m[1].Role).To(Equal("member"))
+
+				m, err = orgmembership.FindAllByOrgID(db, o2.ID)
+				Expect(err).To(BeNil())
+				Expect(m).To(HaveLen(1))
+				Expect(m[0].Username.Valid).To(BeFalse())
+				Expect(m[0].Name.Valid).To(BeFalse())
+				Expect(m[0].InviteEmail.String).To(Equal("bob@member.com"))
+				Expect(m[0].Role).To(Equal("owner"))
+			})
+		})
+
 		Context("when some other error occurs", func() {
 			It("returns error", func() {
-				err := orgmembership.AddMember(db, o.ID, u.ID, "owner")
+				_, err := orgmembership.AddMember(db, o.ID, strconv.FormatInt(u.ID, 10), "owner")
 				Expect(err).To(BeNil())
 				db.Close()
 				err = orgmembership.UpdateMember(db, o.ID, strconv.FormatInt(u.ID, 10), "owner")
@@ -575,11 +668,11 @@ var _ = Describe("models/orgmembership", func() {
 				})
 
 				It("removes user", func() {
-					err := orgmembership.AddMember(db, o.ID, u.ID, "owner")
+					_, err := orgmembership.AddMember(db, o.ID, strconv.FormatInt(u.ID, 10), "owner")
 					Expect(err).To(BeNil())
-					err = orgmembership.AddMember(db, o2.ID, u2.ID, "admin")
+					_, err = orgmembership.AddMember(db, o2.ID, strconv.FormatInt(u2.ID, 10), "admin")
 					Expect(err).To(BeNil())
-					err = orgmembership.AddMember(db, o.ID, u3.ID, "member")
+					_, err = orgmembership.AddMember(db, o.ID, strconv.FormatInt(u3.ID, 10), "member")
 					Expect(err).To(BeNil())
 
 					err = orgmembership.RemoveMember(db, o.ID, strconv.FormatInt(u.ID, 10))
@@ -603,7 +696,7 @@ var _ = Describe("models/orgmembership", func() {
 
 			Context("when some other error occurs", func() {
 				It("returns error", func() {
-					err := orgmembership.AddMember(db, o.ID, u.ID, "owner")
+					_, err := orgmembership.AddMember(db, o.ID, strconv.FormatInt(u.ID, 10), "owner")
 					Expect(err).To(BeNil())
 					db.Close()
 					err = orgmembership.RemoveMember(db, o.ID, strconv.FormatInt(u.ID, 10))
@@ -659,6 +752,33 @@ var _ = Describe("models/orgmembership", func() {
 					err := orgmembership.RemoveMember(db, o.ID, "member@bob.com")
 					Expect(err).NotTo(BeNil())
 				})
+			})
+		})
+	})
+
+	Describe("PerformConversion()", func() {
+		It("returns error if org membership does not exist", func() {
+			_, err := orgmembership.PerformConversion(db, "bob@doesnotexist.com", "12345678912345678912", u.ID)
+			Expect(err).To(MatchError(orgmembership.ErrDoesNotExist))
+		})
+
+		It("performs conversion", func() {
+			_, err := db.Exec(`INSERT INTO org_memberships (org_id, invite_email, invite_code) VALUES ($1, $2, $3) RETURNING ID`, o.ID, "bob@member.com", "12345678912345678912")
+			Expect(err).To(BeNil())
+
+			om, err := orgmembership.PerformConversion(db, "bob@member.com", "12345678912345678912", u.ID)
+			Expect(err).To(BeNil())
+			Expect(om.UserID.Valid).To(BeTrue())
+			Expect(om.UserID.Int64).To(Equal(u.ID))
+			Expect(om.InviteEmail.Valid).To(BeFalse())
+			Expect(om.InviteCode.Valid).To(BeFalse())
+		})
+
+		Context("when some other error occurs", func() {
+			It("returns error", func() {
+				db.Close()
+				_, err := orgmembership.PerformConversion(db, "bob@member.com", "12345678912345678912", u.ID)
+				Expect(err).NotTo(BeNil())
 			})
 		})
 	})

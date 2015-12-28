@@ -369,7 +369,6 @@ var _ = Describe("controllers/users", func() {
 		})
 
 		Context("invited by container collaborator", func() {
-
 			var (
 				cnr *container.Container
 			)
@@ -448,6 +447,74 @@ var _ = Describe("controllers/users", func() {
 
 				var found bool
 				err = db.Get(&found, `SELECT COUNT(*) = 1 FROM container_collabs WHERE user_id = $1 AND container_id = $2`, u.ID, cnr.ID)
+				Expect(err).To(BeNil())
+				Expect(found).To(BeFalse())
+			})
+		})
+
+		Context("invited by org owner", func() {
+			var (
+				o *org.Org
+			)
+
+			BeforeEach(func() {
+				o = &org.Org{
+					Name:  "Foo Bar, Inc.",
+					Slug:  "foobar",
+					Email: "eng@foobar.com",
+				}
+				err := o.Insert(db)
+				Expect(err).To(BeNil())
+
+				_, err = db.Exec(`INSERT INTO org_memberships (org_id, invite_email, invite_code) VALUES ($1, 'foo@example.com', '22x2') RETURNING ID`, o.ID)
+				Expect(err).To(BeNil())
+			})
+
+			It("should auto confirm the user and update org_memberships if invite_code provided with correct email", func() {
+				params.Set("invite_code", "22x2")
+				doRequest()
+
+				Expect(res.Code).To(Equal(http.StatusCreated))
+
+				u, err := user.FindByUsername(db, "foo")
+				Expect(err).To(BeNil())
+				Expect(u.ConfirmedAt.Valid).To(BeTrue())
+
+				var found bool
+				err = db.Get(&found, `SELECT COUNT(*) = 1 FROM org_memberships WHERE user_id = $1 AND org_id = $2`, u.ID, o.ID)
+				Expect(err).To(BeNil())
+				Expect(found).To(BeTrue())
+			})
+
+			It("should not auto confirm the user if the invite code is incorrect", func() {
+				params.Set("invite_code", "23x2")
+				doRequest()
+
+				Expect(res.Code).To(Equal(http.StatusCreated))
+
+				u, err := user.FindByUsername(db, "foo")
+				Expect(err).To(BeNil())
+				Expect(u.ConfirmedAt.Valid).To(BeFalse())
+
+				var found bool
+				err = db.Get(&found, `SELECT COUNT(*) = 1 FROM org_memberships WHERE user_id = $1 AND org_id = $2`, u.ID, o.ID)
+				Expect(err).To(BeNil())
+				Expect(found).To(BeFalse())
+			})
+
+			It("should not auto confirm the user if the email is different", func() {
+				params.Set("email", "foo@domain.com")
+				params.Set("invite_code", "22x2")
+				doRequest()
+
+				Expect(res.Code).To(Equal(http.StatusCreated))
+
+				u, err := user.FindByUsername(db, "foo")
+				Expect(err).To(BeNil())
+				Expect(u.ConfirmedAt.Valid).To(BeFalse())
+
+				var found bool
+				err = db.Get(&found, `SELECT COUNT(*) = 1 FROM org_memberships WHERE user_id = $1 AND org_id = $2`, u.ID, o.ID)
 				Expect(err).To(BeNil())
 				Expect(found).To(BeFalse())
 			})

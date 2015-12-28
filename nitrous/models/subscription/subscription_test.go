@@ -317,9 +317,9 @@ var _ = Describe("models/subscription", func() {
 					return nil
 				})
 				Expect(err).To(BeNil())
-				err = orgmembership.AddMember(db, o.ID, owner.ID, orgmembership.RoleOwner)
+				err = orgmembership.AddMember(db, o.ID, strconv.FormatInt(owner.ID, 10), orgmembership.RoleOwner)
 				Expect(err).To(BeNil())
-				err = orgmembership.AddMember(db, o.ID, u.ID, orgmembership.RoleMember)
+				err = orgmembership.AddMember(db, o.ID, strconv.FormatInt(u.ID, 10), orgmembership.RoleMember)
 				Expect(err).To(BeNil())
 
 				oBP, err := billingprofile.FindForOrg(db, o.ID)
@@ -369,7 +369,7 @@ var _ = Describe("models/subscription", func() {
 			})
 
 			It("should find if the subscription is tied to a org and host and the other user is an owner", func() {
-				err := orgmembership.AddMember(db, o.ID, u2.ID, orgmembership.RoleOwner)
+				err := orgmembership.AddMember(db, o.ID, strconv.FormatInt(u2.ID, 10), orgmembership.RoleOwner)
 				Expect(err).To(BeNil())
 
 				s, err := subscription.FindBySlug(db, "ORG-SUB1", u2.ID)
@@ -386,7 +386,7 @@ var _ = Describe("models/subscription", func() {
 				err := o2.Insert(db)
 				Expect(err).To(BeNil())
 
-				err = orgmembership.AddMember(db, o2.ID, u2.ID, orgmembership.RoleOwner)
+				err = orgmembership.AddMember(db, o2.ID, strconv.FormatInt(u2.ID, 10), orgmembership.RoleOwner)
 				Expect(err).To(BeNil())
 
 				s, err := subscription.FindBySlug(db, "ORG-SUB1", u2.ID)
@@ -395,7 +395,7 @@ var _ = Describe("models/subscription", func() {
 			})
 
 			It("should not find if the subscription is tied to a org and host and the other user is an admin", func() {
-				err := orgmembership.AddMember(db, o.ID, u2.ID, orgmembership.RoleAdmin)
+				err := orgmembership.AddMember(db, o.ID, strconv.FormatInt(u2.ID, 10), orgmembership.RoleAdmin)
 				Expect(err).To(BeNil())
 
 				s, err := subscription.FindBySlug(db, "ORG-SUB1", u2.ID)
@@ -404,7 +404,7 @@ var _ = Describe("models/subscription", func() {
 			})
 
 			It("should find if the subscription is tied to a org and host and the other user is a member", func() {
-				err := orgmembership.AddMember(db, o.ID, u2.ID, orgmembership.RoleMember)
+				err := orgmembership.AddMember(db, o.ID, strconv.FormatInt(u2.ID, 10), orgmembership.RoleMember)
 				Expect(err).To(BeNil())
 
 				s, err := subscription.FindBySlug(db, "ORG-SUB1", u2.ID)
@@ -413,7 +413,7 @@ var _ = Describe("models/subscription", func() {
 			})
 
 			It("should find if the subscription is tied to a org and host and the other user is a limited user", func() {
-				err := orgmembership.AddMember(db, o.ID, u2.ID, orgmembership.RoleLimited)
+				err := orgmembership.AddMember(db, o.ID, strconv.FormatInt(u2.ID, 10), orgmembership.RoleLimited)
 				Expect(err).To(BeNil())
 
 				s, err := subscription.FindBySlug(db, "ORG-SUB1", u2.ID)
@@ -627,9 +627,9 @@ var _ = Describe("models/subscription", func() {
 					return nil
 				})
 				Expect(err).To(BeNil())
-				err = orgmembership.AddMember(db, o.ID, owner.ID, orgmembership.RoleOwner)
+				err = orgmembership.AddMember(db, o.ID, strconv.FormatInt(owner.ID, 10), orgmembership.RoleOwner)
 				Expect(err).To(BeNil())
-				err = orgmembership.AddMember(db, o.ID, u.ID, orgmembership.RoleMember)
+				err = orgmembership.AddMember(db, o.ID, strconv.FormatInt(u.ID, 10), orgmembership.RoleMember)
 				Expect(err).To(BeNil())
 
 				oBP, err := billingprofile.FindForOrg(db, o.ID)

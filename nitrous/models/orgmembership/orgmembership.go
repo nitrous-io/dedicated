@@ -2,14 +2,18 @@ package orgmembership
 
 import (
 	"database/sql"
+	"errors"
 	"fmt"
 	"strconv"
 	"time"
 
+	"github.com/jmoiron/sqlx"
 	"github.com/lib/pq"
 	"github.com/nitrous-io/dedicated/nitrous/db"
 	"github.com/nitrous-io/dedicated/nitrous/pkg/securerandom"
 )
+
+var ErrDoesNotExist = errors.New("org membership does not exist")
 
 const (
 	RoleOwner   = "owner"
@@ -89,10 +93,13 @@ func FindAllByOrgID(d db.QueryReceiver, id int64) ([]*OrgMember, error) {
 	return members, nil
 }
 
-// Identifier is usually the username or invite email
+// Identifier can be the userid, username or invite email
 func FindByIdentifierAndOrgSlug(d db.QueryReceiver, identifier, slug string) (*OrgMembership, error) {
 	member := &OrgMembership{}
-	err := d.Get(member, `
+
+	id, err := strconv.ParseInt(identifier, 10, 64)
+	if err != nil {
+		err = d.Get(member, `
 		SELECT org_memberships.*
 		FROM org_memberships
 		LEFT JOIN users ON org_memberships.user_id = users.id
@@ -103,6 +110,18 @@ func FindByIdentifierAndOrgSlug(d db.QueryReceiver, identifier, slug string) (*O
 		)
 		ORDER BY org_memberships.id
 	`, identifier, slug)
+	} else {
+		err = d.Get(member, `
+		SELECT org_memberships.*
+		FROM org_memberships
+		INNER JOIN orgs ON org_memberships.org_id = orgs.id
+		WHERE (
+		  user_id = $1
+			AND orgs.slug = $2
+		)
+		ORDER BY org_memberships.id
+	`, id, slug)
+	}
 	if err != nil {
 		return nil, err
 	}
@@ -122,44 +141,38 @@ func FindByUserIDAndOrgID(d db.QueryReceiver, userID, orgID int64) (*OrgMembersh
 	return member, nil
 }
 
-func AddMember(d db.QueryReceiver, orgID, userID int64, role string) error {
-	if _, ok := ValidRoles[role]; !ok {
-		return InvalidRoleError{Role: role}
-	}
-	om := &OrgMembership{
-		OrgID:  orgID,
-		UserID: sql.NullInt64{userID, true},
-		Role:   role,
-	}
-	s, err := d.PrepareNamed(`
-		INSERT INTO org_memberships
-		(org_id, user_id, role)
-		VALUES (:org_id, :user_id, :role)
-	`)
-	if err != nil {
-		return err
-	}
-	_, err = s.Exec(om)
-	return err
-}
-
-func AddPendingMember(d db.QueryReceiver, orgID int64, email, role string) (*OrgMembership, error) {
+func AddMember(d db.QueryReceiver, orgID int64, identifier, role string) (*OrgMembership, error) {
 	if _, ok := ValidRoles[role]; !ok {
 		return nil, InvalidRoleError{Role: role}
 	}
 
-	token, err := securerandom.Alphanumeric(20)
+	var s *sqlx.NamedStmt
 	om := &OrgMembership{
-		OrgID:       orgID,
-		InviteEmail: sql.NullString{email, true},
-		Role:        role,
-		InviteCode:  sql.NullString{token, true},
+		OrgID: orgID,
+		Role:  role,
 	}
-	s, err := d.PrepareNamed(`
+
+	id, err := strconv.ParseInt(identifier, 10, 64)
+	if err != nil {
+		token, tErr := securerandom.Alphanumeric(20)
+		if tErr != nil {
+			return nil, err
+		}
+		om.InviteEmail = sql.NullString{identifier, true}
+		om.InviteCode = sql.NullString{token, true}
+		s, err = d.PrepareNamed(`
 		INSERT INTO org_memberships
 		(org_id, invite_email, invite_code, role, email_sent_at)
 		VALUES (:org_id, :invite_email, :invite_code, :role, now())
 		RETURNING *;`)
+	} else {
+		om.UserID = sql.NullInt64{id, true}
+		s, err = d.PrepareNamed(`
+		INSERT INTO org_memberships
+		(org_id, user_id, role)
+		VALUES (:org_id, :user_id, :role)
+		RETURNING *;`)
+	}
 	if err != nil {
 		return nil, err
 	}
@@ -230,4 +243,34 @@ func RemoveMember(d db.QueryReceiver, orgID int64, identifier string) error {
 		return sql.ErrNoRows
 	}
 	return nil
+}
+
+func PerformConversion(d db.QueryReceiver, email, invitecode string, userID int64) (*OrgMembership, error) {
+	var exists bool
+	err := d.Get(&exists,
+		`SELECT COUNT(*) = 1 
+	  FROM org_memberships
+		WHERE invite_email = $1
+		AND invite_code = $2
+		LIMIT 1`, email, invitecode)
+	if err != nil {
+		return nil, err
+	}
+
+	if !exists {
+		return nil, ErrDoesNotExist
+	}
+
+	om := &OrgMembership{
+		UserID:      sql.NullInt64{userID, true},
+		InviteEmail: sql.NullString{email, true},
+	}
+	nstmt, err := d.PrepareNamed(
+		`UPDATE org_memberships
+		SET (user_id, invite_email, invite_code)
+		= (:user_id, NULL, NULL)
+		WHERE invite_email = :invite_email
+		RETURNING *;`)
+	err = nstmt.QueryRowx(om).StructScan(om)
+	return om, err
 }

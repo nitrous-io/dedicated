@@ -7,6 +7,7 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"net/url"
+	"strconv"
 	"testing"
 	"time"
 
@@ -571,7 +572,7 @@ var _ = Describe("controllers/billing", func() {
 					return nil
 				})
 				Expect(err).To(BeNil())
-				err = orgmembership.AddMember(db, o.ID, u.ID, "owner")
+				_, err = orgmembership.AddMember(db, o.ID, strconv.FormatInt(u.ID, 10), "owner")
 				Expect(err).To(BeNil())
 
 				// corrupt the user's billing profile so we ensure the operation runs over the org BP

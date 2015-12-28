@@ -6,27 +6,13 @@ import (
 	"html"
 	"net/url"
 
-	"github.com/jmoiron/sqlx"
 	"github.com/nitrous-io/dedicated/nitrous/db"
 	"github.com/nitrous-io/dedicated/nitrous/envvars"
 	"github.com/nitrous-io/dedicated/nitrous/models/org"
-	"github.com/nitrous-io/dedicated/nitrous/models/orgmembership"
 	"github.com/nitrous-io/dedicated/nitrous/models/user"
 )
 
-func inviteUser(d *db.Database, o *org.Org, email string, owner *user.User) error {
-	return d.WithTransaction(func(tx *sqlx.Tx) error {
-		// Don't add member if invited member not notified by email
-		om, err := orgmembership.AddPendingMember(tx, o.ID, email, "member")
-		if err != nil {
-			return err
-		}
-
-		return sendEmail(o, email, owner, om.InviteCode.String)
-	})
-}
-
-func sendEmail(o *org.Org, email string, owner *user.User, token string) error {
+func inviteUser(d *db.Database, o *org.Org, invitecode, email string, owner *user.User) error {
 	host := envvars.WebHostname
 	if host == "" {
 		host = "www.nitrous.io"
@@ -38,7 +24,7 @@ func sendEmail(o *org.Org, email string, owner *user.User, token string) error {
 		Fragment: "/signup",
 	}
 	query := url.Values{}
-	query.Set("invite", token)
+	query.Set("invite", invitecode)
 	urlString := fmt.Sprintf("%s?%s", baseUrl, query.Encode())
 
 	tmplData := struct {

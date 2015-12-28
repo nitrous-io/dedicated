@@ -149,9 +149,9 @@ var _ = Describe("controllers/snapshots", func() {
 		Context("when user is a member of the org", func() {
 			BeforeEach(func() {
 				// Add user to both orgs.
-				err := orgmembership.AddMember(db, o1.ID, u.ID, orgmembership.RoleAdmin)
+				_, err := orgmembership.AddMember(db, o1.ID, strconv.FormatInt(u.ID, 10), orgmembership.RoleAdmin)
 				Expect(err).To(BeNil())
-				err = orgmembership.AddMember(db, o2.ID, u.ID, orgmembership.RoleAdmin)
+				_, err = orgmembership.AddMember(db, o2.ID, strconv.FormatInt(u.ID, 10), orgmembership.RoleAdmin)
 				Expect(err).To(BeNil())
 
 				// Add snapshots to one of the orgs.
@@ -238,7 +238,7 @@ var _ = Describe("controllers/snapshots", func() {
 		})
 
 		It("responds with HTTP 403 Forbidden when user is a limited member of the org", func() {
-			err := orgmembership.AddMember(db, o1.ID, u.ID, orgmembership.RoleLimited)
+			_, err := orgmembership.AddMember(db, o1.ID, strconv.FormatInt(u.ID, 10), orgmembership.RoleLimited)
 			Expect(err).To(BeNil())
 
 			params := &url.Values{}
@@ -256,9 +256,9 @@ var _ = Describe("controllers/snapshots", func() {
 		Context("when user is member of the org", func() {
 			BeforeEach(func() {
 				// Add user to both orgs.
-				err := orgmembership.AddMember(db, o1.ID, u.ID, orgmembership.RoleAdmin)
+				_, err := orgmembership.AddMember(db, o1.ID, strconv.FormatInt(u.ID, 10), orgmembership.RoleAdmin)
 				Expect(err).To(BeNil())
-				err = orgmembership.AddMember(db, o2.ID, u.ID, orgmembership.RoleAdmin)
+				_, err = orgmembership.AddMember(db, o2.ID, strconv.FormatInt(u.ID, 10), orgmembership.RoleAdmin)
 				Expect(err).To(BeNil())
 			})
 
@@ -394,7 +394,7 @@ var _ = Describe("controllers/snapshots", func() {
 
 		Context("when params are valid", func() {
 			BeforeEach(func() {
-				err := orgmembership.AddMember(db, o1.ID, u.ID, orgmembership.RoleAdmin)
+				_, err := orgmembership.AddMember(db, o1.ID, strconv.FormatInt(u.ID, 10), orgmembership.RoleAdmin)
 				Expect(err).To(BeNil())
 			})
 
@@ -594,7 +594,7 @@ var _ = Describe("controllers/snapshots", func() {
 					Email:    "otheruser@example.com",
 				}
 				Expect(test.WrapInTransaction(db, u2.Insert)).To(BeNil())
-				err := orgmembership.AddMember(db, o1.ID, u2.ID, orgmembership.RoleMember)
+				_, err := orgmembership.AddMember(db, o1.ID, strconv.FormatInt(u2.ID, 10), orgmembership.RoleMember)
 				Expect(err).To(BeNil())
 
 				otherMemberCh := svr.Events.Subscribe(u2.Topic())
@@ -763,7 +763,7 @@ var _ = Describe("controllers/snapshots", func() {
 		})
 
 		It("responds with HTTP 403 Forbidden when user is a limited member of the org", func() {
-			err := orgmembership.AddMember(db, o1.ID, u.ID, orgmembership.RoleLimited)
+			_, err := orgmembership.AddMember(db, o1.ID, strconv.FormatInt(u.ID, 10), orgmembership.RoleLimited)
 			Expect(err).To(BeNil())
 
 			res := doRequest(o1.Slug, snap2.ID)
@@ -775,7 +775,7 @@ var _ = Describe("controllers/snapshots", func() {
 		})
 
 		It("responds with HTTP 403 Forbidden when user is a regular member of the org", func() {
-			err := orgmembership.AddMember(db, o1.ID, u.ID, orgmembership.RoleMember)
+			_, err := orgmembership.AddMember(db, o1.ID, strconv.FormatInt(u.ID, 10), orgmembership.RoleMember)
 			Expect(err).To(BeNil())
 
 			res := doRequest(o1.Slug, snap2.ID)
@@ -788,7 +788,7 @@ var _ = Describe("controllers/snapshots", func() {
 
 		Context("when user is owner of the snapshot", func() {
 			It("allows user to delete it even if he is a limited member of the org", func() {
-				err := orgmembership.AddMember(db, o1.ID, u.ID, orgmembership.RoleLimited)
+				_, err := orgmembership.AddMember(db, o1.ID, strconv.FormatInt(u.ID, 10), orgmembership.RoleLimited)
 				Expect(err).To(BeNil())
 
 				res := doRequest(o1.Slug, snap1.ID)
@@ -799,7 +799,7 @@ var _ = Describe("controllers/snapshots", func() {
 			})
 
 			It("allows user to delete it even if he is a regular member of the org", func() {
-				err := orgmembership.AddMember(db, o1.ID, u.ID, orgmembership.RoleMember)
+				_, err := orgmembership.AddMember(db, o1.ID, strconv.FormatInt(u.ID, 10), orgmembership.RoleMember)
 				Expect(err).To(BeNil())
 
 				res := doRequest(o1.Slug, snap1.ID)
@@ -810,11 +810,11 @@ var _ = Describe("controllers/snapshots", func() {
 			})
 
 			It("publishes a snapshot deleted event to all members of the org", func() {
-				err := orgmembership.AddMember(db, o1.ID, u.ID, orgmembership.RoleMember)
+				_, err := orgmembership.AddMember(db, o1.ID, strconv.FormatInt(u.ID, 10), orgmembership.RoleMember)
 				Expect(err).To(BeNil())
 
 				// Add other user to the same org.
-				err = orgmembership.AddMember(db, o1.ID, u2.ID, orgmembership.RoleMember)
+				_, err = orgmembership.AddMember(db, o1.ID, strconv.FormatInt(u2.ID, 10), orgmembership.RoleMember)
 				Expect(err).To(BeNil())
 
 				ch := svr.Events.Subscribe(u.Topic())
@@ -866,7 +866,7 @@ var _ = Describe("controllers/snapshots", func() {
 
 		Context("when user is an admin member of the org", func() {
 			BeforeEach(func() {
-				err := orgmembership.AddMember(db, o1.ID, u.ID, orgmembership.RoleAdmin)
+				_, err := orgmembership.AddMember(db, o1.ID, strconv.FormatInt(u.ID, 10), orgmembership.RoleAdmin)
 				Expect(err).To(BeNil())
 			})
 
@@ -889,7 +889,7 @@ var _ = Describe("controllers/snapshots", func() {
 
 			It("publishes a snapshot deleted event to all members of the org", func() {
 				// Add other user to the same org.
-				err := orgmembership.AddMember(db, o1.ID, u2.ID, orgmembership.RoleMember)
+				_, err := orgmembership.AddMember(db, o1.ID, strconv.FormatInt(u2.ID, 10), orgmembership.RoleMember)
 				Expect(err).To(BeNil())
 
 				ch := svr.Events.Subscribe(u.Topic())

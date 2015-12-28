@@ -96,7 +96,7 @@ var _ = Describe("controllers/subscriptions", func() {
 			return nil
 		})
 		Expect(err).To(BeNil())
-		err = orgmembership.AddMember(db, o.ID, u.ID, role)
+		_, err = orgmembership.AddMember(db, o.ID, strconv.FormatInt(u.ID, 10), role)
 		Expect(err).To(BeNil())
 
 		bp, err := billingprofile.FindForOrg(db, o.ID)
@@ -220,7 +220,7 @@ var _ = Describe("controllers/subscriptions", func() {
 				return nil
 			})
 			Expect(err).To(BeNil())
-			err = orgmembership.AddMember(db, o.ID, u.ID, "owner")
+			_, err = orgmembership.AddMember(db, o.ID, strconv.FormatInt(u.ID, 10), "owner")
 			Expect(err).To(BeNil())
 
 			// Insert plan
@@ -345,7 +345,7 @@ var _ = Describe("controllers/subscriptions", func() {
 				return nil
 			})
 			Expect(err).To(BeNil())
-			err = orgmembership.AddMember(db, o.ID, u.ID, "owner")
+			_, err = orgmembership.AddMember(db, o.ID, strconv.FormatInt(u.ID, 10), "owner")
 			Expect(err).To(BeNil())
 
 			// Insert plan
