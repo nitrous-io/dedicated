@@ -71,18 +71,6 @@ RUN wget http://download.redis.io/releases/redis-3.0.0.tar.gz -P /tmp/ \
   && service redis_6379 stop \
   && rm -rf /tmp/redis-3.0.0 /tmp/redis-3.0.0.tar.gz
 
-# install rabbitmq
-# We install from a deb file because version 3.5.x is already gone from the APT
-# repo. We use gdebi to help install dependencies automatically.
-RUN wget https://github.com/rabbitmq/rabbitmq-server/releases/download/rabbitmq_v3_5_7/rabbitmq-server_3.5.7-1_all.deb -P /tmp/ \
-  && apt-get update \
-  && apt-get install -y gdebi-core \
-  && gdebi --non-interactive /tmp/rabbitmq-server_3.5.7-1_all.deb \
-  && rm /tmp/rabbitmq-server_3.5.7-1_all.deb
-RUN rabbitmq-plugins enable rabbitmq_management && \
-    curl "https://raw.githubusercontent.com/rabbitmq/rabbitmq-management/rabbitmq_v3_5_7/bin/rabbitmqadmin" > /usr/bin/rabbitmqadmin && \
-    chmod +x /usr/bin/rabbitmqadmin
-
 RUN /etc/init.d/postgresql start &&\
   su postgres -c "psql -c 'CREATE ROLE root SUPERUSER CREATEDB CREATEROLE INHERIT LOGIN;'" &&\
   createdb -E UTF8 -T template0 -l en_US.utf8 nitrous_test &&\
