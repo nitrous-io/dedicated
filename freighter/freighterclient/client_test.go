@@ -53,7 +53,7 @@ func (st *ServerTest) Setup() (*ServerTest, error) {
 		return nil, err
 	}
 
-	host := freighterclient.NewHost(ip, port, "example.com", test.GoLocalhostCert)
+	host := freighterclient.NewHost(ip, port, "example.com", test.LocalhostCert)
 	client, err := freighterclient.NewClientTransport(host, "mysecret", "myuuid", st.tp)
 
 	if err != nil {

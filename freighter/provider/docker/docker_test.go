@@ -1597,7 +1597,7 @@ var _ = Describe("provider/docker", func() {
 				host = parsedURL.Host
 
 				certs := x509.NewCertPool()
-				ok := certs.AppendCertsFromPEM(GoLocalhostCert)
+				ok := certs.AppendCertsFromPEM(LocalhostCert)
 				Expect(ok).To(BeTrue())
 
 				cl := prov.Client()
