@@ -55,5 +55,6 @@ if [[ ! -d $react_path ]]; then
   cd $react_path
   # nvm is a definition, so need to run in subshell
   zsh -l -c 'nvm install v4.2.1 && nvm alias default v4.2.1'
-  echo 'export PATH="node_modules/.bin:$PATH"' >> .zshrc
+  npm install
+  echo 'export PATH="node_modules/.bin:$PATH"' >> /home/$NITROUS_USERNAME/.zshrc
 fi
