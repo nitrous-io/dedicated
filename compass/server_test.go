@@ -20,9 +20,9 @@ var testData = map[string]string{
 }
 
 func testServer() (*Server, string, error) {
-	addr := fmt.Sprintf("localhost:%d", testPort)
+	addr := fmt.Sprintf("127.0.0.1:%d", testPort)
 	config := &Config{
-		Addr: fmt.Sprintf("localhost:%d", testPort),
+		Addr: addr,
 		Nameservers: []string{
 			"ns1.example.com.",
 			"ns2.example.com.",
@@ -35,22 +35,50 @@ func testServer() (*Server, string, error) {
 			},
 		},
 	}
-	s, _ := NewServer(config)
+	s, err := NewServer(config)
+	if err != nil {
+		return nil, "", fmt.Errorf("failed to create server with config %v, err: %v", config, err)
+	}
 	go s.ListenAndServe()
-	testPort += 1
-	timeout := time.After(500 * time.Millisecond)
+	testPort++
+
+	// Wait till server is started.
+	ticker := time.NewTicker(500 * time.Millisecond)
+	timeout := time.NewTimer(3 * time.Second)
+	defer ticker.Stop()
+	defer timeout.Stop()
 	for {
 		select {
-		case <-timeout:
-			return s, addr, errors.New("timed out starting server")
-		default:
-			_, err := net.DialTimeout("udp", addr, 10*time.Millisecond)
-			if err == nil {
+		case <-ticker.C:
+			if serverRunning(addr) {
 				return s, addr, nil
 			}
-			time.Sleep(time.Millisecond)
+
+		case <-timeout.C:
+			return s, addr, errors.New("timed out starting server")
 		}
 	}
+}
+
+func serverRunning(addr string) bool {
+	conn, err := net.DialTimeout("udp", addr, 10*time.Millisecond)
+	if err != nil {
+		return false
+	}
+
+	// Send a test DNS message to verify that server is running.
+	co := &dns.Conn{Conn: conn}
+	defer co.Close()
+	m := new(dns.Msg)
+	m.SetQuestion("example.com.", dns.TypeNS)
+	if err := co.WriteMsg(m); err != nil {
+		return false
+	}
+	if _, err := co.ReadMsg(); err != nil {
+		return false
+	}
+
+	return true
 }
 
 type dnsTestCase struct {
@@ -175,6 +203,7 @@ func TestServeQuestions(t *testing.T) {
 		c := new(dns.Client)
 		m := new(dns.Msg)
 		m.SetQuestion(tc.qname, tc.qtype)
+
 		r, _, err := c.Exchange(m, addr)
 		if err != nil {
 			t.Fatal("Failed to get DNS response", err)
