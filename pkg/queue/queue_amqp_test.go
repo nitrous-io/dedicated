@@ -18,7 +18,7 @@ import (
 	"gopkg.in/redis.v2"
 )
 
-func init() {
+func _init() {
 	reexec.Register("amqp1", func() {
 		stop := make(chan struct{})
 		h := func(m *queue.Message) error {
@@ -125,7 +125,7 @@ func init() {
 	})
 }
 
-var _ = Describe("pkg/queue/amqp", func() {
+var _ = PDescribe("pkg/queue/amqp", func() {
 	var (
 		qp          queue.Publisher
 		redisClient *redis.Client

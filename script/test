@@ -28,7 +28,7 @@ test_app() {
   if [ ! -d $app ]; then
     die "Incorrect app: $app"
   fi
-  echo "===> Running test for $app"
+  echo "===> Running tests for $app"
   cd $app
 
   export TESTING=1
@@ -55,16 +55,8 @@ test_queue() {
   echo "===> Starting redis dependencies"
   sudo service redis_6379 restart
 
-  echo "===> Starting rabbitmq dependencies"
-  sudo service rabbitmq-server restart
   test_app $@
   local code=$?
-
-  # Rabbitmq is quite heavy application
-  # Shutdown after testing to make other tests faster
-  echo "===> Stopping rabbitmq dependencies"
-  sudo service rabbitmq-server stop
-
   return $code
 }
 
@@ -110,8 +102,6 @@ elif [ "$APP" == "shell" ]; then
   sudo service postgresql restart
   echo "===> Starting redis dependencies"
   sudo service redis_6379 start
-  echo "===> Starting rabbitmq dependencies"
-  sudo service rabbitmq-server restart
   exec /bin/bash
 else
   run test_app $APP $SUITE
