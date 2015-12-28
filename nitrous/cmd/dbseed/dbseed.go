@@ -19,51 +19,8 @@ import (
 	"github.com/nitrous-io/dedicated/nitrous/pkg/securerandom"
 )
 
-const (
-	DigitalOceanImageID = "5714430"
-	AmazonImageID       = "ami-030f2333" // for us-west-2
-)
-
 var (
-	providerToSeed string
-
-	amazonFreeConfig = `{
-		"source_ami": "ami-d51027e5",
-		"instance_type": "t2.micro",
-		"region_id": "us-west-2",
-		"storage_size": "8",
-		"security_group_id": "sg-491c282c",
-		"subnet_id": "subnet-3e0e045c",
-		"disable_eip": "true"
-	}`
-
-	amazonPaidConfig = `{
-		"source_ami": "ami-d51027e5",
-		"instance_type": "t2.micro",
-		"region_id": "us-west-2",
-		"storage_size": "8",
-		"security_group_id": "sg-491c282c",
-		"subnet_id": "subnet-3e0e045c",
-		"disable_eip": "false"
-	}`
-
-	// default configuration for amazon provider
-	// FIXME: replace this with proper configuration once the AMIs/security
-	// groups for all supported regions are in place
-	amazonRegionConfig = map[string]string{
-		"free":     amazonFreeConfig,
-		"basic":    amazonPaidConfig,
-		"standard": amazonPaidConfig,
-		"plus":     amazonPaidConfig,
-	}
-
-	// Point every region to use us-west-2 in dev
-	amazonConfig = map[string]map[string]string{
-		"usw2":  amazonRegionConfig,
-		"use1":  amazonRegionConfig,
-		"euw1":  amazonRegionConfig,
-		"apse1": amazonRegionConfig,
-	}
+	providerToSeed = "docker"
 )
 
 func init() {
@@ -78,10 +35,6 @@ func main() {
 	dbURL := envvars.NitrousPgUrl
 	if dbURL == "" {
 		logrus.Fatal(envvars.DBEnvVar, "is not defined")
-	}
-	providerToSeed = envvars.DefaultProvider
-	if providerToSeed != "digitalocean" && providerToSeed != "docker" && providerToSeed != "amazon" {
-		logrus.Fatalf("DEFAULT_PROVIDER %s is invalid", providerToSeed)
 	}
 
 	dbConn, err := db.NewDatabase(dbURL)
@@ -219,49 +172,13 @@ func providertemplates(d db.QueryReceiver) error {
 				Provider: providerToSeed,
 				RegionID: r.ID,
 				PlanID:   p.ID,
-			}
-			switch providerToSeed {
-			case "digitalocean":
-				pt.Config = hstore.Hstore{
-					Map: map[string]sql.NullString{
-						"region_id": {r.Slug, true},
-						"size_id":   {p.Slug, true},
-						"image_id":  {DigitalOceanImageID, true},
-					},
-				}
-			case "docker":
-				pt.Config = hstore.Hstore{
+				Config: hstore.Hstore{
 					Map: map[string]sql.NullString{
 						"region_id": {r.Slug, true},
 						"size_id":   {p.Slug, true},
 					},
-				}
-			case "amazon":
-				regionCfg, ok := amazonConfig[r.Slug]
-				if !ok {
-					return fmt.Errorf("missing config for region %s", r.Slug)
-				}
-				cfgData, ok := regionCfg[p.Slug]
-				if !ok {
-					return fmt.Errorf("missing config for region %s, plan %s", r.Slug, p.Slug)
-				}
-				var cfg map[string]string
-				if err := json.Unmarshal([]byte(cfgData), &cfg); err != nil {
-					return err
-				}
-				pt.Config = hstore.Hstore{
-					Map: map[string]sql.NullString{
-						"source_ami":        {cfg["source_ami"], true},
-						"instance_type":     {cfg["instance_type"], true},
-						"region_id":         {cfg["region_id"], true},
-						"storage_size":      {cfg["storage_size"], true},
-						"security_group_id": {cfg["security_group_id"], true},
-						"subnet_id":         {cfg["subnet_id"], true},
-						"disable_eip":       {cfg["disable_eip"], true},
-					},
-				}
+				},
 			}
-
 			if err := pt.Insert(d); err != nil {
 				return err
 			}

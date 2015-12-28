@@ -42,13 +42,8 @@
         "port": "6379"
       }
     },
-    "digitalocean": {
-      "token": "",
-      "notify_url": "http://pro.n2odev.com:3333/api/v0/hosts/{{slug}}/freighterd_hook",
-      "create_timeout": "5m"
-    },
     "docker": {
-      "freighterd_location": "/home/vagrant/workspace/dedicated/build/freighterd",
+      "freighterd_location": "/home/nitrous/code/dedicated/build/freighterd",
       "docker_location": "/usr/bin/docker",
       "registry_ca_location": "/home/nitrous/code/go/src/github.com/nitrous-io/dedicated/script/certs/n2odev.crt",
       "registry_ca_destination": "/etc/docker/certs.d/registry.n2odev.com:5000/ca.crt",
