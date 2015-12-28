@@ -52,7 +52,7 @@ var _ = Describe("models/github", func() {
 
 			timestamps, err := g.Accesses()
 			Expect(err).To(BeNil())
-			Expect(timestamps).To(ConsistOf(BeNumerically("~", time.Now().Unix())))
+			Expect(timestamps).To(ConsistOf(BeNumerically("~", time.Now().Unix(), 1)))
 
 			exceeded1, err := gh.Exceeded(db, u.ID)
 			Expect(err).To(BeNil())
@@ -65,7 +65,10 @@ var _ = Describe("models/github", func() {
 
 			timestamps1, err := g1.Accesses()
 			Expect(err).To(BeNil())
-			Expect(timestamps1).To(ConsistOf(BeNumerically("~", time.Now().Unix()), BeNumerically("~", time.Now().Unix())))
+			Expect(timestamps1).To(ConsistOf(
+				BeNumerically("~", time.Now().Unix(), 1),
+				BeNumerically("~", time.Now().Unix(), 1),
+			))
 		})
 
 		It("returns true if threshold exceeded", func() {
@@ -106,7 +109,10 @@ var _ = Describe("models/github", func() {
 
 			timestamps, err := g1.Accesses()
 			Expect(err).To(BeNil())
-			Expect(timestamps).To(ConsistOf(BeNumerically("~", now.Unix()), BeNumerically("~", now.Unix())))
+			Expect(timestamps).To(ConsistOf(
+				BeNumerically("~", now.Unix(), 1),
+				BeNumerically("~", now.Unix(), 1),
+			))
 		})
 	})
 
@@ -126,7 +132,7 @@ var _ = Describe("models/github", func() {
 
 			timestamps, err := g1.Accesses()
 			Expect(err).To(BeNil())
-			Expect(timestamps).To(ConsistOf(BeNumerically("~", time.Now().Add(-30*time.Minute).Unix())))
+			Expect(timestamps).To(ConsistOf(BeNumerically("~", time.Now().Add(-30*time.Minute).Unix(), 1)))
 		})
 	})
 
@@ -149,7 +155,10 @@ var _ = Describe("models/github", func() {
 
 			timestamps, err := g1.Accesses()
 			Expect(err).To(BeNil())
-			Expect(timestamps).To(ConsistOf(BeNumerically("~", time.Now().Add(-30*time.Minute).Unix()), BeNumerically("~", time.Now().Add(-25*time.Minute).Unix())))
+			Expect(timestamps).To(ConsistOf(
+				BeNumerically("~", time.Now().Add(-30*time.Minute).Unix(), 1),
+				BeNumerically("~", time.Now().Add(-25*time.Minute).Unix(), 1),
+			))
 		})
 	})
 
@@ -175,7 +184,7 @@ var _ = Describe("models/github", func() {
 
 			timestamps, err := g1.Accesses()
 			Expect(err).To(BeNil())
-			Expect(timestamps).To(ConsistOf(BeNumerically("~", time.Now().Add(-30*time.Minute).Unix())))
+			Expect(timestamps).To(ConsistOf(BeNumerically("~", time.Now().Add(-30*time.Minute).Unix(), 1)))
 		})
 
 		It("does not return github record if does not exist", func() {
