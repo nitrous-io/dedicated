@@ -1,13 +1,15 @@
 FROM quay.io/nitrous/docker:latest
 MAINTAINER Nitrous, Inc. <eng@nitrous.io>
 
-# set up postgres
+# install dependencies
 RUN \
   apt-get update && \
   apt-get install -y \
     postgresql=9.3+154 \
     postgresql-contrib=9.3+154 \
     libpq-dev=9.3.10-0ubuntu0.14.04 && \
+    libpq-dev=9.3.10-0ubuntu0.14.04 \
+    redis-server=2:2.8.4-2 && \
   apt-get clean
 
 COPY support/pg_hba.conf /etc/postgresql/9.3/main/pg_hba.conf
