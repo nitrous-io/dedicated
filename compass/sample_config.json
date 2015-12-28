@@ -11,7 +11,7 @@
       "name": "container",
       "domain": "n2odevapp.com.",
       "config": {
-        "database_url": "host=/var/run/postgresql user=vagrant dbname=nitrous_development sslmode=disable",
+        "database_url": "host=/var/run/postgresql user=nitrous dbname=nitrous_development sslmode=disable",
         "sgp":"n2ostagingproxy-sfo.com",
         "ams":"n2ostagingproxy-sfo.com",
         "lon":"n2ostagingproxy-sfo.com",
@@ -23,14 +23,14 @@
       "name": "host",
       "domain": "n2odevpro.com.",
       "config": {
-        "database_url": "host=/var/run/postgresql user=vagrant dbname=nitrous_development sslmode=disable"
+        "database_url": "host=/var/run/postgresql user=nitrous dbname=nitrous_development sslmode=disable"
       }
     },
     {
       "name": "proxy",
       "domain": "n2odevproxy.com.",
       "config": {
-        "database_url": "host=/var/run/postgresql user=vagrant dbname=nitrous_development sslmode=disable",
+        "database_url": "host=/var/run/postgresql user=nitrous dbname=nitrous_development sslmode=disable",
         "sfo": "nitrousproxy-sfo.com"
       }
     }

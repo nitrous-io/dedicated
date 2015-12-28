@@ -57,8 +57,8 @@ func (s *Server) ListenAndServe() error {
 	s.mux.Handle(".", s)
 
 	s.wg.Add(2)
-	go s.createServer("tcp", s.config.Addr)
 	go s.createServer("udp", s.config.Addr)
+	go s.createServer("tcp", s.config.Addr)
 	s.wg.Wait()
 	return nil
 }

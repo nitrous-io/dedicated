@@ -45,20 +45,20 @@ RUN apt-get update \
   && rm -r /usr/src/ruby
 
 # install go
-RUN curl -s https://storage.googleapis.com/golang/go1.4.2.linux-amd64.tar.gz \
+RUN curl -s https://storage.googleapis.com/golang/go1.5.2.linux-amd64.tar.gz \
   | tar -C /usr/local -xz
 
 ENV GOPATH /opt
 
-# install requires go binaries
+# install required go tools
 RUN go get github.com/tools/godep
 RUN go get github.com/ddollar/forego
 
 # load bundle to speed up Gem installs
-ADD script/bundle_config /root/.bundle/config
+COPY script/bundle_config /root/.bundle/config
 RUN gem install --no-ri --no-rdoc bundler
-ADD ./nitrous/rails/Gemfile /opt/src/github.com/nitrous-io/dedicated/nitrous/rails/Gemfile
-ADD ./nitrous/rails/Gemfile.lock /opt/src/github.com/nitrous-io/dedicated/nitrous/rails/Gemfile.lock
+COPY ./nitrous/rails/Gemfile /opt/src/github.com/nitrous-io/dedicated/nitrous/rails/Gemfile
+COPY ./nitrous/rails/Gemfile.lock /opt/src/github.com/nitrous-io/dedicated/nitrous/rails/Gemfile.lock
 RUN cd ./nitrous/rails && bundle install
 
 # install redis
@@ -70,16 +70,6 @@ RUN wget http://download.redis.io/releases/redis-3.0.0.tar.gz -P /tmp/ \
   && /tmp/redis-3.0.0/utils/install_server.sh \
   && service redis_6379 stop \
   && rm -rf /tmp/redis-3.0.0 /tmp/redis-3.0.0.tar.gz
-
-# install rabbitmq
-# http://www.rabbitmq.com/install-debian.html
-ENV RABBITMQ_VERSION 3.5\*
-RUN apt-key adv --keyserver ha.pool.sks-keyservers.net --recv-keys F78372A06FF50C80464FC1B4F7B8CEA6056E8E56
-RUN echo 'deb http://www.rabbitmq.com/debian/ testing main' > /etc/apt/sources.list.d/rabbitmq.list
-RUN apt-get update && apt-get install -y rabbitmq-server=$RABBITMQ_VERSION --no-install-recommends && rm -rf /var/lib/apt/lists/*
-RUN rabbitmq-plugins enable rabbitmq_management &&\
-    curl "https://raw.githubusercontent.com/rabbitmq/rabbitmq-management/rabbitmq_v3_5_3/bin/rabbitmqadmin" > /usr/bin/rabbitmqadmin &&\
-    chmod +x /usr/bin/rabbitmqadmin
 
 RUN /etc/init.d/postgresql start &&\
   su postgres -c "psql -c 'CREATE ROLE root SUPERUSER CREATEDB CREATEROLE INHERIT LOGIN;'" &&\
@@ -97,4 +87,4 @@ RUN echo "fsync=off" >> /etc/postgresql/9.3/main/postgresql.conf && \
 
 # set GOPATH to include the path to dependencies
 ENV GOPATH /opt/src/github.com/nitrous-io/dedicated/Godeps/_workspace:/opt
-ADD . /opt/src/github.com/nitrous-io/dedicated
+COPY . /opt/src/github.com/nitrous-io/dedicated

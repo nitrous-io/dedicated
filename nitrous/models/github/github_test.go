@@ -89,9 +89,11 @@ var _ = Describe("models/github", func() {
 			g := &gh.GitHub{
 				UserID: u.ID,
 			}
-			err := g.Insert(db, strconv.Itoa(int(time.Now().Unix())))
+			now := time.Now()
+
+			err := g.Insert(db, strconv.Itoa(int(now.Unix())))
 			Expect(err).To(BeNil())
-			err = g.Update(db, strconv.Itoa(int(time.Now().Add(-2*time.Hour).Unix())))
+			err = g.Update(db, strconv.Itoa(int(now.Add(-2*time.Hour).Unix())))
 			Expect(err).To(BeNil())
 
 			_, err = gh.Exceeded(db, u.ID)
@@ -99,12 +101,12 @@ var _ = Describe("models/github", func() {
 
 			g1, err := gh.FindByUserID(db, u.ID)
 			Expect(err).To(BeNil())
-			Expect(g1.AccessesAt).To(ContainSubstring(strconv.Itoa(int(time.Now().Unix()))))
+			Expect(g1.AccessesAt).To(ContainSubstring(strconv.Itoa(int(now.Unix()))))
 			Expect(g1.AccessesAt).To(ContainSubstring(","))
 
 			timestamps, err := g1.Accesses()
 			Expect(err).To(BeNil())
-			Expect(timestamps).To(ConsistOf(BeNumerically("~", time.Now().Unix()), BeNumerically("~", time.Now().Unix())))
+			Expect(timestamps).To(ConsistOf(BeNumerically("~", now.Unix()), BeNumerically("~", now.Unix())))
 		})
 	})
 
