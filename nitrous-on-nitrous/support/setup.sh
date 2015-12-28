@@ -47,3 +47,13 @@ fi
 
 cd $dedi_path/nitrous/rails
 bundle install
+
+react_path=/home/$NITROUS_USERNAME/code/react
+
+if [[ ! -d $react_path ]]; then
+  git clone git@github.com:nitrous-io/nitrous-react.git $react_path
+  cd $react_path
+  # nvm is a definition, so need to run in subshell
+  zsh -l -c 'nvm install v4.2.1 && nvm alias default v4.2.1'
+  echo 'export PATH="node_modules/.bin:$PATH"' >> .zshrc
+fi
