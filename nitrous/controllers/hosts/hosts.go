@@ -111,6 +111,18 @@ func Refresh(env *middleware.Env, w http.ResponseWriter, r *http.Request) error 
 }
 
 func Show(h *host.Host, env *middleware.Env, w http.ResponseWriter, r *http.Request) error {
+	// middleware uses host.FindByIdentifier or host.FindShared which do not
+	// check for deleted subscription
+	if h.SubscriptionID.Valid {
+		s, err := subscription.Find(env.DB, h.SubscriptionID.Int64)
+		if err != nil {
+			return err
+		}
+		if s.State == subscription.StateDeleted {
+			return httperror.New(http.StatusNotFound, "not_found", "not found")
+		}
+	}
+
 	if _, err := respec.Find(env.DB, h.ID); err == nil {
 		h.PendingRespec = true
 	}
