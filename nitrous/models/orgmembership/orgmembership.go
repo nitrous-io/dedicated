@@ -31,10 +31,15 @@ func (e InvalidRoleError) Error() string {
 }
 
 type OrgMembership struct {
-	ID     int64  `db:"id"`
-	OrgID  int64  `db:"org_id"`
-	UserID int64  `db:"user_id"`
-	Role   string `db:"role"`
+	ID     int64         `db:"id"`
+	OrgID  int64         `db:"org_id"`
+	UserID sql.NullInt64 `db:"user_id"`
+	Role   string        `db:"role"`
+
+	EmailSentAt pq.NullTime `db:"email_sent_at"`
+
+	InviteEmail sql.NullString `db:"invite_email"`
+	InviteCode  sql.NullString `db:"invite_code"`
 
 	CreatedAt *time.Time `db:"created_at"`
 	UpdatedAt *time.Time `db:"updated_at"`
