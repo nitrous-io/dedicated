@@ -708,7 +708,7 @@ var _ = Describe("models/host", func() {
 					err = test.WrapInTransaction(db, u2.Insert)
 					Expect(err).To(BeNil())
 
-					err = orgmembership.AddMember(db, o.ID, u2.ID, "owner")
+					_, err = orgmembership.AddMember(db, o.ID, strconv.FormatInt(u2.ID, 10), "owner")
 					Expect(err).To(BeNil())
 
 					_, err = db.Exec("UPDATE hosts SET org_id = $1 WHERE id = $2", o.ID, hs.H.ID)
@@ -795,7 +795,7 @@ var _ = Describe("models/host", func() {
 					err = test.WrapInTransaction(db, u2.Insert)
 					Expect(err).To(BeNil())
 
-					err = orgmembership.AddMember(db, o.ID, u2.ID, "owner")
+					_, err = orgmembership.AddMember(db, o.ID, strconv.FormatInt(u2.ID, 10), "owner")
 					Expect(err).To(BeNil())
 
 					_, err = db.Exec("UPDATE hosts SET org_id = $1 WHERE id = $2", o.ID, hs.H.ID)

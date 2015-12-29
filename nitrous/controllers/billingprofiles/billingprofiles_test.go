@@ -7,6 +7,7 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"net/url"
+	"strconv"
 	"testing"
 	"time"
 
@@ -143,7 +144,7 @@ var _ = Describe("controllers/billingprofiles", func() {
 					return nil
 				})
 				Expect(err).To(BeNil())
-				err = orgmembership.AddMember(db, o.ID, u.ID, "owner")
+				_, err = orgmembership.AddMember(db, o.ID, strconv.FormatInt(u.ID, 10), "owner")
 				Expect(err).To(BeNil())
 			})
 
@@ -412,7 +413,7 @@ var _ = Describe("controllers/billingprofiles", func() {
 					return nil
 				})
 				Expect(err).To(BeNil())
-				err = orgmembership.AddMember(db, o.ID, u.ID, "owner")
+				_, err = orgmembership.AddMember(db, o.ID, strconv.FormatInt(u.ID, 10), "owner")
 				Expect(err).To(BeNil())
 
 				bp, err = billingprofile.FindForOrg(db, o.ID)
@@ -660,7 +661,7 @@ var _ = Describe("controllers/billingprofiles", func() {
 					return nil
 				})
 				Expect(err).To(BeNil())
-				err = orgmembership.AddMember(db, o.ID, u.ID, orgmembership.RoleOwner)
+				_, err = orgmembership.AddMember(db, o.ID, strconv.FormatInt(u.ID, 10), orgmembership.RoleOwner)
 				Expect(err).To(BeNil())
 
 				bp, err = billingprofile.FindForOrg(db, o.ID)
