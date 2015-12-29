@@ -755,4 +755,31 @@ var _ = Describe("models/orgmembership", func() {
 			})
 		})
 	})
+
+	Describe("PromotePendingMemberToUser()", func() {
+		It("returns error if org membership does not exist", func() {
+			_, err := orgmembership.PromotePendingMemberToUser(db, "bob@doesnotexist.com", "12345678912345678912", u.ID)
+			Expect(err).To(MatchError(orgmembership.ErrDoesNotExist))
+		})
+
+		It("updates org membership with user data and removes pending invite data", func() {
+			_, err := db.Exec(`INSERT INTO org_memberships (org_id, invite_email, invite_code) VALUES ($1, $2, $3) RETURNING ID`, o.ID, "bob@member.com", "12345678912345678912")
+			Expect(err).To(BeNil())
+
+			om, err := orgmembership.PromotePendingMemberToUser(db, "bob@member.com", "12345678912345678912", u.ID)
+			Expect(err).To(BeNil())
+			Expect(om.UserID.Valid).To(BeTrue())
+			Expect(om.UserID.Int64).To(Equal(u.ID))
+			Expect(om.InviteEmail.Valid).To(BeFalse())
+			Expect(om.InviteCode.Valid).To(BeFalse())
+		})
+
+		Context("when some other error occurs", func() {
+			It("returns error", func() {
+				db.Close()
+				_, err := orgmembership.PromotePendingMemberToUser(db, "bob@member.com", "12345678912345678912", u.ID)
+				Expect(err).NotTo(BeNil())
+			})
+		})
+	})
 })

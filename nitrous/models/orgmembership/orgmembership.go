@@ -244,3 +244,33 @@ func RemoveMember(d db.QueryReceiver, orgID int64, identifier string) error {
 	}
 	return nil
 }
+
+func PromotePendingMemberToUser(d db.QueryReceiver, email, invitecode string, userID int64) (*OrgMembership, error) {
+	var exists bool
+	err := d.Get(&exists, `
+	        SELECT COUNT(*) = 1
+		FROM org_memberships
+		WHERE invite_email = $1
+		AND invite_code = $2
+		LIMIT 1`, email, invitecode)
+	if err != nil {
+		return nil, err
+	}
+
+	if !exists {
+		return nil, ErrDoesNotExist
+	}
+
+	om := &OrgMembership{
+		UserID:      sql.NullInt64{userID, true},
+		InviteEmail: sql.NullString{email, true},
+	}
+	nstmt, err := d.PrepareNamed(
+		`UPDATE org_memberships
+		SET (user_id, invite_email, invite_code)
+		= (:user_id, NULL, NULL)
+		WHERE invite_email = :invite_email
+		RETURNING *;`)
+	err = nstmt.QueryRowx(om).StructScan(om)
+	return om, err
+}

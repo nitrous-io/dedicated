@@ -260,4 +260,31 @@ var _ = Describe("models/containercollab", func() {
 			})
 		})
 	})
+
+	Describe("PromotePendingMemberToUser()", func() {
+		It("returns error if container collab does not exist", func() {
+			_, err := containercollab.PromotePendingMemberToUser(db, "bob@doesnotexist.com", "12345678912345678912", cnr.UserID)
+			Expect(err).To(MatchError(containercollab.ErrDoesNotExist))
+		})
+
+		It("updates container collabs with user data and removes pending invite data", func() {
+			_, err := db.Exec(`INSERT INTO container_collabs (container_id, invite_email, invite_code) VALUES ($1, $2, $3) RETURNING ID`, cnr.ID, "bob@collab.com", "12345678912345678912")
+			Expect(err).To(BeNil())
+
+			cc, err := containercollab.PromotePendingMemberToUser(db, "bob@collab.com", "12345678912345678912", cnr.UserID)
+			Expect(err).To(BeNil())
+			Expect(cc.UserID.Valid).To(BeTrue())
+			Expect(cc.UserID.Int64).To(Equal(cnr.UserID))
+			Expect(cc.InviteEmail.Valid).To(BeFalse())
+			Expect(cc.InviteCode.Valid).To(BeFalse())
+		})
+
+		Context("when some other error occurs", func() {
+			It("returns error", func() {
+				db.Close()
+				_, err := containercollab.PromotePendingMemberToUser(db, "bob@collab.com", "12345678912345678912", cnr.UserID)
+				Expect(err).NotTo(BeNil())
+			})
+		})
+	})
 })
