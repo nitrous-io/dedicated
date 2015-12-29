@@ -270,12 +270,13 @@ var _ = Describe("client", func() {
 			BeforeEach(func() {
 				// Close server to simulate a failed request.
 				server.Close()
+				time.Sleep(50 * time.Millisecond) // try to introduce some slack for heisentest
 			})
 
 			It("returns a RequestFailedError", func() {
 				containers, err := cl.List()
 				_, ok := err.(*freighterclient.RequestFailedError)
-				Expect(ok).To(BeTrue())
+				Expect(ok).To(BeTrue(), "Err was not RequestFailedError, was <%T>: %v", err, err)
 				Expect(server.ReceivedRequests()).To(HaveLen(0))
 				Expect(containers).To(BeNil())
 			})
