@@ -554,7 +554,7 @@ func PublishHostEvent(env *middleware.Env, name controllers.EventName, h *host.H
 		controllers.NewEvent(name, map[string]*serializers.Host{
 			"host": serializers.SerializeHost(h),
 		}),
-		env.User.Topic(),
+		u.Topic(),
 	)
 }
 
