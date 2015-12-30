@@ -10,10 +10,12 @@ import (
 	"net/url"
 	"strconv"
 	"testing"
+	"time"
 
 	"github.com/gorilla/mux"
 	"github.com/jmoiron/sqlx"
 
+	"github.com/nitrous-io/dedicated/nitrous/controllers"
 	"github.com/nitrous-io/dedicated/nitrous/controllers/orgs"
 	"github.com/nitrous-io/dedicated/nitrous/db"
 	"github.com/nitrous-io/dedicated/nitrous/envvars"
@@ -25,6 +27,7 @@ import (
 	"github.com/nitrous-io/dedicated/nitrous/models/token"
 	"github.com/nitrous-io/dedicated/nitrous/models/user"
 	"github.com/nitrous-io/dedicated/nitrous/pkg/mailer"
+	"github.com/nitrous-io/dedicated/nitrous/pkg/pubsub"
 	"github.com/nitrous-io/dedicated/nitrous/serializers"
 	"github.com/nitrous-io/dedicated/nitrous/server"
 	"github.com/nitrous-io/dedicated/nitrous/test"
@@ -520,6 +523,74 @@ var _ = Describe("controllers/orgs", func() {
 						Expect(j.Members[1].Name).To(Equal(u2.Name))
 					})
 				}
+
+				It("publishes an org members changed event to other members of the org", func() {
+					// Create another user as a member of the same org.
+					u3 := &user.User{
+						Username: "otheruser",
+						Password: "123456",
+						Email:    "otheruser@example.com",
+					}
+					Expect(test.WrapInTransaction(db, u3.Insert)).To(BeNil())
+
+					ch := svr.Events.Subscribe(u.Topic())
+					defer svr.Events.Unsubscribe(ch, u.Topic())
+					u2Ch := svr.Events.Subscribe(u2.Topic())
+					defer svr.Events.Unsubscribe(u2Ch, u2.Topic())
+					u3Ch := svr.Events.Subscribe(u3.Topic())
+					defer svr.Events.Unsubscribe(u3Ch, u3.Topic())
+
+					_, err := orgmembership.AddMember(db, o.ID, strconv.FormatInt(u.ID, 10), "admin")
+					Expect(err).To(BeNil())
+					_, err = orgmembership.AddMember(db, o.ID, strconv.FormatInt(u2.ID, 10), "member")
+					Expect(err).To(BeNil())
+					_, err = orgmembership.AddMember(db, o.ID, strconv.FormatInt(u3.ID, 10), "member")
+					Expect(err).To(BeNil())
+
+					params.Set("role", "admin")
+
+					res := doRequest(o.Slug, u2.Username)
+					Expect(res.Code).To(Equal(http.StatusOK))
+
+					// Both u2 and u3 should receive the event, but not the
+					// requesting user.
+
+					assertEvent := func(msg pubsub.Message) {
+						evt, ok := msg.(*controllers.Event)
+						Expect(ok).To(BeTrue())
+						Expect(evt.Name).To(Equal(controllers.EventOrgMembersChanged))
+						evtData, ok := evt.Data.(map[string]interface{})
+						Expect(ok).To(BeTrue())
+
+						orgSlug, ok := evtData["org_slug"].(string)
+						Expect(ok).To(BeTrue())
+						Expect(orgSlug).To(Equal(o.Slug))
+
+						serialized, ok := evtData["members"].([]*serializers.OrgMember)
+						Expect(ok).To(BeTrue())
+
+						members, err := orgmembership.FindAllByOrgID(db, o.ID)
+						Expect(err).To(BeNil())
+						Expect(serialized).To(Equal(serializers.SerializeOrgMembers(members)))
+					}
+
+					select {
+					case <-time.After(50 * time.Millisecond):
+						Fail("Timed out waiting for org members changed event for u2")
+					case e := <-u2Ch:
+						assertEvent(e)
+					}
+
+					select {
+					case <-time.After(50 * time.Millisecond):
+						Fail("Timed out waiting for org members changed event for u3")
+					case e := <-u3Ch:
+						assertEvent(e)
+					}
+
+					// The requesting user should not receive any event.
+					Consistently(ch).ShouldNot(Receive())
+				})
 			})
 
 			Context("when the requesting user does not have sufficient privileges", func() {
@@ -636,6 +707,72 @@ var _ = Describe("controllers/orgs", func() {
 						Expect(j.Members[1].Name).To(Equal(u2.Name))
 					})
 				}
+
+				It("publishes an org members changed event to other members of the org", func() {
+					// Create another user as a member of the same org.
+					u3 := &user.User{
+						Username: "otheruser",
+						Password: "123456",
+						Email:    "otheruser@example.com",
+					}
+					Expect(test.WrapInTransaction(db, u3.Insert)).To(BeNil())
+
+					ch := svr.Events.Subscribe(u.Topic())
+					defer svr.Events.Unsubscribe(ch, u.Topic())
+					u2Ch := svr.Events.Subscribe(u2.Topic())
+					defer svr.Events.Unsubscribe(u2Ch, u2.Topic())
+					u3Ch := svr.Events.Subscribe(u3.Topic())
+					defer svr.Events.Unsubscribe(u3Ch, u3.Topic())
+
+					_, err := orgmembership.AddMember(db, o.ID, strconv.FormatInt(u.ID, 10), "admin")
+					Expect(err).To(BeNil())
+					_, err = orgmembership.AddMember(db, o.ID, strconv.FormatInt(u3.ID, 10), "member")
+					Expect(err).To(BeNil())
+
+					params.Set("role", "admin")
+
+					res := doRequest(o.Slug, u2.Username)
+					Expect(res.Code).To(Equal(http.StatusCreated))
+
+					// Both u2 and u3 should receive the event, but not the
+					// requesting user.
+
+					assertEvent := func(msg pubsub.Message) {
+						evt, ok := msg.(*controllers.Event)
+						Expect(ok).To(BeTrue())
+						Expect(evt.Name).To(Equal(controllers.EventOrgMembersChanged))
+						evtData, ok := evt.Data.(map[string]interface{})
+						Expect(ok).To(BeTrue())
+
+						orgSlug, ok := evtData["org_slug"].(string)
+						Expect(ok).To(BeTrue())
+						Expect(orgSlug).To(Equal(o.Slug))
+
+						serialized, ok := evtData["members"].([]*serializers.OrgMember)
+						Expect(ok).To(BeTrue())
+
+						members, err := orgmembership.FindAllByOrgID(db, o.ID)
+						Expect(err).To(BeNil())
+						Expect(serialized).To(Equal(serializers.SerializeOrgMembers(members)))
+					}
+
+					select {
+					case <-time.After(50 * time.Millisecond):
+						Fail("Timed out waiting for org members changed event for u2")
+					case e := <-u2Ch:
+						assertEvent(e)
+					}
+
+					select {
+					case <-time.After(50 * time.Millisecond):
+						Fail("Timed out waiting for org members changed event for u3")
+					case e := <-u3Ch:
+						assertEvent(e)
+					}
+
+					// The requesting user should not receive any event.
+					Consistently(ch).ShouldNot(Receive())
+				})
 			})
 
 			Context("when the requesting user does not have sufficient privileges", func() {
@@ -1157,6 +1294,81 @@ var _ = Describe("controllers/orgs", func() {
 					})
 				}(t)
 			}
+
+			It("publishes a removed event to the removed member, and an org members changed event to other members of the org", func() {
+				// Create another user as a member of the same org.
+				u3 := &user.User{
+					Username: "otheruser",
+					Password: "123456",
+					Email:    "otheruser@example.com",
+				}
+				Expect(test.WrapInTransaction(db, u3.Insert)).To(BeNil())
+
+				ch := svr.Events.Subscribe(u.Topic())
+				defer svr.Events.Unsubscribe(ch, u.Topic())
+				u2Ch := svr.Events.Subscribe(u2.Topic())
+				defer svr.Events.Unsubscribe(u2Ch, u2.Topic())
+				u3Ch := svr.Events.Subscribe(u3.Topic())
+				defer svr.Events.Unsubscribe(u3Ch, u3.Topic())
+
+				_, err := orgmembership.AddMember(db, o.ID, strconv.FormatInt(u.ID, 10), "admin")
+				Expect(err).To(BeNil())
+				_, err = orgmembership.AddMember(db, o.ID, strconv.FormatInt(u2.ID, 10), "member")
+				Expect(err).To(BeNil())
+				_, err = orgmembership.AddMember(db, o.ID, strconv.FormatInt(u3.ID, 10), "member")
+				Expect(err).To(BeNil())
+
+				res := doRequest(o.Slug, u2.Username)
+				Expect(res.Code).To(Equal(http.StatusOK))
+
+				// u2 should receive an event informing them that they've been
+				// removed from the org.
+				select {
+				case <-time.After(50 * time.Millisecond):
+					Fail("Timed out waiting for org members removed event for u2")
+				case e := <-u2Ch:
+					evt, ok := e.(*controllers.Event)
+					Expect(ok).To(BeTrue())
+					Expect(evt.Name).To(Equal(controllers.EventOrgMemberRemoved))
+					evtData, ok := evt.Data.(map[string]interface{})
+					Expect(ok).To(BeTrue())
+
+					orgSlug, ok := evtData["org_slug"].(string)
+					Expect(ok).To(BeTrue())
+					Expect(orgSlug).To(Equal(o.Slug))
+
+					username, ok := evtData["username"].(string)
+					Expect(ok).To(BeTrue())
+					Expect(username).To(Equal(u2.Username))
+				}
+
+				// u3 should receive the org members changed event.
+				select {
+				case <-time.After(50 * time.Millisecond):
+					Fail("Timed out waiting for org members changed event for u3")
+				case e := <-u3Ch:
+					evt, ok := e.(*controllers.Event)
+					Expect(ok).To(BeTrue())
+					Expect(evt.Name).To(Equal(controllers.EventOrgMembersChanged))
+					evtData, ok := evt.Data.(map[string]interface{})
+					Expect(ok).To(BeTrue())
+
+					orgSlug, ok := evtData["org_slug"].(string)
+					Expect(ok).To(BeTrue())
+					Expect(orgSlug).To(Equal(o.Slug))
+
+					serialized, ok := evtData["members"].([]*serializers.OrgMember)
+					Expect(ok).To(BeTrue())
+
+					members, err := orgmembership.FindAllByOrgID(db, o.ID)
+					Expect(err).To(BeNil())
+					Expect(serialized).To(Equal(serializers.SerializeOrgMembers(members)))
+					Expect(members).To(HaveLen(2))
+				}
+
+				// The requesting user should not receive any event.
+				Consistently(ch).ShouldNot(Receive())
+			})
 		})
 
 		Context("oauth token failure modes", func() {
