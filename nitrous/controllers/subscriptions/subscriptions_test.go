@@ -803,6 +803,11 @@ var _ = Describe("controllers/subscriptions", func() {
 
 			Expect(fsub.CancelCalled).To(BeTrue())
 			Expect(fsub.CancelSubscription.ID).To(Equal(s.ID))
+
+			// and set the state to deleted immediately
+			s, err := subscription.Find(db, s.ID)
+			Expect(err).To(BeNil())
+			Expect(s.State).To(Equal(subscription.StateDeleted))
 		})
 
 		It("should return a bad request if the subscription has been canceled", func() {

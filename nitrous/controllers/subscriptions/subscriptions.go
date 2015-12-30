@@ -7,8 +7,12 @@ import (
 	"net/url"
 	"strconv"
 
+	"github.com/Sirupsen/logrus"
 	"github.com/gorilla/mux"
 	"github.com/jmoiron/sqlx"
+	stripe "github.com/stripe/stripe-go"
+	stripeinvoice "github.com/stripe/stripe-go/invoice"
+
 	"github.com/nitrous-io/dedicated/nitrous/controllers/shared"
 	ndb "github.com/nitrous-io/dedicated/nitrous/db"
 	"github.com/nitrous-io/dedicated/nitrous/middleware"
@@ -22,8 +26,6 @@ import (
 	"github.com/nitrous-io/dedicated/nitrous/pkg/httperror"
 	"github.com/nitrous-io/dedicated/nitrous/serializers"
 	sub "github.com/nitrous-io/dedicated/nitrous/subscriptions"
-	stripe "github.com/stripe/stripe-go"
-	stripeinvoice "github.com/stripe/stripe-go/invoice"
 )
 
 var (
@@ -285,6 +287,14 @@ func Cancel(env *middleware.Env, w http.ResponseWriter, r *http.Request) error {
 
 	if err := subProvider.Cancel(env.DB, s); err != nil {
 		return err
+	}
+
+	// update db immediately so that host will be hidden
+	s.State = subscription.StateDeleted
+	if err := s.Update(env.DB); err != nil {
+		// we can swallow this error because the webhook will update the
+		// subscription to deleted
+		logrus.Warnf("Unable to mark subscription deleted: %s", s.Slug)
 	}
 
 	env.Status = http.StatusOK

@@ -366,6 +366,27 @@ var _ = Describe("controllers/hosts", func() {
 			Expect(j.Host.ID).To(Equal(hs.H.ID))
 		})
 
+		It("responds with 404 when subscription is deleted", func() {
+			bp, err := hs.U.BillingProfile(db)
+			Expect(err).To(BeNil())
+
+			s := &subscription.Subscription{
+				PlanID:           hs.P.ID,
+				BillingProfileID: bp.ID,
+				State:            subscription.StateDeleted,
+				StripeID:         sql.NullString{"sub_ABC", true},
+				Slug:             "Sub1",
+			}
+			err = test.WrapInTransaction(db, s.Insert)
+			Expect(err).To(BeNil())
+
+			_, err = db.Exec("UPDATE hosts SET subscription_id = $1 WHERE id = $2;", s.ID, hs.H.ID)
+			Expect(err).To(BeNil())
+
+			doRequest(strconv.FormatInt(hs.H.ID, 10), t.Token)
+			Expect(res.Code).To(Equal(http.StatusNotFound))
+		})
+
 		Context("when the host does not belong to the user", func() {
 			var (
 				anotherUser  *user.User
