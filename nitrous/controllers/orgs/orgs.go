@@ -83,9 +83,8 @@ func Create(env *middleware.Env, w http.ResponseWriter, r *http.Request) error {
 	err = db.Get(&edu, `SELECT COUNT(*) > 0 FROM edu_emails_whitelist WHERE email = $1 LIMIT 1;`, o.Email)
 	if err != nil {
 		return err
-	} else {
-		o.Edu = edu
 	}
+	o.Edu = edu
 
 	if intent == "edu" && !o.Edu {
 		return errNotEduWhitelisted
@@ -276,10 +275,7 @@ func ShowMembers(env *middleware.Env, w http.ResponseWriter, r *http.Request) er
 
 	members, err := orgmembership.FindAllByOrgID(db, o.ID)
 	if err != nil {
-		if err != sql.ErrNoRows {
-			return err
-		}
-		members = []*orgmembership.OrgMember{}
+		return err
 	}
 
 	env.Status = http.StatusOK
@@ -413,10 +409,7 @@ func handleUpdateOrAddMember(env *middleware.Env, o *org.Org, permissibleRoles [
 func serializeOrgMembersData(env *middleware.Env, o *org.Org) error {
 	members, err := orgmembership.FindAllByOrgID(env.DB, o.ID)
 	if err != nil {
-		if err != sql.ErrNoRows {
-			return err
-		}
-		members = []*orgmembership.OrgMember{}
+		return err
 	}
 	env.Data = map[string]interface{}{
 		"members": serializers.SerializeOrgMembers(members),
@@ -524,10 +517,7 @@ func RemoveMember(env *middleware.Env, w http.ResponseWriter, r *http.Request) e
 
 	members, err := orgmembership.FindAllByOrgID(db, o.ID)
 	if err != nil {
-		if err != sql.ErrNoRows {
-			return err
-		}
-		members = []*orgmembership.OrgMember{}
+		return err
 	}
 
 	env.Status = http.StatusOK
