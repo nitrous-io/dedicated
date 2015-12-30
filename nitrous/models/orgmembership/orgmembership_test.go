@@ -478,8 +478,10 @@ var _ = Describe("models/orgmembership", func() {
 					Expect(m).To(HaveLen(2))
 					Expect(m[0].InviteEmail.String).To(Equal("owner@bob.com"))
 					Expect(m[0].Role).To(Equal("owner"))
+					Expect(m[0].InviteCode.Valid).To(BeTrue())
 					Expect(m[1].InviteEmail.String).To(Equal("member@bob.com"))
 					Expect(m[1].Role).To(Equal("member"))
+					Expect(m[1].InviteCode.Valid).To(BeTrue())
 				})
 
 				Context("when pending user is already a member", func() {

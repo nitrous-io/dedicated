@@ -10,6 +10,7 @@ import (
 	"github.com/jmoiron/sqlx"
 	"github.com/lib/pq"
 	"github.com/nitrous-io/dedicated/nitrous/db"
+	"github.com/nitrous-io/dedicated/nitrous/pkg/securerandom"
 )
 
 var ErrDoesNotExist = errors.New("org membership does not exist")
@@ -158,10 +159,11 @@ func AddMember(d db.QueryReceiver, orgID int64, identifier, role string) (*OrgMe
 			return nil, err
 		}
 		om.InviteEmail = sql.NullString{identifier, true}
+		om.InviteCode = sql.NullString{token, true}
 		s, err = d.PrepareNamed(`
 		  INSERT INTO org_memberships
-		  (org_id, invite_email, role, email_sent_at)
-		  VALUES (:org_id, :invite_email, :role, now())
+		  (org_id, invite_email, invite_code, role, email_sent_at)
+		  VALUES (:org_id, :invite_email, :invite_code, :role, now())
 		  RETURNING *;`)
 	} else {
 		om.UserID = sql.NullInt64{id, true}
