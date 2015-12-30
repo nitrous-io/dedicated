@@ -225,7 +225,7 @@ func (s *Server) activateHost(uuid string, u *user.User, h *host.Host, hostInfo 
 				logData.Errorf("Unable to locate org: %d, err: %v", h.OrgID.Int64)
 				return errUnableToCreateSubscription
 			}
-			_, err := orgmembership.FindByUsernameAndOrgSlug(db, u.Username, o.Slug)
+			_, err := orgmembership.FindByIdentifierAndOrgSlug(db, u.Username, o.Slug)
 			if err != nil {
 				if err == sql.ErrNoRows {
 					return SubscriptionCreateError{Err: "You do not have access to this organization."}

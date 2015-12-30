@@ -7,12 +7,15 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"net/url"
+	"strconv"
 	"testing"
 
 	"github.com/gorilla/mux"
 	"github.com/jmoiron/sqlx"
 
+	"github.com/nitrous-io/dedicated/nitrous/controllers/orgs"
 	"github.com/nitrous-io/dedicated/nitrous/db"
+	"github.com/nitrous-io/dedicated/nitrous/envvars"
 	"github.com/nitrous-io/dedicated/nitrous/models/billingprofile"
 	"github.com/nitrous-io/dedicated/nitrous/models/org"
 	"github.com/nitrous-io/dedicated/nitrous/models/orgmembership"
@@ -20,6 +23,7 @@ import (
 	"github.com/nitrous-io/dedicated/nitrous/models/subscription"
 	"github.com/nitrous-io/dedicated/nitrous/models/token"
 	"github.com/nitrous-io/dedicated/nitrous/models/user"
+	"github.com/nitrous-io/dedicated/nitrous/pkg/mailer"
 	"github.com/nitrous-io/dedicated/nitrous/serializers"
 	"github.com/nitrous-io/dedicated/nitrous/server"
 	"github.com/nitrous-io/dedicated/nitrous/test"
@@ -158,7 +162,7 @@ var _ = Describe("controllers/orgs", func() {
 				Expect(err).To(BeNil())
 
 				Expect(m).To(HaveLen(1))
-				Expect(m[0].Username).To(Equal("foo"))
+				Expect(m[0].Username.String).To(Equal("foo"))
 				Expect(m[0].Role).To(Equal("owner"))
 			})
 
@@ -176,7 +180,7 @@ var _ = Describe("controllers/orgs", func() {
 				Expect(err).To(BeNil())
 
 				Expect(m).To(HaveLen(1))
-				Expect(m[0].Username).To(Equal("foo"))
+				Expect(m[0].Username.String).To(Equal("foo"))
 				Expect(m[0].Role).To(Equal("owner"))
 			})
 		})
@@ -459,9 +463,9 @@ var _ = Describe("controllers/orgs", func() {
 					func(t tc) {
 						Context(fmt.Sprintf("when %s requests update of a member's role from %s to %s", t.myRole, t.from, t.to), func() {
 							BeforeEach(func() {
-								err := orgmembership.AddMember(db, o.ID, u.ID, t.myRole)
+								_, err := orgmembership.AddMember(db, o.ID, strconv.FormatInt(u.ID, 10), t.myRole)
 								Expect(err).To(BeNil())
-								err = orgmembership.AddMember(db, o.ID, u2.ID, t.from)
+								_, err = orgmembership.AddMember(db, o.ID, strconv.FormatInt(u2.ID, 10), t.from)
 								Expect(err).To(BeNil())
 
 								params.Set("role", t.to)
@@ -475,9 +479,9 @@ var _ = Describe("controllers/orgs", func() {
 										m, err := orgmembership.FindAllByOrgID(db, o.ID)
 										Expect(err).To(BeNil())
 										Expect(m).To(HaveLen(2))
-										Expect(m[0].Username).To(Equal(u.Username))
+										Expect(m[0].Username.String).To(Equal(u.Username))
 										Expect(m[0].Role).To(Equal(t.myRole))
-										Expect(m[1].Username).To(Equal(u2.Username))
+										Expect(m[1].Username.String).To(Equal(u2.Username))
 										// role should have been updated
 										Expect(m[1].Role).To(Equal(t.to))
 
@@ -509,9 +513,9 @@ var _ = Describe("controllers/orgs", func() {
 										m, err := orgmembership.FindAllByOrgID(db, o.ID)
 										Expect(err).To(BeNil())
 										Expect(m).To(HaveLen(2))
-										Expect(m[0].Username).To(Equal(u.Username))
+										Expect(m[0].Username.String).To(Equal(u.Username))
 										Expect(m[0].Role).To(Equal(t.myRole))
-										Expect(m[1].Username).To(Equal(u2.Username))
+										Expect(m[1].Username.String).To(Equal(u2.Username))
 										// role shouldn't have been updated
 										Expect(m[1].Role).To(Equal(t.from))
 
@@ -563,7 +567,7 @@ var _ = Describe("controllers/orgs", func() {
 					func(t tc) {
 						Context(fmt.Sprintf("when %s requests a new %s to be added", t.myRole, t.role), func() {
 							BeforeEach(func() {
-								err := orgmembership.AddMember(db, o.ID, u.ID, t.myRole)
+								_, err := orgmembership.AddMember(db, o.ID, strconv.FormatInt(u.ID, 10), t.myRole)
 								Expect(err).To(BeNil())
 
 								params.Set("role", t.role)
@@ -577,10 +581,10 @@ var _ = Describe("controllers/orgs", func() {
 										m, err := orgmembership.FindAllByOrgID(db, o.ID)
 										Expect(err).To(BeNil())
 										Expect(m).To(HaveLen(2))
-										Expect(m[0].Username).To(Equal(u.Username))
+										Expect(m[0].Username.String).To(Equal(u.Username))
 										Expect(m[0].Role).To(Equal(t.myRole))
 										// new org member should have been added with correct role
-										Expect(m[1].Username).To(Equal(u2.Username))
+										Expect(m[1].Username.String).To(Equal(u2.Username))
 										Expect(m[1].Role).To(Equal(t.role))
 
 										m, err = orgmembership.FindAllByOrgID(db, o2.ID)
@@ -612,7 +616,7 @@ var _ = Describe("controllers/orgs", func() {
 										Expect(err).To(BeNil())
 										// new org member shouldn't have been added
 										Expect(m).To(HaveLen(1))
-										Expect(m[0].Username).To(Equal(u.Username))
+										Expect(m[0].Username.String).To(Equal(u.Username))
 										Expect(m[0].Role).To(Equal(t.myRole))
 
 										m, err = orgmembership.FindAllByOrgID(db, o2.ID)
@@ -666,10 +670,10 @@ var _ = Describe("controllers/orgs", func() {
 			})
 		})
 
-		Describe("PUT /api/v0/orgs/{slug}/members/{username}", func() {
-			doRequest = func(slug, username string) {
+		Describe("PUT /api/v0/orgs/{slug}/members/{identifier}", func() {
+			doRequest = func(slug, identifier string) {
 				var err error
-				url := fmt.Sprintf("/api/v0/orgs/%s/members/%s", slug, username)
+				url := fmt.Sprintf("/api/v0/orgs/%s/members/%s", slug, identifier)
 				req, err = test.NewFormRequest("PUT", url, params)
 				Expect(err).To(BeNil())
 				req.Header.Set("Authorization", "Bearer valid-token")
@@ -686,10 +690,196 @@ var _ = Describe("controllers/orgs", func() {
 
 				test.ItRequiresAuthToken(&authTokenInputs)
 			})
+
+			Context("when org member added by email", func() {
+				var (
+					fakeMailer                 *test.FakeMailer
+					origMailer, origOrgsMailer mailer.Mailer
+				)
+
+				BeforeEach(func() {
+					envvars.WebHostname = "nitrous.example"
+					origMailer = user.Mailer
+					origOrgsMailer = orgs.Mailer
+					fakeMailer = &test.FakeMailer{}
+					orgs.Mailer = fakeMailer
+				})
+
+				AfterEach(func() {
+					user.Mailer = origMailer
+					orgs.Mailer = origOrgsMailer
+				})
+
+				It("should not invite user to Nitrous if blacklisted", func() {
+					// Relies on `nitrous/.env-example` and `nitrous/dev/email-blacklist.txt`
+					doRequest(o.Slug, "robin@yopmail.fr")
+
+					Expect(res.Code).To(Equal(http.StatusNotFound))
+
+					errSlug, errDesc := test.ErrorSlug(res.Body)
+					Expect(errSlug).To(Equal("user_not_found"))
+					Expect(errDesc).To(Equal("the specified user could not be found"))
+
+					m, err := orgmembership.FindAllByOrgID(db, o.ID)
+					Expect(err).To(BeNil())
+					Expect(m).To(HaveLen(0))
+
+					Expect(fakeMailer.SendMailCalled).To(BeFalse())
+				})
+
+				Context("when the given email is already a pending member", func() {
+					type tc struct {
+						myRole  string
+						from    string
+						to      string
+						allowed bool
+					}
+					tcs := []tc{
+						{"owner", "admin", "owner", true}, // i am an owner, promoting an admin to owner
+						{"owner", "admin", "admin", true},
+						{"owner", "admin", "member", true}, // i am an owner, demoting an admin to member
+						{"owner", "owner", "owner", true},
+						{"owner", "owner", "admin", true},
+						{"owner", "owner", "member", true},
+						{"owner", "member", "owner", true},
+						{"owner", "member", "admin", true},
+						{"owner", "member", "member", true},
+
+						{"admin", "admin", "owner", false},
+						{"admin", "admin", "admin", true},
+						{"admin", "admin", "member", true},
+						{"admin", "owner", "owner", false},
+						{"admin", "owner", "admin", false},
+						{"admin", "owner", "member", false},
+						{"admin", "member", "owner", false},
+						{"admin", "member", "admin", true},
+						{"admin", "member", "member", true},
+
+						{"member", "admin", "owner", false},
+						{"member", "admin", "admin", false},
+						{"member", "admin", "member", false},
+						{"member", "owner", "owner", false},
+						{"member", "owner", "admin", false},
+						{"member", "owner", "member", false},
+						{"member", "member", "owner", false},
+						{"member", "member", "admin", false},
+						{"member", "member", "member", false},
+					}
+
+					runTestCases := func(t tc) {
+						Context(fmt.Sprintf("when %s requests update of a member's role from %s to %s", t.myRole, t.from, t.to), func() {
+							BeforeEach(func() {
+								_, err := orgmembership.AddMember(db, o.ID, strconv.FormatInt(u.ID, 10), t.myRole)
+								Expect(err).To(BeNil())
+								_, err = orgmembership.AddMember(db, o.ID, "bob@pending.com", t.from)
+								Expect(err).To(BeNil())
+
+								params.Set("role", t.to)
+
+								doRequest(o.Slug, "bob@pending.com")
+							})
+
+							if t.allowed {
+								It("allows update", func() {
+									Expect(res.Code).To(Equal(http.StatusOK))
+
+									m, err := orgmembership.FindAllByOrgID(db, o.ID)
+									Expect(err).To(BeNil())
+									Expect(m).To(HaveLen(2))
+									Expect(m[0].Username.String).To(Equal(u.Username))
+									Expect(m[0].Role).To(Equal(t.myRole))
+									Expect(m[1].Username.Valid).To(BeFalse())
+									Expect(m[1].InviteEmail.String).To(Equal("bob@pending.com"))
+									Expect(m[1].InviteCode.Valid).To(BeTrue())
+									// role should have been updated
+									Expect(m[1].Role).To(Equal(t.to))
+
+									m, err = orgmembership.FindAllByOrgID(db, o2.ID)
+									Expect(err).To(BeNil())
+									Expect(m).To(HaveLen(0))
+
+									var j struct {
+										Members []*serializers.OrgMember `json:"members"`
+									}
+									err = json.Unmarshal(res.Body.Bytes(), &j)
+									Expect(err).To(BeNil())
+									Expect(j.Members).To(HaveLen(2))
+									Expect(j.Members[0].UserID).To(Equal(u.ID))
+									Expect(j.Members[0].Username).To(Equal(u.Username))
+									Expect(j.Members[0].Email).To(Equal(u.Email))
+									Expect(j.Members[0].Role).To(Equal(t.myRole))
+									Expect(j.Members[0].Name).To(Equal(u.Name))
+									Expect(j.Members[1].UserID).To(BeZero())
+									Expect(j.Members[1].PendingEmail).To(Equal("bob@pending.com"))
+									Expect(j.Members[1].Role).To(Equal(t.to))
+
+									Expect(fakeMailer.SendMailCalled).To(BeFalse())
+								})
+							} else {
+								It("disallows update", func() {
+									Expect(res.Code).To(Equal(http.StatusForbidden))
+
+									m, err := orgmembership.FindAllByOrgID(db, o.ID)
+									Expect(err).To(BeNil())
+									Expect(m).To(HaveLen(2))
+									Expect(m[0].Username.String).To(Equal(u.Username))
+									Expect(m[0].Role).To(Equal(t.myRole))
+									Expect(m[1].Username.Valid).To(BeFalse())
+									// role shouldn't have been updated
+									Expect(m[1].Role).To(Equal(t.from))
+
+									m, err = orgmembership.FindAllByOrgID(db, o2.ID)
+									Expect(err).To(BeNil())
+									Expect(m).To(HaveLen(0))
+
+									Expect(fakeMailer.SendMailCalled).To(BeFalse())
+								})
+							}
+						})
+					}
+
+					for _, t := range tcs {
+						runTestCases(t)
+					}
+				})
+
+				It("should send invite email", func() {
+					_, err := orgmembership.AddMember(db, o.ID, strconv.FormatInt(u.ID, 10), "owner")
+					Expect(err).To(BeNil())
+
+					doRequest(o.Slug, "bob@abc.com")
+
+					Expect(res.Code).To(Equal(http.StatusCreated))
+
+					Eventually(func() interface{} {
+						orgMember := &orgmembership.OrgMembership{}
+						err := db.Get(orgMember, "SELECT * FROM org_memberships WHERE org_id = $1 AND invite_email = $2", o.ID, "bob@abc.com")
+						Expect(err).To(BeNil())
+						Expect(orgMember).ToNot(BeNil())
+						Expect(orgMember.UserID.Valid).To(BeFalse())
+
+						return orgMember.EmailSentAt.Valid
+					}).Should(BeTrue())
+
+					Expect(fakeMailer.SendMailCalled).To(BeTrue())
+					Expect(fakeMailer.From).To(Equal(envvars.SupportEmail))
+					Expect(fakeMailer.Tos).To(Equal([]string{"bob@abc.com"}))
+					Expect(fakeMailer.ReplyTo).To(Equal(envvars.SupportEmail))
+					Expect(fakeMailer.Subject).To(Equal(fmt.Sprintf("%s has invited you to organization %s!", u.Name, o.Name)))
+
+					Expect(fakeMailer.HTML).To(ContainSubstring(fmt.Sprintf("%s invited you to join the %s organization on Nitrous.", u.Name, o.Name)))
+					Expect(fakeMailer.HTML).To(ContainSubstring("You will be able to create projects"))
+					Expect(fakeMailer.HTML).To(ContainSubstring("/signup?invite="))
+
+					Expect(fakeMailer.Body).To(ContainSubstring(fmt.Sprintf("%s invited you to join the %s organization on Nitrous.", u.Name, o.Name)))
+					Expect(fakeMailer.Body).To(ContainSubstring("You will be able to create projects"))
+					Expect(fakeMailer.Body).To(ContainSubstring("/signup?invite="))
+				})
+			})
 		})
 	})
 
-	Describe("DELETE /api/v0/orgs/{slug}/members/{username}", func() {
+	Describe("DELETE /api/v0/orgs/{slug}/members/{identifier}", func() {
 		var (
 			o, o2 *org.Org
 			u2    *user.User
@@ -759,9 +949,9 @@ var _ = Describe("controllers/orgs", func() {
 
 		Context("when target user does not belong to the org", func() {
 			It("responds with 404 not found", func() {
-				err := orgmembership.AddMember(db, o.ID, u.ID, "admin")
+				_, err := orgmembership.AddMember(db, o.ID, strconv.FormatInt(u.ID, 10), "admin")
 				Expect(err).To(BeNil())
-				err = orgmembership.AddMember(db, o2.ID, u2.ID, "member")
+				_, err = orgmembership.AddMember(db, o2.ID, strconv.FormatInt(u2.ID, 10), "member")
 				Expect(err).To(BeNil())
 
 				doRequest(o.Slug, u2.Username)
@@ -776,13 +966,13 @@ var _ = Describe("controllers/orgs", func() {
 
 		Context("when target user is same as requesting user", func() {
 			It("allows a regular member to be deleted", func() {
-				err := orgmembership.AddMember(db, o.ID, u.ID, "member")
+				_, err := orgmembership.AddMember(db, o.ID, strconv.FormatInt(u.ID, 10), "member")
 				Expect(err).To(BeNil())
 
 				doRequest(o.Slug, u.Username)
 				Expect(res.Code).To(Equal(http.StatusOK))
 
-				_, err = orgmembership.FindByUsernameAndOrgSlug(db, u.Username, o.Slug)
+				_, err = orgmembership.FindByIdentifierAndOrgSlug(db, u.Username, o.Slug)
 				Expect(err).To(Equal(sql.ErrNoRows))
 
 				j := map[string]interface{}{}
@@ -793,13 +983,13 @@ var _ = Describe("controllers/orgs", func() {
 			})
 
 			It("allows an admin to be deleted", func() {
-				err := orgmembership.AddMember(db, o.ID, u.ID, "admin")
+				_, err := orgmembership.AddMember(db, o.ID, strconv.FormatInt(u.ID, 10), "admin")
 				Expect(err).To(BeNil())
 
 				doRequest(o.Slug, u.Username)
 				Expect(res.Code).To(Equal(http.StatusOK))
 
-				_, err = orgmembership.FindByUsernameAndOrgSlug(db, u.Username, o.Slug)
+				_, err = orgmembership.FindByIdentifierAndOrgSlug(db, u.Username, o.Slug)
 				Expect(err).To(Equal(sql.ErrNoRows))
 
 				j := map[string]interface{}{}
@@ -810,13 +1000,13 @@ var _ = Describe("controllers/orgs", func() {
 			})
 
 			It("should not allow an owner to be deleted", func() {
-				err := orgmembership.AddMember(db, o.ID, u.ID, "owner")
+				_, err := orgmembership.AddMember(db, o.ID, strconv.FormatInt(u.ID, 10), "owner")
 				Expect(err).To(BeNil())
 
 				doRequest(o.Slug, u.Username)
 				Expect(res.Code).To(Equal(http.StatusBadRequest))
 
-				_, err = orgmembership.FindByUsernameAndOrgSlug(db, u.Username, o.Slug)
+				_, err = orgmembership.FindByIdentifierAndOrgSlug(db, u.Username, o.Slug)
 				Expect(err).To(BeNil())
 
 				j := map[string]string{}
@@ -848,9 +1038,9 @@ var _ = Describe("controllers/orgs", func() {
 				func(t tc) {
 					Context(fmt.Sprintf("when %s requests deletion of %s", t.myRole, t.targetUserRole), func() {
 						BeforeEach(func() {
-							err := orgmembership.AddMember(db, o.ID, u.ID, t.myRole)
+							_, err := orgmembership.AddMember(db, o.ID, strconv.FormatInt(u.ID, 10), t.myRole)
 							Expect(err).To(BeNil())
-							err = orgmembership.AddMember(db, o.ID, u2.ID, t.targetUserRole)
+							_, err = orgmembership.AddMember(db, o.ID, strconv.FormatInt(u2.ID, 10), t.targetUserRole)
 							Expect(err).To(BeNil())
 
 							doRequest(o.Slug, u2.Username)
@@ -863,7 +1053,7 @@ var _ = Describe("controllers/orgs", func() {
 								m, err := orgmembership.FindAllByOrgID(db, o.ID)
 								Expect(err).To(BeNil())
 								Expect(m).To(HaveLen(1))
-								Expect(m[0].Username).To(Equal(u.Username))
+								Expect(m[0].Username.String).To(Equal(u.Username))
 								Expect(m[0].Role).To(Equal(t.myRole))
 
 								var j struct {
@@ -885,9 +1075,9 @@ var _ = Describe("controllers/orgs", func() {
 								m, err := orgmembership.FindAllByOrgID(db, o.ID)
 								Expect(err).To(BeNil())
 								Expect(m).To(HaveLen(2))
-								Expect(m[0].Username).To(Equal(u.Username))
+								Expect(m[0].Username.String).To(Equal(u.Username))
 								Expect(m[0].Role).To(Equal(t.myRole))
-								Expect(m[1].Username).To(Equal(u2.Username))
+								Expect(m[1].Username.String).To(Equal(u2.Username))
 								Expect(m[1].Role).To(Equal(t.targetUserRole))
 							})
 						}
@@ -970,7 +1160,7 @@ var _ = Describe("controllers/orgs", func() {
 
 		Context("when user belongs to the org", func() {
 			BeforeEach(func() {
-				err := orgmembership.AddMember(db, o.ID, u.ID, "member")
+				_, err := orgmembership.AddMember(db, o.ID, strconv.FormatInt(u.ID, 10), "member")
 				Expect(err).To(BeNil())
 			})
 
@@ -1093,11 +1283,11 @@ var _ = Describe("controllers/orgs", func() {
 			err = test.WrapInTransaction(db, u3.Insert)
 			Expect(err).To(BeNil())
 
-			err = orgmembership.AddMember(db, o.ID, u.ID, "owner")
+			_, err = orgmembership.AddMember(db, o.ID, strconv.FormatInt(u.ID, 10), "owner")
 			Expect(err).To(BeNil())
-			err = orgmembership.AddMember(db, o2.ID, u2.ID, "member")
+			_, err = orgmembership.AddMember(db, o2.ID, strconv.FormatInt(u2.ID, 10), "member")
 			Expect(err).To(BeNil())
-			err = orgmembership.AddMember(db, o.ID, u3.ID, "admin")
+			_, err = orgmembership.AddMember(db, o.ID, strconv.FormatInt(u3.ID, 10), "admin")
 			Expect(err).To(BeNil())
 		})
 
@@ -1236,10 +1426,10 @@ var _ = Describe("controllers/orgs", func() {
 
 		Context("when user belongs to orgs", func() {
 			BeforeEach(func() {
-				err := orgmembership.AddMember(db, o.ID, u.ID, "member")
+				_, err := orgmembership.AddMember(db, o.ID, strconv.FormatInt(u.ID, 10), "member")
 				Expect(err).To(BeNil())
 
-				err = orgmembership.AddMember(db, o3.ID, u.ID, "member")
+				_, err = orgmembership.AddMember(db, o3.ID, strconv.FormatInt(u.ID, 10), "member")
 				Expect(err).To(BeNil())
 			})
 

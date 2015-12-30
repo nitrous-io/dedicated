@@ -9,7 +9,10 @@ import (
 	"github.com/nitrous-io/dedicated/nitrous/db"
 )
 
-var ErrCollabLimitReached = errors.New("collaborators limit reached")
+var (
+	ErrCollabLimitReached = errors.New("collaborators limit reached")
+	ErrDoesNotExist       = errors.New("org membership does not exist")
+)
 
 type ContainerCollabUser struct {
 	ContainerCollab
@@ -92,4 +95,34 @@ func CanAddCollaborator(d db.QueryReceiver, cnID int64) error {
 		return ErrCollabLimitReached
 	}
 	return nil
+}
+
+func PromotePendingMemberToUser(d db.QueryReceiver, email, invitecode string, userID int64) (*ContainerCollab, error) {
+	var exists bool
+	err := d.Get(&exists,
+		`SELECT COUNT(*) = 1
+		FROM container_collabs
+		WHERE invite_email = $1
+		AND invite_code = $2
+		LIMIT 1`, email, invitecode)
+	if err != nil {
+		return nil, err
+	}
+
+	if !exists {
+		return nil, ErrDoesNotExist
+	}
+
+	cc := &ContainerCollab{
+		UserID:      sql.NullInt64{userID, true},
+		InviteEmail: sql.NullString{email, true},
+	}
+	nstmt, err := d.PrepareNamed(
+		`UPDATE container_collabs
+		SET (user_id, invite_email, invite_code)
+		= (:user_id, NULL, NULL)
+		WHERE invite_email = :invite_email 
+		RETURNING *;`)
+	err = nstmt.QueryRowx(cc).StructScan(cc)
+	return cc, err
 }
