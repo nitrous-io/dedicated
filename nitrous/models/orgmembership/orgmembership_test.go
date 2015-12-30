@@ -154,18 +154,16 @@ var _ = Describe("models/orgmembership", func() {
 	})
 
 	Describe("FindAllByOrgID()", func() {
-		BeforeEach(func() {
+		It("returns all members for a given org", func() {
 			_, err := db.Exec("INSERT INTO org_memberships (org_id, user_id, role) values ($1, $2, $3);", o.ID, u.ID, "owner")
 			Expect(err).To(BeNil())
 			_, err = db.Exec("INSERT INTO org_memberships (org_id, user_id, role) values ($1, $2, $3);", o2.ID, u2.ID, "owner")
 			Expect(err).To(BeNil())
 			_, err = db.Exec("INSERT INTO org_memberships (org_id, user_id, role) values ($1, $2, $3);", o.ID, u3.ID, "admin")
 			Expect(err).To(BeNil())
-		})
 
-		It("returns all members for a given org", func() {
 			var omID, om2ID int64
-			err := db.QueryRow("SELECT id FROM org_memberships WHERE org_id = $1 AND user_id = $2", o.ID, u.ID).Scan(&omID)
+			err = db.QueryRow("SELECT id FROM org_memberships WHERE org_id = $1 AND user_id = $2", o.ID, u.ID).Scan(&omID)
 			Expect(err).To(BeNil())
 			err = db.QueryRow("SELECT id FROM org_memberships WHERE org_id = $1 AND user_id = $2", o.ID, u3.ID).Scan(&om2ID)
 			Expect(err).To(BeNil())
@@ -189,6 +187,14 @@ var _ = Describe("models/orgmembership", func() {
 			Expect(m[1].Email.String).To(Equal("baz@example.com"))
 			Expect(m[1].Name.String).To(Equal("Mrs. Baz"))
 			Expect(m[1].Role).To(Equal("admin"))
+		})
+
+		It("returns an empty slice when the org has no members", func() {
+			members, err := orgmembership.FindAllByOrgID(db, o.ID)
+			Expect(err).To(BeNil())
+
+			Expect(members).NotTo(BeNil())
+			Expect(members).To(Equal([]*orgmembership.OrgMember{}))
 		})
 
 		Context("when an error occurs", func() {
