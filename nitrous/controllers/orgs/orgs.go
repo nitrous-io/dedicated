@@ -378,12 +378,12 @@ func handleUpdateOrAddMember(env *middleware.Env, o *org.Org, permissibleRoles [
 			return err
 		}
 		err := env.DB.WithTransaction(func(tx *sqlx.Tx) error {
-			om, err := orgmembership.AddMember(env.DB, o.ID, identifier, role)
+			om, err := orgmembership.AddMember(tx, o.ID, identifier, role)
 			if err != nil {
 				return err
 			}
 			if om.InviteEmail.Valid && om.InviteCode.Valid {
-				if err := inviteUser(env.DB, o, om.InviteCode.String, identifier, env.User); err != nil {
+				if err := inviteUser(tx, o, om.InviteCode.String, identifier, env.User); err != nil {
 					return err
 				}
 			}

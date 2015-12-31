@@ -12,7 +12,7 @@ import (
 	"github.com/nitrous-io/dedicated/nitrous/models/user"
 )
 
-func inviteUser(d *db.Database, o *org.Org, invitecode, email string, owner *user.User) error {
+func inviteUser(d db.QueryReceiver, o *org.Org, invitecode, email string, owner *user.User) error {
 	host := envvars.WebHostname
 	if host == "" {
 		host = "www.nitrous.io"
