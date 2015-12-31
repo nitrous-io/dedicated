@@ -290,9 +290,6 @@ func PutMember(env *middleware.Env, w http.ResponseWriter, r *http.Request) erro
 	currentUser := env.User
 	slug := strings.ToLower(mux.Vars(r)["slug"])
 	identifier := strings.ToLower(mux.Vars(r)["identifier"])
-	if identifier == "" {
-		identifier = strings.ToLower(r.FormValue("username"))
-	}
 
 	if slug == "" || identifier == "" {
 		return errNotFound

@@ -250,7 +250,6 @@ func (s *Server) drawRoutes() {
 				"/containers/{slug}/user_data":      rNoLog("usercontainerdata.SetData", usercontainerdata.SetData),
 				"/admin/host/{slug}":                r("admin.UpdateHost", admin.UpdateHost),
 				"/admin/template/{slug}":            r("admin.TemplateUpdate", admin.TemplateUpdate),
-				"/orgs/{slug}/members":              r("orgs.PutMember", orgs.PutMember, EventOrgMemberUpdated),
 				"/orgs/{slug}/members/{identifier}": r("orgs.PutMember", orgs.PutMember, EventOrgMemberUpdated),
 				"/orgs/{org_slug}/billing_profile":  r("billingprofiles.Update", billingprofiles.Update, EventUserUpdatedBillingProfile),
 			},
