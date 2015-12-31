@@ -914,18 +914,20 @@ var _ = Describe("controllers/orgs", func() {
 			Expect(err).To(BeNil())
 		})
 
-		doRequest := func(slug, username string) {
+		doRequest := func(slug, username string) *httptest.ResponseRecorder {
 			var err error
 			url := fmt.Sprintf("/api/v0/orgs/%s/members/%s", slug, username)
 			req, err = test.NewFormRequest("DELETE", url, params)
 			Expect(err).To(BeNil())
 			req.Header.Set("Authorization", "Bearer valid-token")
+			res := httptest.NewRecorder()
 			handler.ServeHTTP(res, req)
+			return res
 		}
 
 		Context("when an org with a given slug does not exist", func() {
 			It("responds with 404 not found", func() {
-				doRequest("pineapple-inc", u2.Username)
+				res := doRequest("pineapple-inc", u2.Username)
 				Expect(res.Code).To(Equal(http.StatusNotFound))
 
 				j := map[string]string{}
@@ -937,7 +939,7 @@ var _ = Describe("controllers/orgs", func() {
 
 		Context("when requesting user does not belong to the org", func() {
 			It("responds with 403 forbidden", func() {
-				doRequest(o.Slug, u2.Username)
+				res := doRequest(o.Slug, u2.Username)
 				Expect(res.Code).To(Equal(http.StatusForbidden))
 
 				j := map[string]string{}
@@ -954,7 +956,7 @@ var _ = Describe("controllers/orgs", func() {
 				_, err = orgmembership.AddMember(db, o2.ID, strconv.FormatInt(u2.ID, 10), "member")
 				Expect(err).To(BeNil())
 
-				doRequest(o.Slug, u2.Username)
+				res := doRequest(o.Slug, u2.Username)
 				Expect(res.Code).To(Equal(http.StatusNotFound))
 
 				j := map[string]string{}
@@ -969,7 +971,7 @@ var _ = Describe("controllers/orgs", func() {
 				_, err := orgmembership.AddMember(db, o.ID, strconv.FormatInt(u.ID, 10), "member")
 				Expect(err).To(BeNil())
 
-				doRequest(o.Slug, u.Username)
+				res := doRequest(o.Slug, u.Username)
 				Expect(res.Code).To(Equal(http.StatusOK))
 
 				_, err = orgmembership.FindByIdentifierAndOrgSlug(db, u.Username, o.Slug)
@@ -986,7 +988,7 @@ var _ = Describe("controllers/orgs", func() {
 				_, err := orgmembership.AddMember(db, o.ID, strconv.FormatInt(u.ID, 10), "admin")
 				Expect(err).To(BeNil())
 
-				doRequest(o.Slug, u.Username)
+				res := doRequest(o.Slug, u.Username)
 				Expect(res.Code).To(Equal(http.StatusOK))
 
 				_, err = orgmembership.FindByIdentifierAndOrgSlug(db, u.Username, o.Slug)
@@ -1003,7 +1005,7 @@ var _ = Describe("controllers/orgs", func() {
 				_, err := orgmembership.AddMember(db, o.ID, strconv.FormatInt(u.ID, 10), "owner")
 				Expect(err).To(BeNil())
 
-				doRequest(o.Slug, u.Username)
+				res := doRequest(o.Slug, u.Username)
 				Expect(res.Code).To(Equal(http.StatusBadRequest))
 
 				_, err = orgmembership.FindByIdentifierAndOrgSlug(db, u.Username, o.Slug)
@@ -1014,6 +1016,28 @@ var _ = Describe("controllers/orgs", func() {
 				Expect(err).To(BeNil())
 				Expect(j["error"]).To(Equal("invalid_action"))
 				Expect(j["error_description"]).To(Equal("you cannot remove yourself from this organization"))
+			})
+
+			It("should not allow the user to leave the organization when they have existing valid hosts", func() {
+				_, err := orgmembership.AddMember(db, o.ID, strconv.FormatInt(u.ID, 10), "member")
+				Expect(err).To(BeNil())
+
+				hs, err := test.CreateHostStack(db, &test.HostStack{U: u, O: o})
+				Expect(err).To(BeNil())
+
+				res := doRequest(o.Slug, u.Username)
+				Expect(res.Code).To(Equal(http.StatusForbidden))
+				errType, errDesc := test.ErrorSlug(res.Body)
+				Expect(errType).To(Equal("forbidden"))
+				Expect(errDesc).To(Equal("you cannot leave this organization because you still have existing workstations"))
+
+				// If we now terminate the host, the user should be able to
+				// leave the org.
+				err = hs.H.Delete(db)
+				Expect(err).To(BeNil())
+
+				res = doRequest(o.Slug, u.Username)
+				Expect(res.Code).To(Equal(http.StatusOK))
 			})
 		})
 
@@ -1042,12 +1066,11 @@ var _ = Describe("controllers/orgs", func() {
 							Expect(err).To(BeNil())
 							_, err = orgmembership.AddMember(db, o.ID, strconv.FormatInt(u2.ID, 10), t.targetUserRole)
 							Expect(err).To(BeNil())
-
-							doRequest(o.Slug, u2.Username)
 						})
 
 						if t.allowed {
 							It("allows deletion", func() {
+								res := doRequest(o.Slug, u2.Username)
 								Expect(res.Code).To(Equal(http.StatusOK))
 
 								m, err := orgmembership.FindAllByOrgID(db, o.ID)
@@ -1068,8 +1091,20 @@ var _ = Describe("controllers/orgs", func() {
 								Expect(j.Members[0].Role).To(Equal(t.myRole))
 								Expect(j.Members[0].Name).To(Equal(u.Name))
 							})
+
+							It("disallows deletion if user has existing valid hosts", func() {
+								_, err := test.CreateHostStack(db, &test.HostStack{U: u2, O: o})
+								Expect(err).To(BeNil())
+
+								res := doRequest(o.Slug, u2.Username)
+								Expect(res.Code).To(Equal(http.StatusForbidden))
+								errType, errDesc := test.ErrorSlug(res.Body)
+								Expect(errType).To(Equal("forbidden"))
+								Expect(errDesc).To(Equal("you cannot remove this member because they still have existing workstations"))
+							})
 						} else {
 							It("disallows deletion", func() {
+								res := doRequest(o.Slug, u2.Username)
 								Expect(res.Code).To(Equal(http.StatusForbidden))
 
 								m, err := orgmembership.FindAllByOrgID(db, o.ID)
