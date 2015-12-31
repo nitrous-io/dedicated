@@ -7,7 +7,7 @@ APP=${1:?"app name is required"}
 killContainer() {
 	if [ -n "$cid" ]; then
 		echo "Killing and removing Docker container '$cid'"
-		(docker kill $cid && docker rm -v $cid) >/dev/null
+		docker rm --volumes --force $cid >/dev/null
 	fi
 }
 
