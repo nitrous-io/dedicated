@@ -10,7 +10,7 @@ const invitedHtmlTmpl = `
     <title>{{ .Subject }}</title>
   </head>
   <body>
-    <h3>Hello!<h3>
+    <h3>Hello!</h3>
     <p>{{ .OwnerName }} invited you to join the {{ .OrgName }} organization on Nitrous.</p>
     <p>You will be able to create projects under this organization.</p>
     <p>Complete your Nitrous signup at <a href="{{ .SignupUrl }}" target="_blank">{{ .SignupUrl }}</a>.</p>
