@@ -852,6 +852,36 @@ var _ = Describe("controllers/orgs", func() {
 					}
 				})
 
+				It("should return error and not add member to db if invite email fails to send", func() {
+					fakeMailer.Error = fmt.Errorf("sending org invite email failed")
+					orgs.Mailer = fakeMailer
+
+					_, err := orgmembership.AddMember(db, o.ID, strconv.FormatInt(u.ID, 10), "owner")
+					Expect(err).To(BeNil())
+
+					doRequest(o.Slug, "bob@abc.com")
+
+					Expect(res.Code).To(Equal(http.StatusBadRequest))
+
+					errType, errDesc := test.ErrorSlug(res.Body)
+					Expect(errType).To(Equal("invalid_action"))
+					Expect(errDesc).To(ContainSubstring("failed to add member to organization"))
+					Expect(errDesc).To(ContainSubstring("Support has been notified"))
+					Expect(errDesc).ToNot(ContainSubstring("sending org invite email failed"))
+
+					Expect(fakeMailer.SendMailCalled).To(BeTrue())
+
+					orgMember := &orgmembership.OrgMembership{}
+					err = db.Get(orgMember, "SELECT * FROM org_memberships WHERE org_id = $1 AND invite_email = $2", o.ID, "bob@abc.com")
+
+					Expect(err).To(Equal(sql.ErrNoRows))
+
+					Expect(orgMember.InviteEmail).To(BeZero())
+					Expect(orgMember.InviteCode).To(BeZero())
+					Expect(orgMember.OrgID).To(BeZero())
+					Expect(orgMember.UserID).To(BeZero())
+				})
+
 				It("should send invite email", func() {
 					_, err := orgmembership.AddMember(db, o.ID, strconv.FormatInt(u.ID, 10), "owner")
 					Expect(err).To(BeNil())

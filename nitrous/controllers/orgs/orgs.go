@@ -32,6 +32,7 @@ var (
 	errEditNotPermitted              = httperror.New(http.StatusForbidden, "permission_denied", "you do not have permission to edit this member")
 	errRemoveNotPermitted            = httperror.New(http.StatusForbidden, "permission_denied", "you do not have permission to remove this member")
 	errEditSelfForbidden             = httperror.New(http.StatusBadRequest, "invalid_action", "you cannot edit yourself")
+	errAddMemberFailed               = httperror.New(http.StatusBadRequest, "invalid_action", "failed to add member to organization! Support has been notified")
 	errCannotRemoveSelf              = httperror.New(http.StatusBadRequest, "invalid_action", "you cannot remove yourself from this organization")
 	errNotEduWhitelisted             = httperror.New(http.StatusForbidden, "not_edu_whitelisted", "Please contact Nitrous to enable education support")
 	errCannotLeaveWithExistingHosts  = httperror.New(http.StatusForbidden, "forbidden", "you cannot leave this organization because you still have existing workstations")
@@ -384,7 +385,8 @@ func handleUpdateOrAddMember(env *middleware.Env, o *org.Org, permissibleRoles [
 			}
 			if om.InviteEmail.Valid && om.InviteCode.Valid {
 				if err := inviteUser(tx, o, om.InviteCode.String, identifier, env.User); err != nil {
-					return err
+					logrus.Errorf("Send org invite email failed: orgID - %d, initiator userID - %d, invited member - %s. Got err: %v", o.ID, env.User.ID, identifier, err)
+					return errAddMemberFailed
 				}
 			}
 			return nil
