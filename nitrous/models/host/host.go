@@ -15,9 +15,7 @@ import (
 
 	"github.com/nitrous-io/dedicated/nitrous/db"
 	"github.com/nitrous-io/dedicated/nitrous/envvars"
-	"github.com/nitrous-io/dedicated/nitrous/models/plan"
 	"github.com/nitrous-io/dedicated/nitrous/models/providertemplate"
-	"github.com/nitrous-io/dedicated/nitrous/models/region"
 	"github.com/nitrous-io/dedicated/nitrous/models/subscription"
 	"github.com/nitrous-io/dedicated/nitrous/models/user"
 	"github.com/nitrous-io/dedicated/nitrous/pkg/hostbuilderclient"
@@ -224,28 +222,6 @@ func FindAllForTermination(db *db.Database) ([]*Host, error) {
 	return hosts, nil
 }
 
-func CountPreprovisioned(db *db.Database, r *region.Region, p *plan.Plan) (int, error) {
-	var count int
-	if err := db.QueryRow(`SELECT count(*) FROM hosts
-		WHERE region_id = $1 AND plan_id = $2 AND state = $3
-		AND preprovisioned = TRUE AND terminated_at IS NULL;`,
-		r.ID, p.ID, StateRunning).Scan(&count); err != nil {
-		return 0, err
-	}
-	return count, nil
-}
-
-func CountPreprovisionedOrphans(db *db.Database, r *region.Region) (int, error) {
-	var count int
-	if err := db.QueryRow(`SELECT count(*) FROM hosts
-		WHERE region_id = $1 AND state = $2
-		AND preprovisioned = TRUE AND terminated_at IS NULL;`,
-		r.ID, StateOrphan).Scan(&count); err != nil {
-		return 0, err
-	}
-	return count, nil
-}
-
 // Find will return a Host scoped by User. Identifier can be either an ID or a slug.
 // It also returns some data about the host's provider template.
 func Find(db *db.Database, user *user.User, identifier string) (*Host, error) {
@@ -387,7 +363,7 @@ func FindAllByOrgID(db *db.Database, orgID int64) ([]*Host, error) {
 	err := db.Select(&hosts,
 		`SELECT * FROM hosts
 		WHERE org_id=$1
-		AND terminated_at IS NULL 
+		AND terminated_at IS NULL
 		AND state <> 'terminated';`, orgID)
 	return hosts, err
 }
