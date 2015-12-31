@@ -334,363 +334,372 @@ var _ = Describe("controllers/orgs", func() {
 			params.Set("role", "member")
 		})
 
-		doRequest := func(slug, identifier string) {
-			var err error
+		doRequest := func(slug, identifier string) *httptest.ResponseRecorder {
 			url := fmt.Sprintf("/api/v0/orgs/%s/members/%s", slug, identifier)
-			req, err = test.NewFormRequest("PUT", url, params)
+			req, err := test.NewFormRequest("PUT", url, params)
 			Expect(err).To(BeNil())
 			req.Header.Set("Authorization", "Bearer valid-token")
+			res := httptest.NewRecorder()
 			handler.ServeHTTP(res, req)
+			return res
 		}
 
-		Context("when a non-existent org slug is given", func() {
-			It("responds with 400 not found", func() {
-				doRequest("pineapple-inc", u2.Username)
-				Expect(res.Code).To(Equal(http.StatusNotFound))
+		It("responds with HTTP 404 Not Found when a non-existent org slug is given", func() {
+			res := doRequest("non-existent-org", u2.Username)
+			Expect(res.Code).To(Equal(http.StatusNotFound))
 
-				m, err := orgmembership.FindAllByOrgID(db, o.ID)
-				Expect(err).To(BeNil())
-				Expect(m).To(HaveLen(0))
+			m, err := orgmembership.FindAllByOrgID(db, o.ID)
+			Expect(err).To(BeNil())
+			Expect(m).To(HaveLen(0))
 
-				m, err = orgmembership.FindAllByOrgID(db, o2.ID)
-				Expect(err).To(BeNil())
-				Expect(m).To(HaveLen(0))
-			})
+			m, err = orgmembership.FindAllByOrgID(db, o2.ID)
+			Expect(err).To(BeNil())
+			Expect(m).To(HaveLen(0))
 		})
 
-		Context("when a non-existent username is given", func() {
-			It("responds with 404 not found", func() {
-				doRequest(o.Slug, "baz")
-				Expect(res.Code).To(Equal(http.StatusNotFound))
+		It("responds with HTTP 404 Not Found when a non-existent username is given", func() {
+			res := doRequest(o.Slug, "non-existent-user")
+			Expect(res.Code).To(Equal(http.StatusNotFound))
 
-				m, err := orgmembership.FindAllByOrgID(db, o.ID)
-				Expect(err).To(BeNil())
-				Expect(m).To(HaveLen(0))
-
-				m, err = orgmembership.FindAllByOrgID(db, o2.ID)
-				Expect(err).To(BeNil())
-				Expect(m).To(HaveLen(0))
-			})
+			m, err := orgmembership.FindAllByOrgID(db, o.ID)
+			Expect(err).To(BeNil())
+			Expect(m).To(HaveLen(0))
 		})
 
-		Context("when target user is same as requesting user", func() {
-			It("responds with 400 bad request", func() {
-				doRequest(o.Slug, u.Username)
-				Expect(res.Code).To(Equal(http.StatusBadRequest))
+		It("responds with HTTP 400 Bad Request when target user is same as requesting user", func() {
+			res := doRequest(o.Slug, u.Username)
+			Expect(res.Code).To(Equal(http.StatusBadRequest))
 
-				j := map[string]string{}
-				err := json.Unmarshal(res.Body.Bytes(), &j)
-				Expect(err).To(BeNil())
-				Expect(j["error"]).To(Equal("invalid_action"))
-				Expect(j["error_description"]).To(Equal("you cannot edit yourself"))
-			})
+			errSlug, errDesc := test.ErrorSlug(res.Body)
+			Expect(errSlug).To(Equal("invalid_action"))
+			Expect(errDesc).To(Equal("you cannot edit yourself"))
 		})
 
-		Context("when an invalid role is given", func() {
-			It("responds with 400 bad request", func() {
-				params.Set("role", "destroyer")
-				doRequest(o.Slug, u2.Username)
-				Expect(res.Code).To(Equal(http.StatusBadRequest))
+		It("responds with HTTP 400 Bad Request when an invalid role is given", func() {
+			params.Set("role", "destroyer")
+			res := doRequest(o.Slug, u2.Username)
+			Expect(res.Code).To(Equal(http.StatusBadRequest))
 
-				m, err := orgmembership.FindAllByOrgID(db, o.ID)
-				Expect(err).To(BeNil())
-				Expect(m).To(HaveLen(0))
+			errSlug, errDesc := test.ErrorSlug(res.Body)
+			Expect(errSlug).To(Equal("invalid_role"))
+			Expect(errDesc).To(Equal("destroyer is not a valid role"))
 
-				m, err = orgmembership.FindAllByOrgID(db, o2.ID)
-				Expect(err).To(BeNil())
-				Expect(m).To(HaveLen(0))
+			m, err := orgmembership.FindAllByOrgID(db, o.ID)
+			Expect(err).To(BeNil())
+			Expect(m).To(HaveLen(0))
 
-				j := map[string]string{}
-				err = json.Unmarshal(res.Body.Bytes(), &j)
-				Expect(err).To(BeNil())
-				Expect(j["error"]).To(Equal("invalid_role"))
-				Expect(j["error_description"]).To(Equal("destroyer is not a valid role"))
-			})
+			m, err = orgmembership.FindAllByOrgID(db, o2.ID)
+			Expect(err).To(BeNil())
+			Expect(m).To(HaveLen(0))
 		})
 
-		Context("when user is not a part of the org", func() {
-			It("responds with 403 forbidden", func() {
-				doRequest(o.Slug, u2.Username)
-				Expect(res.Code).To(Equal(http.StatusForbidden))
+		It("responds with HTTP 403 Forbidden when user is not a part of the org", func() {
+			res := doRequest(o.Slug, u2.Username)
+			Expect(res.Code).To(Equal(http.StatusForbidden))
 
-				m, err := orgmembership.FindAllByOrgID(db, o.ID)
-				Expect(err).To(BeNil())
-				Expect(m).To(HaveLen(0))
+			errSlug, errDesc := test.ErrorSlug(res.Body)
+			Expect(errSlug).To(Equal("permission_denied"))
+			Expect(errDesc).To(Equal("you do not have permission to edit this member"))
 
-				m, err = orgmembership.FindAllByOrgID(db, o2.ID)
-				Expect(err).To(BeNil())
-				Expect(m).To(HaveLen(0))
+			m, err := orgmembership.FindAllByOrgID(db, o.ID)
+			Expect(err).To(BeNil())
+			Expect(m).To(HaveLen(0))
 
-				j := map[string]string{}
-				err = json.Unmarshal(res.Body.Bytes(), &j)
-				Expect(err).To(BeNil())
-				Expect(j["error"]).To(Equal("permission_denied"))
-			})
+			m, err = orgmembership.FindAllByOrgID(db, o2.ID)
+			Expect(err).To(BeNil())
+			Expect(m).To(HaveLen(0))
 		})
 
 		Context("when a given user is already a member", func() {
-			type tc struct {
-				myRole  string
-				from    string
-				to      string
-				allowed bool
-			}
-			tcs := []tc{
-				{"owner", "admin", "owner", true}, // i am an owner, promoting an admin to owner
-				{"owner", "admin", "admin", true},
-				{"owner", "admin", "member", true}, // i am an owner, demoting an admin to member
-				{"owner", "owner", "owner", true},
-				{"owner", "owner", "admin", true},
-				{"owner", "owner", "member", true},
-				{"owner", "member", "owner", true},
-				{"owner", "member", "admin", true},
-				{"owner", "member", "member", true},
+			Context("when the requesting user has sufficient privileges", func() {
+				testCases := []struct {
+					myRole string
+					from   string
+					to     string
+				}{
+					{"owner", "admin", "owner"}, // i am an owner, promoting an admin to owner
+					{"owner", "admin", "admin"},
+					{"owner", "admin", "member"}, // i am an owner, demoting an admin to member
+					{"owner", "owner", "owner"},
+					{"owner", "owner", "admin"},
+					{"owner", "owner", "member"},
+					{"owner", "member", "owner"},
+					{"owner", "member", "admin"},
+					{"owner", "member", "member"},
 
-				{"admin", "admin", "owner", false},
-				{"admin", "admin", "admin", true},
-				{"admin", "admin", "member", true},
-				{"admin", "owner", "owner", false},
-				{"admin", "owner", "admin", false},
-				{"admin", "owner", "member", false},
-				{"admin", "member", "owner", false},
-				{"admin", "member", "admin", true},
-				{"admin", "member", "member", true},
+					{"admin", "admin", "admin"},
+					{"admin", "admin", "member"},
+					{"admin", "member", "admin"},
+					{"admin", "member", "member"},
+				}
 
-				{"member", "admin", "owner", false},
-				{"member", "admin", "admin", false},
-				{"member", "admin", "member", false},
-				{"member", "owner", "owner", false},
-				{"member", "owner", "admin", false},
-				{"member", "owner", "member", false},
-				{"member", "member", "owner", false},
-				{"member", "member", "admin", false},
-				{"member", "member", "member", false},
-			}
-			for _, t := range tcs {
-				func(t tc) {
-					Context(fmt.Sprintf("when %s requests update of a member's role from %s to %s", t.myRole, t.from, t.to), func() {
-						BeforeEach(func() {
-							_, err := orgmembership.AddMember(db, o.ID, strconv.FormatInt(u.ID, 10), t.myRole)
-							Expect(err).To(BeNil())
-							_, err = orgmembership.AddMember(db, o.ID, strconv.FormatInt(u2.ID, 10), t.from)
-							Expect(err).To(BeNil())
+				for _, tc2 := range testCases {
+					tc := tc2
 
-							params.Set("role", t.to)
-						})
+					It(fmt.Sprintf("allows the user's role to be updated when %q tries to change %q to %q", tc.myRole, tc.from, tc.to), func() {
+						_, err := orgmembership.AddMember(db, o.ID, strconv.FormatInt(u.ID, 10), tc.myRole)
+						Expect(err).To(BeNil())
+						_, err = orgmembership.AddMember(db, o.ID, strconv.FormatInt(u2.ID, 10), tc.from)
+						Expect(err).To(BeNil())
 
-						itAllowsOrDisallowsUpdate := func() {
-							if t.allowed {
-								It("allows update", func() {
-									Expect(res.Code).To(Equal(http.StatusOK))
+						params.Set("role", tc.to)
 
-									m, err := orgmembership.FindAllByOrgID(db, o.ID)
-									Expect(err).To(BeNil())
-									Expect(m).To(HaveLen(2))
-									Expect(m[0].Username.String).To(Equal(u.Username))
-									Expect(m[0].Role).To(Equal(t.myRole))
-									Expect(m[1].Username.String).To(Equal(u2.Username))
-									// role should have been updated
-									Expect(m[1].Role).To(Equal(t.to))
+						res := doRequest(o.Slug, u2.Username)
+						Expect(res.Code).To(Equal(http.StatusOK))
 
-									m, err = orgmembership.FindAllByOrgID(db, o2.ID)
-									Expect(err).To(BeNil())
-									Expect(m).To(HaveLen(0))
+						m, err := orgmembership.FindAllByOrgID(db, o.ID)
+						Expect(err).To(BeNil())
+						Expect(m).To(HaveLen(2))
+						Expect(m[0].Username.String).To(Equal(u.Username))
+						Expect(m[0].Role).To(Equal(tc.myRole))
+						Expect(m[1].Username.String).To(Equal(u2.Username))
+						// role should have been updated
+						Expect(m[1].Role).To(Equal(tc.to))
 
-									var j struct {
-										Members []*serializers.OrgMember `json:"members"`
-									}
-									err = json.Unmarshal(res.Body.Bytes(), &j)
-									Expect(err).To(BeNil())
-									Expect(j.Members).To(HaveLen(2))
-									Expect(j.Members[0].UserID).To(Equal(u.ID))
-									Expect(j.Members[0].Username).To(Equal(u.Username))
-									Expect(j.Members[0].Email).To(Equal(u.Email))
-									Expect(j.Members[0].Role).To(Equal(t.myRole))
-									Expect(j.Members[0].Name).To(Equal(u.Name))
-									Expect(j.Members[1].UserID).To(Equal(u2.ID))
-									Expect(j.Members[1].Username).To(Equal(u2.Username))
-									Expect(j.Members[1].Email).To(Equal(u2.Email))
-									Expect(j.Members[1].Role).To(Equal(t.to))
-									Expect(j.Members[1].Name).To(Equal(u2.Name))
-								})
-							} else {
-								It("disallows update", func() {
-									Expect(res.Code).To(Equal(http.StatusForbidden))
-									errSlug, errDesc := test.ErrorSlug(res.Body)
-									Expect(errSlug).To(Equal("permission_denied"))
-									Expect(errDesc).To(Equal("you do not have permission to edit this member"))
+						m, err = orgmembership.FindAllByOrgID(db, o2.ID)
+						Expect(err).To(BeNil())
+						Expect(m).To(HaveLen(0))
 
-									m, err := orgmembership.FindAllByOrgID(db, o.ID)
-									Expect(err).To(BeNil())
-									Expect(m).To(HaveLen(2))
-									Expect(m[0].Username.String).To(Equal(u.Username))
-									Expect(m[0].Role).To(Equal(t.myRole))
-									Expect(m[1].Username.String).To(Equal(u2.Username))
-									// role shouldn't have been updated
-									Expect(m[1].Role).To(Equal(t.from))
-
-									m, err = orgmembership.FindAllByOrgID(db, o2.ID)
-									Expect(err).To(BeNil())
-									Expect(m).To(HaveLen(0))
-								})
-							}
+						var j struct {
+							Members []*serializers.OrgMember `json:"members"`
 						}
-
-						Context("with username", func() {
-							BeforeEach(func() {
-								doRequest(o.Slug, u2.Username)
-							})
-
-							itAllowsOrDisallowsUpdate()
-						})
-
-						Context("with email", func() {
-							BeforeEach(func() {
-								doRequest(o.Slug, u2.Email)
-							})
-
-							itAllowsOrDisallowsUpdate()
-						})
+						err = json.Unmarshal(res.Body.Bytes(), &j)
+						Expect(err).To(BeNil())
+						Expect(j.Members).To(HaveLen(2))
+						Expect(j.Members[0].UserID).To(Equal(u.ID))
+						Expect(j.Members[0].Username).To(Equal(u.Username))
+						Expect(j.Members[0].Email).To(Equal(u.Email))
+						Expect(j.Members[0].Role).To(Equal(tc.myRole))
+						Expect(j.Members[0].Name).To(Equal(u.Name))
+						Expect(j.Members[1].UserID).To(Equal(u2.ID))
+						Expect(j.Members[1].Username).To(Equal(u2.Username))
+						Expect(j.Members[1].Email).To(Equal(u2.Email))
+						Expect(j.Members[1].Role).To(Equal(tc.to))
+						Expect(j.Members[1].Name).To(Equal(u2.Name))
 					})
-				}(t)
-			}
+
+					It(fmt.Sprintf("allows the user's role to be updated via their email address when %q tries to change %q to %q", tc.myRole, tc.from, tc.to), func() {
+						_, err := orgmembership.AddMember(db, o.ID, strconv.FormatInt(u.ID, 10), tc.myRole)
+						Expect(err).To(BeNil())
+						_, err = orgmembership.AddMember(db, o.ID, strconv.FormatInt(u2.ID, 10), tc.from)
+						Expect(err).To(BeNil())
+
+						params.Set("role", tc.to)
+
+						res := doRequest(o.Slug, u2.Email)
+						Expect(res.Code).To(Equal(http.StatusOK))
+
+						m, err := orgmembership.FindAllByOrgID(db, o.ID)
+						Expect(err).To(BeNil())
+						Expect(m).To(HaveLen(2))
+						Expect(m[0].Username.String).To(Equal(u.Username))
+						Expect(m[0].Role).To(Equal(tc.myRole))
+						Expect(m[1].Username.String).To(Equal(u2.Username))
+						// role should have been updated
+						Expect(m[1].Role).To(Equal(tc.to))
+
+						m, err = orgmembership.FindAllByOrgID(db, o2.ID)
+						Expect(err).To(BeNil())
+						Expect(m).To(HaveLen(0))
+
+						var j struct {
+							Members []*serializers.OrgMember `json:"members"`
+						}
+						err = json.Unmarshal(res.Body.Bytes(), &j)
+						Expect(err).To(BeNil())
+						Expect(j.Members).To(HaveLen(2))
+						Expect(j.Members[0].UserID).To(Equal(u.ID))
+						Expect(j.Members[0].Username).To(Equal(u.Username))
+						Expect(j.Members[0].Email).To(Equal(u.Email))
+						Expect(j.Members[0].Role).To(Equal(tc.myRole))
+						Expect(j.Members[0].Name).To(Equal(u.Name))
+						Expect(j.Members[1].UserID).To(Equal(u2.ID))
+						Expect(j.Members[1].Username).To(Equal(u2.Username))
+						Expect(j.Members[1].Email).To(Equal(u2.Email))
+						Expect(j.Members[1].Role).To(Equal(tc.to))
+						Expect(j.Members[1].Name).To(Equal(u2.Name))
+					})
+				}
+			})
+
+			Context("when the requesting user does not have sufficient privileges", func() {
+				testCases := []struct {
+					myRole string
+					from   string
+					to     string
+				}{
+					{"admin", "admin", "owner"},
+					{"admin", "owner", "owner"},
+					{"admin", "owner", "admin"},
+					{"admin", "owner", "member"},
+					{"admin", "member", "owner"},
+
+					{"member", "admin", "owner"},
+					{"member", "admin", "admin"},
+					{"member", "admin", "member"},
+					{"member", "owner", "owner"},
+					{"member", "owner", "admin"},
+					{"member", "owner", "member"},
+					{"member", "member", "owner"},
+					{"member", "member", "admin"},
+					{"member", "member", "member"},
+				}
+
+				for _, tc2 := range testCases {
+					tc := tc2
+
+					It(fmt.Sprintf("responds with HTTP 403 Forbidden when %q tries to change %q to %q", tc.myRole, tc.from, tc.to), func() {
+						_, err := orgmembership.AddMember(db, o.ID, strconv.FormatInt(u.ID, 10), tc.myRole)
+						Expect(err).To(BeNil())
+						_, err = orgmembership.AddMember(db, o.ID, strconv.FormatInt(u2.ID, 10), tc.from)
+						Expect(err).To(BeNil())
+
+						params.Set("role", tc.to)
+
+						res := doRequest(o.Slug, u2.Username)
+						Expect(res.Code).To(Equal(http.StatusForbidden))
+
+						errSlug, errDesc := test.ErrorSlug(res.Body)
+						Expect(errSlug).To(Equal("permission_denied"))
+						Expect(errDesc).To(Equal("you do not have permission to edit this member"))
+
+						m, err := orgmembership.FindAllByOrgID(db, o.ID)
+						Expect(err).To(BeNil())
+						Expect(m).To(HaveLen(2))
+						Expect(m[0].Username.String).To(Equal(u.Username))
+						Expect(m[0].Role).To(Equal(tc.myRole))
+						Expect(m[1].Username.String).To(Equal(u2.Username))
+						// role shouldn't have been updated
+						Expect(m[1].Role).To(Equal(tc.from))
+
+						m, err = orgmembership.FindAllByOrgID(db, o2.ID)
+						Expect(err).To(BeNil())
+						Expect(m).To(HaveLen(0))
+					})
+				}
+			})
 		})
 
 		Context("when a given user is not yet a member", func() {
-			type tc struct {
-				myRole  string
-				role    string
-				allowed bool
-			}
-			tcs := []tc{
-				{"owner", "owner", true}, // i am an owner, adding an owner
-				{"owner", "admin", true}, // i am an owner, adding an admin
-				{"owner", "member", true},
-				{"admin", "owner", false},
-				{"admin", "admin", true},
-				{"admin", "member", true},
-				{"member", "owner", false},
-				{"member", "admin", false},
-				{"member", "member", false},
-			}
-			for _, t := range tcs {
-				func(t tc) {
-					Context(fmt.Sprintf("when %s requests a new %s to be added", t.myRole, t.role), func() {
-						BeforeEach(func() {
-							_, err := orgmembership.AddMember(db, o.ID, strconv.FormatInt(u.ID, 10), t.myRole)
-							Expect(err).To(BeNil())
+			Context("when the requesting user has sufficient privileges", func() {
+				testCases := []struct {
+					myRole string
+					role   string
+				}{
+					{"owner", "owner"}, // i am an owner, adding an owner
+					{"owner", "admin"}, // i am an owner, adding an admin
+					{"owner", "member"},
+					{"admin", "admin"},
+					{"admin", "member"},
+				}
 
-							params.Set("role", t.role)
-						})
+				for _, tc2 := range testCases {
+					tc := tc2
 
-						itAllowsOrDisallowsAddition := func() {
-							if t.allowed {
-								It("allows addition", func() {
-									Expect(res.Code).To(Equal(http.StatusCreated))
+					It(fmt.Sprintf("allows %q to add a user with the %q role", tc.myRole, tc.role), func() {
+						_, err := orgmembership.AddMember(db, o.ID, strconv.FormatInt(u.ID, 10), tc.myRole)
+						Expect(err).To(BeNil())
 
-									m, err := orgmembership.FindAllByOrgID(db, o.ID)
-									Expect(err).To(BeNil())
-									Expect(m).To(HaveLen(2))
-									Expect(m[0].Username.String).To(Equal(u.Username))
-									Expect(m[0].Role).To(Equal(t.myRole))
-									// new org member should have been added with correct role
-									Expect(m[1].Username.String).To(Equal(u2.Username))
-									Expect(m[1].Role).To(Equal(t.role))
+						params.Set("role", tc.role)
 
-									m, err = orgmembership.FindAllByOrgID(db, o2.ID)
-									Expect(err).To(BeNil())
-									Expect(m).To(HaveLen(0))
+						res := doRequest(o.Slug, u2.Username)
+						Expect(res.Code).To(Equal(http.StatusCreated))
 
-									var j struct {
-										Members []*serializers.OrgMember `json:"members"`
-									}
-									err = json.Unmarshal(res.Body.Bytes(), &j)
-									Expect(err).To(BeNil())
-									Expect(j.Members).To(HaveLen(2))
-									Expect(j.Members[0].UserID).To(Equal(u.ID))
-									Expect(j.Members[0].Username).To(Equal(u.Username))
-									Expect(j.Members[0].Email).To(Equal(u.Email))
-									Expect(j.Members[0].Role).To(Equal(t.myRole))
-									Expect(j.Members[0].Name).To(Equal(u.Name))
-									Expect(j.Members[1].UserID).To(Equal(u2.ID))
-									Expect(j.Members[1].Username).To(Equal(u2.Username))
-									Expect(j.Members[1].Email).To(Equal(u2.Email))
-									Expect(j.Members[1].Role).To(Equal(t.role))
-									Expect(j.Members[1].Name).To(Equal(u2.Name))
-								})
-							} else {
-								It("disallows addition", func() {
-									Expect(res.Code).To(Equal(http.StatusForbidden))
-									errSlug, errDesc := test.ErrorSlug(res.Body)
-									Expect(errSlug).To(Equal("permission_denied"))
-									Expect(errDesc).To(Equal("you do not have permission to edit this member"))
+						m, err := orgmembership.FindAllByOrgID(db, o.ID)
+						Expect(err).To(BeNil())
+						Expect(m).To(HaveLen(2))
+						Expect(m[0].Username.String).To(Equal(u.Username))
+						Expect(m[0].Role).To(Equal(tc.myRole))
+						// new org member should have been added with correct role
+						Expect(m[1].Username.String).To(Equal(u2.Username))
+						Expect(m[1].Role).To(Equal(tc.role))
 
-									m, err := orgmembership.FindAllByOrgID(db, o.ID)
-									Expect(err).To(BeNil())
-									// new org member shouldn't have been added
-									Expect(m).To(HaveLen(1))
-									Expect(m[0].Username.String).To(Equal(u.Username))
-									Expect(m[0].Role).To(Equal(t.myRole))
+						m, err = orgmembership.FindAllByOrgID(db, o2.ID)
+						Expect(err).To(BeNil())
+						Expect(m).To(HaveLen(0))
 
-									m, err = orgmembership.FindAllByOrgID(db, o2.ID)
-									Expect(err).To(BeNil())
-									Expect(m).To(HaveLen(0))
-								})
-							}
+						var j struct {
+							Members []*serializers.OrgMember `json:"members"`
 						}
-
-						Context("with username", func() {
-							BeforeEach(func() {
-								doRequest(o.Slug, u2.Username)
-							})
-
-							itAllowsOrDisallowsAddition()
-						})
-
-						Context("with email", func() {
-							BeforeEach(func() {
-								doRequest(o.Slug, u2.Email)
-							})
-
-							itAllowsOrDisallowsAddition()
-						})
+						err = json.Unmarshal(res.Body.Bytes(), &j)
+						Expect(err).To(BeNil())
+						Expect(j.Members).To(HaveLen(2))
+						Expect(j.Members[0].UserID).To(Equal(u.ID))
+						Expect(j.Members[0].Username).To(Equal(u.Username))
+						Expect(j.Members[0].Email).To(Equal(u.Email))
+						Expect(j.Members[0].Role).To(Equal(tc.myRole))
+						Expect(j.Members[0].Name).To(Equal(u.Name))
+						Expect(j.Members[1].UserID).To(Equal(u2.ID))
+						Expect(j.Members[1].Username).To(Equal(u2.Username))
+						Expect(j.Members[1].Email).To(Equal(u2.Email))
+						Expect(j.Members[1].Role).To(Equal(tc.role))
+						Expect(j.Members[1].Name).To(Equal(u2.Name))
 					})
-				}(t)
-			}
-		})
-
-		Context("oauth token failure modes", func() {
-			BeforeEach(func() {
-				authTokenInputs.Path = "/api/v0/orgs/foobar/members/foo"
-				authTokenInputs.Method = "PUT"
+				}
 			})
 
-			test.ItRequiresAuthToken(&authTokenInputs)
+			Context("when the requesting user does not have sufficient privileges", func() {
+				testCases := []struct {
+					myRole string
+					role   string
+				}{
+					{"admin", "owner"}, // i am an admin, adding an owner
+					{"member", "owner"},
+					{"member", "admin"},
+					{"member", "member"},
+				}
+
+				for _, tc2 := range testCases {
+					tc := tc2
+
+					It(fmt.Sprintf("responds with HTTP 403 Forbidden when %q tries to add a user with the %q role", tc.myRole, tc.role), func() {
+						_, err := orgmembership.AddMember(db, o.ID, strconv.FormatInt(u.ID, 10), tc.myRole)
+						Expect(err).To(BeNil())
+
+						params.Set("role", tc.role)
+
+						res := doRequest(o.Slug, u2.Username)
+						Expect(res.Code).To(Equal(http.StatusForbidden))
+
+						errSlug, errDesc := test.ErrorSlug(res.Body)
+						Expect(errSlug).To(Equal("permission_denied"))
+						Expect(errDesc).To(Equal("you do not have permission to edit this member"))
+
+						m, err := orgmembership.FindAllByOrgID(db, o.ID)
+						Expect(err).To(BeNil())
+						// new org member shouldn't have been added
+						Expect(m).To(HaveLen(1))
+						Expect(m[0].Username.String).To(Equal(u.Username))
+						Expect(m[0].Role).To(Equal(tc.myRole))
+
+						m, err = orgmembership.FindAllByOrgID(db, o2.ID)
+						Expect(err).To(BeNil())
+						Expect(m).To(HaveLen(0))
+					})
+				}
+			})
 		})
 
 		Context("when org member added by email", func() {
 			var (
-				fakeMailer                 *test.FakeMailer
-				origMailer, origOrgsMailer mailer.Mailer
+				fakeMailer *test.FakeMailer
+				origMailer mailer.Mailer
 			)
 
 			BeforeEach(func() {
 				envvars.WebHostname = "nitrous.example"
-				origMailer = user.Mailer
-				origOrgsMailer = orgs.Mailer
+				origMailer = orgs.Mailer
 				fakeMailer = &test.FakeMailer{}
 				orgs.Mailer = fakeMailer
 			})
 
 			AfterEach(func() {
-				user.Mailer = origMailer
-				orgs.Mailer = origOrgsMailer
+				orgs.Mailer = origMailer
 			})
 
 			It("should not invite user to Nitrous if blacklisted", func() {
 				// Relies on `nitrous/.env-example` and `nitrous/dev/email-blacklist.txt`
-				doRequest(o.Slug, "robin@yopmail.fr")
-
+				res := doRequest(o.Slug, "robin@yopmail.fr")
 				Expect(res.Code).To(Equal(http.StatusNotFound))
 
 				errSlug, errDesc := test.ErrorSlug(res.Body)
@@ -705,122 +714,134 @@ var _ = Describe("controllers/orgs", func() {
 			})
 
 			Context("when the given email is already a pending member", func() {
-				type tc struct {
-					myRole  string
-					from    string
-					to      string
-					allowed bool
-				}
-				tcs := []tc{
-					{"owner", "admin", "owner", true}, // i am an owner, promoting an admin to owner
-					{"owner", "admin", "admin", true},
-					{"owner", "admin", "member", true}, // i am an owner, demoting an admin to member
-					{"owner", "owner", "owner", true},
-					{"owner", "owner", "admin", true},
-					{"owner", "owner", "member", true},
-					{"owner", "member", "owner", true},
-					{"owner", "member", "admin", true},
-					{"owner", "member", "member", true},
+				Context("when the requesting user has sufficient privileges", func() {
+					testCases := []struct {
+						myRole string
+						from   string
+						to     string
+					}{
+						{"owner", "admin", "owner"}, // i am an owner, promoting an admin to owner
+						{"owner", "admin", "admin"},
+						{"owner", "admin", "member"}, // i am an owner, demoting an admin to member
+						{"owner", "owner", "owner"},
+						{"owner", "owner", "admin"},
+						{"owner", "owner", "member"},
+						{"owner", "member", "owner"},
+						{"owner", "member", "admin"},
+						{"owner", "member", "member"},
 
-					{"admin", "admin", "owner", false},
-					{"admin", "admin", "admin", true},
-					{"admin", "admin", "member", true},
-					{"admin", "owner", "owner", false},
-					{"admin", "owner", "admin", false},
-					{"admin", "owner", "member", false},
-					{"admin", "member", "owner", false},
-					{"admin", "member", "admin", true},
-					{"admin", "member", "member", true},
+						{"admin", "admin", "admin"},
+						{"admin", "admin", "member"},
+						{"admin", "member", "admin"},
+						{"admin", "member", "member"},
+					}
 
-					{"member", "admin", "owner", false},
-					{"member", "admin", "admin", false},
-					{"member", "admin", "member", false},
-					{"member", "owner", "owner", false},
-					{"member", "owner", "admin", false},
-					{"member", "owner", "member", false},
-					{"member", "member", "owner", false},
-					{"member", "member", "admin", false},
-					{"member", "member", "member", false},
-				}
+					for _, tc2 := range testCases {
+						tc := tc2
 
-				runTestCases := func(t tc) {
-					Context(fmt.Sprintf("when %s requests update of a member's role from %s to %s", t.myRole, t.from, t.to), func() {
-						BeforeEach(func() {
-							_, err := orgmembership.AddMember(db, o.ID, strconv.FormatInt(u.ID, 10), t.myRole)
+						It(fmt.Sprintf("allows the pending member's role to be updated when %q tries to change %q to %q", tc.myRole, tc.from, tc.to), func() {
+							_, err := orgmembership.AddMember(db, o.ID, strconv.FormatInt(u.ID, 10), tc.myRole)
 							Expect(err).To(BeNil())
-							_, err = orgmembership.AddMember(db, o.ID, "bob@pending.com", t.from)
+							_, err = orgmembership.AddMember(db, o.ID, "bob@pending.com", tc.from)
 							Expect(err).To(BeNil())
 
-							params.Set("role", t.to)
+							params.Set("role", tc.to)
 
-							doRequest(o.Slug, "bob@pending.com")
+							res := doRequest(o.Slug, "bob@pending.com")
+							Expect(res.Code).To(Equal(http.StatusOK))
+
+							m, err := orgmembership.FindAllByOrgID(db, o.ID)
+							Expect(err).To(BeNil())
+							Expect(m).To(HaveLen(2))
+							Expect(m[0].Username.String).To(Equal(u.Username))
+							Expect(m[0].Role).To(Equal(tc.myRole))
+							Expect(m[1].Username.Valid).To(BeFalse())
+							Expect(m[1].InviteEmail.String).To(Equal("bob@pending.com"))
+							Expect(m[1].InviteCode.Valid).To(BeTrue())
+							// role should have been updated
+							Expect(m[1].Role).To(Equal(tc.to))
+
+							m, err = orgmembership.FindAllByOrgID(db, o2.ID)
+							Expect(err).To(BeNil())
+							Expect(m).To(HaveLen(0))
+
+							var j struct {
+								Members []*serializers.OrgMember `json:"members"`
+							}
+							err = json.Unmarshal(res.Body.Bytes(), &j)
+							Expect(err).To(BeNil())
+							Expect(j.Members).To(HaveLen(2))
+							Expect(j.Members[0].UserID).To(Equal(u.ID))
+							Expect(j.Members[0].Username).To(Equal(u.Username))
+							Expect(j.Members[0].Email).To(Equal(u.Email))
+							Expect(j.Members[0].Role).To(Equal(tc.myRole))
+							Expect(j.Members[0].Name).To(Equal(u.Name))
+							Expect(j.Members[1].UserID).To(BeZero())
+							Expect(j.Members[1].PendingEmail).To(Equal("bob@pending.com"))
+							Expect(j.Members[1].Role).To(Equal(tc.to))
+
+							Expect(fakeMailer.SendMailCalled).To(BeFalse())
 						})
+					}
+				})
 
-						if t.allowed {
-							It("allows update", func() {
-								Expect(res.Code).To(Equal(http.StatusOK))
+				Context("when the requesting user does not have sufficient privileges", func() {
+					testCases := []struct {
+						myRole string
+						from   string
+						to     string
+					}{
+						{"admin", "admin", "owner"},
+						{"admin", "owner", "owner"},
+						{"admin", "owner", "admin"},
+						{"admin", "owner", "member"},
+						{"admin", "member", "owner"},
 
-								m, err := orgmembership.FindAllByOrgID(db, o.ID)
-								Expect(err).To(BeNil())
-								Expect(m).To(HaveLen(2))
-								Expect(m[0].Username.String).To(Equal(u.Username))
-								Expect(m[0].Role).To(Equal(t.myRole))
-								Expect(m[1].Username.Valid).To(BeFalse())
-								Expect(m[1].InviteEmail.String).To(Equal("bob@pending.com"))
-								Expect(m[1].InviteCode.Valid).To(BeTrue())
-								// role should have been updated
-								Expect(m[1].Role).To(Equal(t.to))
+						{"member", "admin", "owner"},
+						{"member", "admin", "admin"},
+						{"member", "admin", "member"},
+						{"member", "owner", "owner"},
+						{"member", "owner", "admin"},
+						{"member", "owner", "member"},
+						{"member", "member", "owner"},
+						{"member", "member", "admin"},
+						{"member", "member", "member"},
+					}
 
-								m, err = orgmembership.FindAllByOrgID(db, o2.ID)
-								Expect(err).To(BeNil())
-								Expect(m).To(HaveLen(0))
+					for _, tc2 := range testCases {
+						tc := tc2
 
-								var j struct {
-									Members []*serializers.OrgMember `json:"members"`
-								}
-								err = json.Unmarshal(res.Body.Bytes(), &j)
-								Expect(err).To(BeNil())
-								Expect(j.Members).To(HaveLen(2))
-								Expect(j.Members[0].UserID).To(Equal(u.ID))
-								Expect(j.Members[0].Username).To(Equal(u.Username))
-								Expect(j.Members[0].Email).To(Equal(u.Email))
-								Expect(j.Members[0].Role).To(Equal(t.myRole))
-								Expect(j.Members[0].Name).To(Equal(u.Name))
-								Expect(j.Members[1].UserID).To(BeZero())
-								Expect(j.Members[1].PendingEmail).To(Equal("bob@pending.com"))
-								Expect(j.Members[1].Role).To(Equal(t.to))
+						It(fmt.Sprintf("responds with HTTP 403 Forbidden when %q tries to change %q to %q", tc.myRole, tc.from, tc.to), func() {
+							_, err := orgmembership.AddMember(db, o.ID, strconv.FormatInt(u.ID, 10), tc.myRole)
+							Expect(err).To(BeNil())
+							_, err = orgmembership.AddMember(db, o.ID, "bob@pending.com", tc.from)
+							Expect(err).To(BeNil())
 
-								Expect(fakeMailer.SendMailCalled).To(BeFalse())
-							})
-						} else {
-							It("disallows update", func() {
-								Expect(res.Code).To(Equal(http.StatusForbidden))
-								errSlug, errDesc := test.ErrorSlug(res.Body)
-								Expect(errSlug).To(Equal("permission_denied"))
-								Expect(errDesc).To(Equal("you do not have permission to edit this member"))
+							params.Set("role", tc.to)
 
-								m, err := orgmembership.FindAllByOrgID(db, o.ID)
-								Expect(err).To(BeNil())
-								Expect(m).To(HaveLen(2))
-								Expect(m[0].Username.String).To(Equal(u.Username))
-								Expect(m[0].Role).To(Equal(t.myRole))
-								Expect(m[1].Username.Valid).To(BeFalse())
-								// role shouldn't have been updated
-								Expect(m[1].Role).To(Equal(t.from))
+							res := doRequest(o.Slug, "bob@pending.com")
+							Expect(res.Code).To(Equal(http.StatusForbidden))
+							errSlug, errDesc := test.ErrorSlug(res.Body)
+							Expect(errSlug).To(Equal("permission_denied"))
+							Expect(errDesc).To(Equal("you do not have permission to edit this member"))
 
-								m, err = orgmembership.FindAllByOrgID(db, o2.ID)
-								Expect(err).To(BeNil())
-								Expect(m).To(HaveLen(0))
+							m, err := orgmembership.FindAllByOrgID(db, o.ID)
+							Expect(err).To(BeNil())
+							Expect(m).To(HaveLen(2))
+							Expect(m[0].Username.String).To(Equal(u.Username))
+							Expect(m[0].Role).To(Equal(tc.myRole))
+							Expect(m[1].Username.Valid).To(BeFalse())
+							// role shouldn't have been updated
+							Expect(m[1].Role).To(Equal(tc.from))
 
-								Expect(fakeMailer.SendMailCalled).To(BeFalse())
-							})
-						}
-					})
-				}
+							m, err = orgmembership.FindAllByOrgID(db, o2.ID)
+							Expect(err).To(BeNil())
+							Expect(m).To(HaveLen(0))
 
-				for _, t := range tcs {
-					runTestCases(t)
-				}
+							Expect(fakeMailer.SendMailCalled).To(BeFalse())
+						})
+					}
+				})
 			})
 
 			It("should return error and not add member to db if invite email fails to send", func() {
@@ -854,8 +875,7 @@ var _ = Describe("controllers/orgs", func() {
 				_, err := orgmembership.AddMember(db, o.ID, strconv.FormatInt(u.ID, 10), "owner")
 				Expect(err).To(BeNil())
 
-				doRequest(o.Slug, "bob@abc.com")
-
+				res := doRequest(o.Slug, "bob@abc.com")
 				Expect(res.Code).To(Equal(http.StatusCreated))
 
 				Eventually(func() interface{} {
@@ -882,6 +902,15 @@ var _ = Describe("controllers/orgs", func() {
 				Expect(fakeMailer.Body).To(ContainSubstring("You will be able to create projects"))
 				Expect(fakeMailer.Body).To(ContainSubstring("/signup?invite="))
 			})
+		})
+
+		Context("oauth token failure modes", func() {
+			BeforeEach(func() {
+				authTokenInputs.Path = "/api/v0/orgs/foobar/members/foo"
+				authTokenInputs.Method = "PUT"
+			})
+
+			test.ItRequiresAuthToken(&authTokenInputs)
 		})
 	})
 
