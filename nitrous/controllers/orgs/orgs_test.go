@@ -509,6 +509,9 @@ var _ = Describe("controllers/orgs", func() {
 								} else {
 									It("disallows update", func() {
 										Expect(res.Code).To(Equal(http.StatusForbidden))
+										errSlug, errDesc := test.ErrorSlug(res.Body)
+										Expect(errSlug).To(Equal("permission_denied"))
+										Expect(errDesc).To(Equal("you do not have permission to edit this member"))
 
 										m, err := orgmembership.FindAllByOrgID(db, o.ID)
 										Expect(err).To(BeNil())
@@ -611,6 +614,9 @@ var _ = Describe("controllers/orgs", func() {
 								} else {
 									It("disallows addition", func() {
 										Expect(res.Code).To(Equal(http.StatusForbidden))
+										errSlug, errDesc := test.ErrorSlug(res.Body)
+										Expect(errSlug).To(Equal("permission_denied"))
+										Expect(errDesc).To(Equal("you do not have permission to edit this member"))
 
 										m, err := orgmembership.FindAllByOrgID(db, o.ID)
 										Expect(err).To(BeNil())
@@ -818,6 +824,9 @@ var _ = Describe("controllers/orgs", func() {
 							} else {
 								It("disallows update", func() {
 									Expect(res.Code).To(Equal(http.StatusForbidden))
+									errSlug, errDesc := test.ErrorSlug(res.Body)
+									Expect(errSlug).To(Equal("permission_denied"))
+									Expect(errDesc).To(Equal("you do not have permission to edit this member"))
 
 									m, err := orgmembership.FindAllByOrgID(db, o.ID)
 									Expect(err).To(BeNil())
@@ -1106,6 +1115,9 @@ var _ = Describe("controllers/orgs", func() {
 							It("disallows deletion", func() {
 								res := doRequest(o.Slug, u2.Username)
 								Expect(res.Code).To(Equal(http.StatusForbidden))
+								errSlug, errDesc := test.ErrorSlug(res.Body)
+								Expect(errSlug).To(Equal("permission_denied"))
+								Expect(errDesc).To(Equal("you do not have permission to remove this member"))
 
 								m, err := orgmembership.FindAllByOrgID(db, o.ID)
 								Expect(err).To(BeNil())
