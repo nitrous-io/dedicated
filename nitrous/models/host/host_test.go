@@ -7,10 +7,12 @@ import (
 	"testing"
 	"time"
 
+	"github.com/jmoiron/sqlx"
 	"github.com/lib/pq"
 	"github.com/lib/pq/hstore"
 	ndb "github.com/nitrous-io/dedicated/nitrous/db"
 	"github.com/nitrous-io/dedicated/nitrous/envvars"
+	"github.com/nitrous-io/dedicated/nitrous/models/billingprofile"
 	"github.com/nitrous-io/dedicated/nitrous/models/container"
 	"github.com/nitrous-io/dedicated/nitrous/models/host"
 	"github.com/nitrous-io/dedicated/nitrous/models/hosttransition"
@@ -306,15 +308,15 @@ var _ = Describe("models/host", func() {
 
 			// insert a orphaned host
 			_, err = db.Exec(`INSERT INTO hosts
-				(user_id, slug, region_id, plan_id, provider_template_id, freighterd_version, docker_version, terminated_at, state)
-				VALUES ($1, $2, $3, $4, $5, $6, $7, now(), $8);`,
+				(user_id, slug, region_id, plan_id, provider_template_id, freighterd_version, docker_version, state)
+				VALUES ($1, $2, $3, $4, $5, $6, $7, $8);`,
 				u1.ID, "my-host-3", hs.R.ID, hs.P.ID, hs.PT.ID, fv, dv, "orphan")
 			Expect(err).To(BeNil())
 
 			// insert a migrating host
 			_, err = db.Exec(`INSERT INTO hosts
-				(user_id, slug, region_id, plan_id, provider_template_id, freighterd_version, docker_version, terminated_at, state)
-				VALUES ($1, $2, $3, $4, $5, $6, $7, now(), $8);`,
+				(user_id, slug, region_id, plan_id, provider_template_id, freighterd_version, docker_version, state)
+				VALUES ($1, $2, $3, $4, $5, $6, $7, $8);`,
 				u1.ID, "my-host-4", hs.R.ID, hs.P.ID, hs.PT.ID, fv, dv, "migrating")
 			Expect(err).To(BeNil())
 		})
@@ -352,6 +354,155 @@ var _ = Describe("models/host", func() {
 		Context("when the given user does not have any host records", func() {
 			It("returns an empty slice", func() {
 				hosts, err := host.FindAllByUser(db, u2.ID)
+				Expect(err).To(BeNil())
+				Expect(hosts).To(HaveLen(0))
+			})
+		})
+	})
+
+	Describe("FindAllByUserAndOrg()", func() {
+		var (
+			u *user.User
+			o *org.Org
+		)
+
+		BeforeEach(func() {
+			var err error
+			fv := "1.0.69-deadbeef-88"
+			dv := "1.4.1-nitrous"
+
+			u = &user.User{
+				Username: "aroonthampy",
+				Email:    "aroon@zerobotlabs.com",
+				Password: "ze robot labs 123",
+			}
+			err = test.WrapInTransaction(db, u.Insert)
+			Expect(err).To(BeNil())
+
+			pl := &plan.Plan{
+				Slug:  "plan-a",
+				Name:  "Personal Plan A",
+				Price: 1024,
+			}
+			Expect(pl.Insert(db)).To(BeNil())
+
+			bp, err := u.BillingProfile(db)
+			Expect(err).To(BeNil())
+
+			s := &subscription.Subscription{
+				PlanID:           pl.ID,
+				BillingProfileID: bp.ID,
+				State:            "active",
+				StripeID:         sql.NullString{"1", true},
+				Slug:             "sub-1",
+			}
+			Expect(test.WrapInTransaction(db, s.Insert)).To(BeNil())
+
+			o = &org.Org{
+				Slug:  "ze-robot-labs",
+				Name:  "Ze Robot Labs",
+				Email: "admin@zerobotlabs.com",
+			}
+			Expect(o.Insert(db)).To(BeNil())
+
+			orgPlan := &plan.Plan{
+				Slug:  "org-plan-a",
+				Name:  "Org Plan A",
+				Price: 1024,
+			}
+			Expect(orgPlan.Insert(db)).To(BeNil())
+
+			err = db.WithTransaction(func(tx *sqlx.Tx) error {
+				return billingprofile.Create(tx, u.ID, sql.NullInt64{o.ID, true})
+			})
+			Expect(err).To(BeNil())
+			orgBP, err := billingprofile.FindForOrg(db, o.ID)
+			Expect(err).To(BeNil())
+
+			orgSub := &subscription.Subscription{
+				PlanID:           orgPlan.ID,
+				BillingProfileID: orgBP.ID,
+				State:            "active",
+				StripeID:         sql.NullString{"2", true},
+				Slug:             "org-sub-1",
+				MultiHost:        true,
+			}
+			Expect(test.WrapInTransaction(db, orgSub.Insert)).To(BeNil())
+
+			// insert valid running hosts belonging to the org
+			_, err = db.Exec(`INSERT INTO hosts
+				(user_id, slug, region_id, plan_id, provider_template_id, freighterd_version, docker_version, subscription_id, org_id)
+				VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9);`,
+				u.ID, "zerobotlabs-host-1", hs.R.ID, hs.P.ID, hs.PT.ID, fv, dv, orgSub.ID, o.ID)
+			Expect(err).To(BeNil())
+			_, err = db.Exec(`INSERT INTO hosts
+				(user_id, slug, region_id, plan_id, provider_template_id, freighterd_version, docker_version, subscription_id, org_id)
+				VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9);`,
+				u.ID, "zerobotlabs-host-2", hs.R.ID, hs.P.ID, hs.PT.ID, fv, dv, orgSub.ID, o.ID)
+			Expect(err).To(BeNil())
+
+			// insert valid personal host
+			_, err = db.Exec(`INSERT INTO hosts
+				(user_id, slug, region_id, plan_id, provider_template_id, freighterd_version, docker_version, subscription_id)
+				VALUES ($1, $2, $3, $4, $5, $6, $7, $8);`,
+				u.ID, "my-host-1", hs.R.ID, hs.P.ID, hs.PT.ID, fv, dv, s.ID)
+			Expect(err).To(BeNil())
+
+			// insert a terminated host
+			_, err = db.Exec(`INSERT INTO hosts
+				(user_id, slug, region_id, plan_id, provider_template_id, freighterd_version, docker_version, terminated_at, subscription_id, org_id)
+				VALUES ($1, $2, $3, $4, $5, $6, $7, now(), $8, $9);`,
+				u.ID, "my-host-2", hs.R.ID, hs.P.ID, hs.PT.ID, fv, dv, orgSub.ID, o.ID)
+			Expect(err).To(BeNil())
+
+			// insert a orphaned host
+			_, err = db.Exec(`INSERT INTO hosts
+				(user_id, slug, region_id, plan_id, provider_template_id, freighterd_version, docker_version, state, subscription_id, org_id)
+				VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10);`,
+				u.ID, "my-host-3", hs.R.ID, hs.P.ID, hs.PT.ID, fv, dv, "orphan", orgSub.ID, o.ID)
+			Expect(err).To(BeNil())
+
+			// insert a migrating host
+			_, err = db.Exec(`INSERT INTO hosts
+				(user_id, slug, region_id, plan_id, provider_template_id, freighterd_version, docker_version, state, subscription_id, org_id)
+				VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10);`,
+				u.ID, "my-host-4", hs.R.ID, hs.P.ID, hs.PT.ID, fv, dv, "migrating", orgSub.ID, o.ID)
+			Expect(err).To(BeNil())
+		})
+
+		Context("when user has hosts under the org", func() {
+			It("returns the hosts", func() {
+				hosts, err := host.FindAllByUserAndOrg(db, u.ID, o.ID)
+				Expect(err).To(BeNil())
+				Expect(hosts).To(HaveLen(2))
+
+				Expect(hosts[0].ID).NotTo(BeZero())
+				Expect(hosts[0].UserID).To(Equal(u.ID))
+				Expect(hosts[0].OrgID.Int64).To(Equal(o.ID))
+				Expect(hosts[0].Slug).To(Equal("zerobotlabs-host-1"))
+				Expect(hosts[0].SubscriptionSlug.String).To(Equal("org-sub-1"))
+				Expect(hosts[0].OrgSlug.String).To(Equal(o.Slug))
+
+				Expect(hosts[1].ID).NotTo(BeZero())
+				Expect(hosts[1].UserID).To(Equal(u.ID))
+				Expect(hosts[1].OrgID.Int64).To(Equal(o.ID))
+				Expect(hosts[1].Slug).To(Equal("zerobotlabs-host-2"))
+				Expect(hosts[1].SubscriptionSlug.String).To(Equal("org-sub-1"))
+				Expect(hosts[1].OrgSlug.String).To(Equal(o.Slug))
+			})
+		})
+
+		Context("when the given user has hosts with deleted subscriptions", func() {
+			BeforeEach(func() {
+				s, err := subscription.FindBySlug(db, "org-sub-1", u.ID)
+				Expect(err).To(BeNil())
+				s.State = subscription.StateDeleted
+				err = s.Update(db)
+				Expect(err).To(BeNil())
+			})
+
+			It("does not return those hosts", func() {
+				hosts, err := host.FindAllByUserAndOrg(db, u.ID, o.ID)
 				Expect(err).To(BeNil())
 				Expect(hosts).To(HaveLen(0))
 			})

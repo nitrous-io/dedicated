@@ -490,7 +490,7 @@ func RemoveMember(env *middleware.Env, w http.ResponseWriter, r *http.Request) e
 	}
 
 	// User must not have any more valid hosts under this org.
-	hosts, err := host.FindAllByUser(db, u.ID)
+	hosts, err := host.FindAllByUserAndOrg(db, u.ID, o.ID)
 	if err != nil {
 		return err
 	}
