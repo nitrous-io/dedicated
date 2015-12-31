@@ -29,7 +29,8 @@ var (
 	errBannedEmail                   = httperror.New(http.StatusBadRequest, "email_banned", "this email address is banned")
 	errNotFound                      = httperror.New(http.StatusNotFound, "not_found", "requested resource could not be found")
 	errUserNotFound                  = httperror.New(http.StatusNotFound, "user_not_found", "the specified user could not be found")
-	errNoPermission                  = httperror.New(http.StatusForbidden, "permission_denied", "you do not have permission to edit members")
+	errEditNotPermitted              = httperror.New(http.StatusForbidden, "permission_denied", "you do not have permission to edit this member")
+	errRemoveNotPermitted            = httperror.New(http.StatusForbidden, "permission_denied", "you do not have permission to remove this member")
 	errEditSelfForbidden             = httperror.New(http.StatusBadRequest, "invalid_action", "you cannot edit yourself")
 	errCannotRemoveSelf              = httperror.New(http.StatusBadRequest, "invalid_action", "you cannot remove yourself from this organization")
 	errNotEduWhitelisted             = httperror.New(http.StatusForbidden, "not_edu_whitelisted", "Please contact Nitrous to enable education support")
@@ -339,7 +340,7 @@ func PutMember(env *middleware.Env, w http.ResponseWriter, r *http.Request) erro
 	}
 
 	if !containsString(permissibleRoles, role) {
-		return errNoPermission
+		return errEditNotPermitted
 	}
 
 	if u != nil {
@@ -357,7 +358,7 @@ func getPermissibleRoles(env *middleware.Env, identifier, orgSlug string) ([]str
 	cuMembership, err := orgmembership.FindByIdentifierAndOrgSlug(env.DB, identifier, orgSlug)
 	if err != nil {
 		if err == sql.ErrNoRows {
-			return nil, errNoPermission
+			return nil, errEditNotPermitted
 		}
 		return nil, err
 	}
@@ -394,7 +395,7 @@ func handleUpdateOrAddMember(env *middleware.Env, o *org.Org, permissibleRoles [
 		env.Status = http.StatusCreated
 	} else {
 		if !containsString(permissibleRoles, m.Role) {
-			return errNoPermission
+			return errEditNotPermitted
 		}
 		if err := orgmembership.UpdateMember(env.DB, o.ID, identifier, role); err != nil {
 			if err == sql.ErrNoRows {
@@ -453,7 +454,7 @@ func RemoveMember(env *middleware.Env, w http.ResponseWriter, r *http.Request) e
 	cuMembership, err := orgmembership.FindByIdentifierAndOrgSlug(db, currentUser.Username, slug)
 	if err != nil {
 		if err == sql.ErrNoRows {
-			return errNoPermission
+			return errRemoveNotPermitted
 		}
 	}
 
@@ -485,7 +486,7 @@ func RemoveMember(env *middleware.Env, w http.ResponseWriter, r *http.Request) e
 	}
 
 	if !canRemove {
-		return errNoPermission
+		return errRemoveNotPermitted
 	}
 
 	// User must not have any more valid hosts under this org.
