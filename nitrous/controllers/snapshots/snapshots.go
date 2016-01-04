@@ -307,7 +307,7 @@ func findOrgAndMembership(env *middleware.Env, r *http.Request) (*org.Org, *orgm
 		return nil, nil, err
 	}
 
-	membership, err := orgmembership.FindByUsernameAndOrgSlug(db, env.User.Username, orgSlug)
+	membership, err := orgmembership.FindByIdentifierAndOrgSlug(db, env.User.Username, orgSlug)
 	if err != nil {
 		if err == sql.ErrNoRows {
 			return nil, nil, errNotOrgMember
@@ -325,7 +325,9 @@ func broadcastToOrg(d ndb.QueryReceiver, orgID int64, ps *pubsub.Pubsub, evt *co
 	}
 	topics := []pubsub.Topic{}
 	for _, mem := range members {
-		topics = append(topics, pubsub.Topic(fmt.Sprintf("user-%d", mem.UserID)))
+		if mem.UserID.Valid {
+			topics = append(topics, pubsub.Topic(fmt.Sprintf("user-%d", mem.UserID.Int64)))
+		}
 	}
 	ps.Publish(evt, topics...)
 	return nil

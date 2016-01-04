@@ -4,6 +4,16 @@
 set -e
 APP=${1:?"app name is required"}
 
+killContainer() {
+	if [ -n "$cid" ]; then
+		echo "Killing and removing Docker container '$cid'"
+		docker rm --volumes --force $cid >/dev/null
+	fi
+}
+
+# We do this to make sure the Docker container is properly cleaned up upon exit.
+trap killContainer EXIT
+
 # if APP is shell, then we just launch a shell inside the current container
 if [[ "$APP" = "shell" ]]; then
 	if [[ -z $DOCKER_BIN ]]; then
@@ -23,20 +33,24 @@ if [[ "$APP" = "shell" ]]; then
 			nitrousio/dedicated-dev:latest /bin/bash -c "./script/test $APP"
 	fi
 else
-  SUITE=${3}
+	SUITE=${3}
 
 	if [[ -z $DOCKER_BIN ]]; then
-		docker run \
+		cid=$(docker run \
+			--detach \
 			--privileged=true \
-			--rm \
 			--env IN_DOCKER=true \
-			nitrousio/dedicated-dev:latest /bin/bash -c "./script/test $APP $SUITE"
+			nitrousio/dedicated-dev:latest /bin/bash -c "./script/test $APP $SUITE")
 	else
-		docker run \
+		cid=$(docker run \
+			--detach \
 			--privileged=true \
-			--rm \
 			--volume "$DOCKER_BIN":/usr/bin/docker \
 			--env IN_DOCKER=true \
-			nitrousio/dedicated-dev:latest /bin/bash -c "./script/test $APP $SUITE"
+			nitrousio/dedicated-dev:latest /bin/bash -c "./script/test $APP $SUITE")
 	fi
+
+	echo "Running tests in container '$cid'"
+
+	docker attach --no-stdin=true --sig-proxy=false $cid
 fi

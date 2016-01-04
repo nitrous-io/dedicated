@@ -270,12 +270,13 @@ var _ = Describe("client", func() {
 			BeforeEach(func() {
 				// Close server to simulate a failed request.
 				server.Close()
+				time.Sleep(50 * time.Millisecond) // try to introduce some slack for heisentest
 			})
 
 			It("returns a RequestFailedError", func() {
 				containers, err := cl.List()
 				_, ok := err.(*freighterclient.RequestFailedError)
-				Expect(ok).To(BeTrue())
+				Expect(ok).To(BeTrue(), "Err was not RequestFailedError, was <%T>: %v", err, err)
 				Expect(server.ReceivedRequests()).To(HaveLen(0))
 				Expect(containers).To(BeNil())
 			})
@@ -2025,7 +2026,7 @@ var _ = Describe("client", func() {
 					err := cl.RemoveImage("imageid")
 					Expect(err).NotTo(BeNil())
 					_, ok := err.(*freighterclient.RequestFailedError)
-					Expect(ok).To(BeTrue())
+					Expect(ok).To(BeTrue(), "Err was not RequestFailedError, was <%T>: %v", err, err)
 					Expect(server.ReceivedRequests()).To(HaveLen(0))
 				})
 
@@ -2099,7 +2100,7 @@ var _ = Describe("client", func() {
 					err := cl.PushImage("imageid", "hub.docker.com/me/imageid", ioutil.Discard)
 					Expect(err).NotTo(BeNil())
 					_, ok := err.(*freighterclient.RequestFailedError)
-					Expect(ok).To(BeTrue())
+					Expect(ok).To(BeTrue(), "Err was not RequestFailedError, was <%T>: %v", err, err)
 					Expect(server.ReceivedRequests()).To(HaveLen(0))
 				})
 
@@ -2148,7 +2149,7 @@ var _ = Describe("client", func() {
 					err := cl.TagImage("imageid", "mytag", true)
 					Expect(err).NotTo(BeNil())
 					_, ok := err.(*freighterclient.RequestFailedError)
-					Expect(ok).To(BeTrue())
+					Expect(ok).To(BeTrue(), "Err was not RequestFailedError, was <%T>: %v", err, err)
 					Expect(server.ReceivedRequests()).To(HaveLen(0))
 				})
 

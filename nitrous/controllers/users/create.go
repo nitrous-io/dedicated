@@ -10,6 +10,7 @@ import (
 	"github.com/lib/pq"
 	"github.com/nitrous-io/dedicated/nitrous/controllers/github"
 	"github.com/nitrous-io/dedicated/nitrous/middleware"
+	"github.com/nitrous-io/dedicated/nitrous/models/containercollab"
 	"github.com/nitrous-io/dedicated/nitrous/models/oauthclient"
 	"github.com/nitrous-io/dedicated/nitrous/models/orgmembership"
 	"github.com/nitrous-io/dedicated/nitrous/models/promocode"
@@ -141,9 +142,18 @@ func Create(env *middleware.Env, w http.ResponseWriter, r *http.Request) error {
 
 	confirmable := client != nil
 	if !confirmable && invitecode != "" {
-		err = db.Get(&confirmable, `SELECT COUNT(*) = 1 FROM container_collabs WHERE invite_email = $1 AND invite_code = $2 LIMIT 1`, u.Email, invitecode)
-		if err != nil {
-			return err
+		if _, err := orgmembership.PromotePendingMemberToUser(db, u.Email, invitecode, u.ID); err == nil {
+			confirmable = true
+		} else {
+			if err != orgmembership.ErrDoesNotExist {
+				return err
+			}
+			if _, err := containercollab.PromotePendingMemberToUser(db, u.Email, invitecode, u.ID); err == nil {
+				confirmable = true
+				notifySharedContainers(env, u)
+			} else if err != containercollab.ErrDoesNotExist {
+				return err
+			}
 		}
 	}
 
@@ -152,11 +162,6 @@ func Create(env *middleware.Env, w http.ResponseWriter, r *http.Request) error {
 		if err != nil {
 			return err
 		}
-		_, err = db.Exec("UPDATE container_collabs SET user_id = $1, invite_email = NULL, invite_code = NULL WHERE invite_email = $2", u.ID, u.Email)
-		if err != nil {
-			return err
-		}
-		notifySharedContainers(env, u)
 	} else {
 		err = u.SendConfirmationEmail(db, true)
 		if err != nil {

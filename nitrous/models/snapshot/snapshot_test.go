@@ -2,6 +2,7 @@ package snapshot_test
 
 import (
 	"database/sql"
+	"strconv"
 	"testing"
 
 	ndb "github.com/nitrous-io/dedicated/nitrous/db"
@@ -128,7 +129,7 @@ var _ = Describe("models/snapshot", func() {
 			var u2 *user.User
 
 			BeforeEach(func() {
-				err := orgmembership.AddMember(db, o1.ID, u.ID, "admin")
+				_, err := orgmembership.AddMember(db, o1.ID, strconv.FormatInt(u.ID, 10), "admin")
 				Expect(err).To(BeNil())
 
 				// Insert some snapshots belonging to the org.

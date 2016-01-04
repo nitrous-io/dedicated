@@ -354,7 +354,7 @@ func fromSnapshot(d ndb.QueryReceiver, u *user.User, snapshotIDStr string) (stri
 	}
 
 	// Check that user is a member of org, with a valid role.
-	membership, err := orgmembership.FindByUsernameAndOrgSlug(d, u.Username, o.Slug)
+	membership, err := orgmembership.FindByIdentifierAndOrgSlug(d, u.Username, o.Slug)
 	if err != nil {
 		if err == sql.ErrNoRows {
 			return "", errNotOrgMember

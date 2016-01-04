@@ -369,7 +369,6 @@ var _ = Describe("controllers/users", func() {
 		})
 
 		Context("invited by container collaborator", func() {
-
 			var (
 				cnr *container.Container
 			)
@@ -403,7 +402,7 @@ var _ = Describe("controllers/users", func() {
 				Expect(err).To(BeNil())
 			})
 
-			It("should auto confirm the user and update container_collabs if invite_code provided with correct email", func() {
+			It("should register the user as a collab member by updating container_collabs if invite_code provided with correct email", func() {
 				params.Set("invite_code", "22x2")
 				doRequest()
 
@@ -419,7 +418,7 @@ var _ = Describe("controllers/users", func() {
 				Expect(found).To(BeTrue())
 			})
 
-			It("should not auto confirm the user if the invite code is incorrect", func() {
+			It("should not register the user as a collab member if the invite code is incorrect", func() {
 				params.Set("invite_code", "23x2")
 				doRequest()
 
@@ -435,7 +434,7 @@ var _ = Describe("controllers/users", func() {
 				Expect(found).To(BeFalse())
 			})
 
-			It("should not auto confirm the user if the email is different", func() {
+			It("should not register the user as a collab member if the email is different", func() {
 				params.Set("email", "foo@domain.com")
 				params.Set("invite_code", "22x2")
 				doRequest()
@@ -448,6 +447,74 @@ var _ = Describe("controllers/users", func() {
 
 				var found bool
 				err = db.Get(&found, `SELECT COUNT(*) = 1 FROM container_collabs WHERE user_id = $1 AND container_id = $2`, u.ID, cnr.ID)
+				Expect(err).To(BeNil())
+				Expect(found).To(BeFalse())
+			})
+		})
+
+		Context("invited by org owner", func() {
+			var (
+				o *org.Org
+			)
+
+			BeforeEach(func() {
+				o = &org.Org{
+					Name:  "Foo Bar, Inc.",
+					Slug:  "foobar",
+					Email: "eng@foobar.com",
+				}
+				err := o.Insert(db)
+				Expect(err).To(BeNil())
+
+				_, err = db.Exec(`INSERT INTO org_memberships (org_id, invite_email, invite_code) VALUES ($1, 'foo@example.com', '22x2') RETURNING ID`, o.ID)
+				Expect(err).To(BeNil())
+			})
+
+			It("should register the user by updating org_memberships if invite_code provided with correct email", func() {
+				params.Set("invite_code", "22x2")
+				doRequest()
+
+				Expect(res.Code).To(Equal(http.StatusCreated))
+
+				u, err := user.FindByUsername(db, "foo")
+				Expect(err).To(BeNil())
+				Expect(u.ConfirmedAt.Valid).To(BeTrue())
+
+				var found bool
+				err = db.Get(&found, `SELECT COUNT(*) = 1 FROM org_memberships WHERE user_id = $1 AND org_id = $2`, u.ID, o.ID)
+				Expect(err).To(BeNil())
+				Expect(found).To(BeTrue())
+			})
+
+			It("should not register the user under the org if the invite code is incorrect", func() {
+				params.Set("invite_code", "23x2")
+				doRequest()
+
+				Expect(res.Code).To(Equal(http.StatusCreated))
+
+				u, err := user.FindByUsername(db, "foo")
+				Expect(err).To(BeNil())
+				Expect(u.ConfirmedAt.Valid).To(BeFalse())
+
+				var found bool
+				err = db.Get(&found, `SELECT COUNT(*) = 1 FROM org_memberships WHERE user_id = $1 AND org_id = $2`, u.ID, o.ID)
+				Expect(err).To(BeNil())
+				Expect(found).To(BeFalse())
+			})
+
+			It("should not register the user under the org if the email is different", func() {
+				params.Set("email", "foo@domain.com")
+				params.Set("invite_code", "22x2")
+				doRequest()
+
+				Expect(res.Code).To(Equal(http.StatusCreated))
+
+				u, err := user.FindByUsername(db, "foo")
+				Expect(err).To(BeNil())
+				Expect(u.ConfirmedAt.Valid).To(BeFalse())
+
+				var found bool
+				err = db.Get(&found, `SELECT COUNT(*) = 1 FROM org_memberships WHERE user_id = $1 AND org_id = $2`, u.ID, o.ID)
 				Expect(err).To(BeNil())
 				Expect(found).To(BeFalse())
 			})
@@ -605,7 +672,7 @@ var _ = Describe("controllers/users", func() {
 
 					Expect(res.Code).To(Equal(http.StatusCreated))
 
-					mem, err := orgmembership.FindByUsernameAndOrgSlug(db, "foo", "foobar")
+					mem, err := orgmembership.FindByIdentifierAndOrgSlug(db, "foo", "foobar")
 					Expect(err).To(BeNil())
 					Expect(mem.Role).To(Equal(orgmembership.RoleLimited))
 				})
@@ -616,7 +683,7 @@ var _ = Describe("controllers/users", func() {
 
 					Expect(res.Code).To(Equal(http.StatusCreated))
 
-					mem, err := orgmembership.FindByUsernameAndOrgSlug(db, "foo", "foobar")
+					mem, err := orgmembership.FindByIdentifierAndOrgSlug(db, "foo", "foobar")
 					Expect(err).To(BeNil())
 					Expect(mem.Role).To(Equal(orgmembership.RoleMember))
 				})

@@ -6,6 +6,7 @@ import (
 	"errors"
 	"fmt"
 	"net/http"
+	"strconv"
 	"time"
 
 	"github.com/jmoiron/sqlx"
@@ -528,7 +529,7 @@ var _ = Describe("HostQueueHandler", func() {
 						return nil
 					})
 					Expect(err).To(BeNil())
-					err = orgmembership.AddMember(db, o.ID, u.ID, "owner")
+					_, err = orgmembership.AddMember(db, o.ID, strconv.FormatInt(u.ID, 10), "owner")
 					Expect(err).To(BeNil())
 
 					_, err = db.Exec(`UPDATE hosts SET org_id = $1 WHERE id = $2;`, o.ID, hs.H.ID)

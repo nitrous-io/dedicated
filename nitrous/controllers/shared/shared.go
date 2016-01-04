@@ -28,7 +28,7 @@ var (
 
 func BillingProfileForRequest(env *middleware.Env, r *http.Request) (*billingprofile.BillingProfile, error) {
 	if orgSlug := mux.Vars(r)["org_slug"]; orgSlug != "" {
-		mem, err := orgmembership.FindByUsernameAndOrgSlug(env.DB, env.User.Username, orgSlug)
+		mem, err := orgmembership.FindByIdentifierAndOrgSlug(env.DB, env.User.Username, orgSlug)
 		if err != nil {
 			return nil, err
 		}

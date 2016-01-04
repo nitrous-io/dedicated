@@ -2,6 +2,7 @@ package org_test
 
 import (
 	"database/sql"
+	"strconv"
 	"testing"
 
 	"github.com/jmoiron/sqlx"
@@ -339,11 +340,11 @@ var _ = Describe("models/org", func() {
 
 			Context("when user belongs to orgs", func() {
 				BeforeEach(func() {
-					err := orgmembership.AddMember(db, oID, u.ID, "admin")
+					_, err := orgmembership.AddMember(db, oID, strconv.FormatInt(u.ID, 10), "admin")
 					Expect(err).To(BeNil())
-					err = orgmembership.AddMember(db, o3ID, u.ID, "member")
+					_, err = orgmembership.AddMember(db, o3ID, strconv.FormatInt(u.ID, 10), "member")
 					Expect(err).To(BeNil())
-					err = orgmembership.AddMember(db, o4ID, u.ID, "owner")
+					_, err = orgmembership.AddMember(db, o4ID, strconv.FormatInt(u.ID, 10), "owner")
 					Expect(err).To(BeNil())
 				})
 

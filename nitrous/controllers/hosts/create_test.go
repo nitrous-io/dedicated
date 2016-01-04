@@ -311,7 +311,8 @@ var _ = Describe("POST /api/v0/hosts", func() {
 		It("responds with an error if the user is a limited member of the org", func() {
 			err := db.WithTransaction(func(t *sqlx.Tx) error {
 				Expect(billingprofile.Create(t, u.ID, sql.NullInt64{o.ID, true})).To(BeNil())
-				return orgmembership.AddMember(db, o.ID, u.ID, orgmembership.RoleLimited)
+				_, err := orgmembership.AddMember(db, o.ID, strconv.FormatInt(u.ID, 10), orgmembership.RoleLimited)
+				return err
 			})
 			Expect(err).To(BeNil())
 			res := doRequest(params)
@@ -540,13 +541,13 @@ var _ = Describe("POST /api/v0/hosts", func() {
 			Expect(h.Hotswap).To(BeTrue())
 		})
 
-		Context("if org is speicifed", func() {
+		Context("if org is specified", func() {
 			It("sets the org_id on the host", func() {
 				err := db.WithTransaction(func(t *sqlx.Tx) error {
 					return billingprofile.Create(t, u.ID, sql.NullInt64{o.ID, true})
 				})
 				Expect(err).To(BeNil())
-				err = orgmembership.AddMember(db, o.ID, u.ID, orgmembership.RoleMember)
+				_, err = orgmembership.AddMember(db, o.ID, strconv.FormatInt(u.ID, 10), orgmembership.RoleMember)
 				Expect(err).To(BeNil())
 
 				bp, err := billingprofile.FindForOrg(db, o.ID)
@@ -1091,7 +1092,7 @@ var _ = Describe("POST /api/v0/hosts", func() {
 				return billingprofile.Create(t, u.ID, sql.NullInt64{o.ID, true})
 			})
 			Expect(err).To(BeNil())
-			err = orgmembership.AddMember(db, o.ID, u.ID, orgmembership.RoleMember)
+			_, err = orgmembership.AddMember(db, o.ID, strconv.FormatInt(u.ID, 10), orgmembership.RoleMember)
 			Expect(err).To(BeNil())
 
 			_, err = db.Exec(`UPDATE plans SET price=123, org=true;`)
@@ -1289,7 +1290,7 @@ var _ = Describe("POST /api/v0/hosts", func() {
 				return billingprofile.Create(t, u.ID, sql.NullInt64{o.ID, true})
 			})
 			Expect(err).To(BeNil())
-			err = orgmembership.AddMember(db, o.ID, u.ID, orgmembership.RoleMember)
+			_, err = orgmembership.AddMember(db, o.ID, strconv.FormatInt(u.ID, 10), orgmembership.RoleMember)
 			Expect(err).To(BeNil())
 
 			_, err = db.Exec(`UPDATE plans SET org=true WHERE id = $1;`, mPl.ID)

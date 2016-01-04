@@ -15,9 +15,7 @@ import (
 
 	"github.com/nitrous-io/dedicated/nitrous/db"
 	"github.com/nitrous-io/dedicated/nitrous/envvars"
-	"github.com/nitrous-io/dedicated/nitrous/models/plan"
 	"github.com/nitrous-io/dedicated/nitrous/models/providertemplate"
-	"github.com/nitrous-io/dedicated/nitrous/models/region"
 	"github.com/nitrous-io/dedicated/nitrous/models/subscription"
 	"github.com/nitrous-io/dedicated/nitrous/models/user"
 	"github.com/nitrous-io/dedicated/nitrous/pkg/hostbuilderclient"
@@ -198,6 +196,30 @@ func FindAllByUser(db db.QueryReceiver, userID int64) ([]*Host, error) {
 	return hosts, nil
 }
 
+func FindAllByUserAndOrg(db db.QueryReceiver, userID, orgID int64) ([]*Host, error) {
+	hosts := []*Host{}
+	err := db.Select(&hosts, `SELECT hosts.*, pt.provider, pt.config, sub.slug AS subscription_slug, orgs.slug AS org_slug
+			FROM hosts
+			INNER JOIN provider_templates AS pt ON hosts.provider_template_id = pt.id
+			LEFT JOIN subscriptions AS sub ON hosts.subscription_id = sub.id
+			INNER JOIN orgs ON hosts.org_id = orgs.id
+			WHERE user_id = $1
+				AND org_id = $2
+				AND terminated_at IS NULL
+				AND preprovisioned = FALSE
+				AND hosts.state NOT IN ($3, $4)
+				AND (
+					sub.state IS NULL OR -- users with no subscriptions still exist
+					sub.state != $5 -- deleted subscriptions should not be visible to the user
+				)
+			ORDER BY id;`,
+		userID, orgID, StateOrphan, StateMigrating, subscription.StateDeleted)
+	if err != nil {
+		return nil, err
+	}
+	return hosts, nil
+}
+
 func FindAllWithTerminated(db *db.Database, userID int64) ([]*Host, error) {
 	hosts := []*Host{}
 	err := db.Select(&hosts, "SELECT * FROM hosts WHERE user_id = $1 AND preprovisioned = FALSE ORDER BY id;", userID)
@@ -222,28 +244,6 @@ func FindAllForTermination(db *db.Database) ([]*Host, error) {
 		return nil, err
 	}
 	return hosts, nil
-}
-
-func CountPreprovisioned(db *db.Database, r *region.Region, p *plan.Plan) (int, error) {
-	var count int
-	if err := db.QueryRow(`SELECT count(*) FROM hosts
-		WHERE region_id = $1 AND plan_id = $2 AND state = $3
-		AND preprovisioned = TRUE AND terminated_at IS NULL;`,
-		r.ID, p.ID, StateRunning).Scan(&count); err != nil {
-		return 0, err
-	}
-	return count, nil
-}
-
-func CountPreprovisionedOrphans(db *db.Database, r *region.Region) (int, error) {
-	var count int
-	if err := db.QueryRow(`SELECT count(*) FROM hosts
-		WHERE region_id = $1 AND state = $2
-		AND preprovisioned = TRUE AND terminated_at IS NULL;`,
-		r.ID, StateOrphan).Scan(&count); err != nil {
-		return 0, err
-	}
-	return count, nil
 }
 
 // Find will return a Host scoped by User. Identifier can be either an ID or a slug.
@@ -387,7 +387,7 @@ func FindAllByOrgID(db *db.Database, orgID int64) ([]*Host, error) {
 	err := db.Select(&hosts,
 		`SELECT * FROM hosts
 		WHERE org_id=$1
-		AND terminated_at IS NULL 
+		AND terminated_at IS NULL
 		AND state <> 'terminated';`, orgID)
 	return hosts, err
 }

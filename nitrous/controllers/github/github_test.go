@@ -4,13 +4,14 @@ import (
 	"database/sql"
 	"encoding/json"
 	"fmt"
-	"gopkg.in/redis.v2"
 	"net/http"
 	"net/http/httptest"
 	"net/url"
 	"strconv"
 	"testing"
 	"time"
+
+	"gopkg.in/redis.v2"
 
 	"github.com/gorilla/mux"
 	"github.com/nitrous-io/dedicated/nitrous/controllers/github"
@@ -134,7 +135,7 @@ var _ = Describe("controllers/github", func() {
 
 				timestamps, err := g.Accesses()
 				Expect(err).To(BeNil())
-				Expect(timestamps).To(ConsistOf(BeNumerically("~", time.Now().Unix())))
+				Expect(timestamps).To(ConsistOf(BeNumerically("~", time.Now().Unix(), 5*time.Second)))
 			})
 		})
 

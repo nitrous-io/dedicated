@@ -201,7 +201,7 @@ func (p *Provisioner) ProvisionHost(opts ProvisionOptions) (*host.Host, error) {
 	}
 
 	if opts.Org != nil {
-		om, err := orgmembership.FindByUsernameAndOrgSlug(p.db, opts.User.Username, opts.Org.Slug)
+		om, err := orgmembership.FindByIdentifierAndOrgSlug(p.db, opts.User.Username, opts.Org.Slug)
 		if err != nil {
 			if err == sql.ErrNoRows {
 				return nil, ErrOrgPermissionDenied
