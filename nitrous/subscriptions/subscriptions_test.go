@@ -2659,6 +2659,87 @@ var _ = Describe("subscriptions", func() {
 			Expect(fakeMailer.HTML).To(ContainSubstring(`email our support team at <a href="mailto:support@nitrous.io">support@nitrous.io</a>`))
 		})
 
+		// here a "free trial subscription" refers to a subscription with
+		// non-null trial_end, i.e. a subscription that had a free trial at any
+		// point of time in the past
+		Context("when a free trial subscription fails", func() {
+			var sresp string
+
+			BeforeEach(func() {
+				t := time.Unix(1434681522, 0)
+				_, err := db.Exec("UPDATE invoices SET first_attempt_at = $1 WHERE id = $2;", t, inv.ID)
+				Expect(err).To(BeNil())
+
+				sresp, err = alterStripeInvoice(func(si *stripe.Invoice) {
+					si.Paid = false
+					si.Attempts = 4
+					si.NextAttempt = 0
+				})
+				Expect(err).To(BeNil())
+			})
+
+			It("cancels the subscription if period start is equal to trial end", func() {
+				_, err := db.Exec(`UPDATE subscriptions SET
+					trial_end = $1, current_period_start = $2 WHERE id = $3`,
+					inv.PeriodStart, inv.PeriodStart, sub.ID)
+				Expect(err).To(BeNil())
+
+				fakeStripe.Errors = []*stripe.Error{nil, nil}
+				fakeStripe.Responses = []string{sresp, `{
+					"cancelled": true,
+					"id": "sub1"
+					}`,
+				}
+
+				i, err := subProvider.HandleSubscriptionInvoiceFailed(db, "inv_ABCD1")
+				Expect(err).To(BeNil())
+				Expect(i).ToNot(BeNil())
+
+				Expect(fakeStripe.ReceivedRequests).To(HaveLen(2))
+				r := fakeStripe.ReceivedRequests[1]
+				Expect(r["method"]).To(Equal("DELETE"))
+				Expect(r["path"]).To(Equal("/customers/cus-1/subscriptions/abc1"))
+			})
+
+			It("does not cancel subscription if trial end is prior to period start", func() {
+				// this is the situation when a subscription started off as free trial and user converted
+				_, err := db.Exec(`UPDATE subscriptions SET
+					trial_end = $1, current_period_start = $2 WHERE id = $3`,
+					inv.PeriodStart, inv.PeriodEnd, sub.ID)
+				Expect(err).To(BeNil())
+
+				fakeStripe.Errors = []*stripe.Error{nil}
+				fakeStripe.Responses = []string{sresp}
+
+				i, err := subProvider.HandleSubscriptionInvoiceFailed(db, "inv_ABCD1")
+				Expect(err).To(BeNil())
+				Expect(i).ToNot(BeNil())
+
+				Expect(fakeStripe.ReceivedRequests).To(HaveLen(1))
+				r := fakeStripe.ReceivedRequests[0]
+				Expect(r["method"]).NotTo(Equal("DELETE"))
+			})
+
+			It("does not cancel subscription if trial end is after period start", func() {
+				// this is the situation when a subscription is still trialing
+				_, err := db.Exec(`UPDATE subscriptions SET
+					trial_end = $1, current_period_start = $2 WHERE id = $3`,
+					inv.PeriodEnd, inv.PeriodStart, sub.ID)
+				Expect(err).To(BeNil())
+
+				fakeStripe.Errors = []*stripe.Error{nil}
+				fakeStripe.Responses = []string{sresp}
+
+				i, err := subProvider.HandleSubscriptionInvoiceFailed(db, "inv_ABCD1")
+				Expect(err).To(BeNil())
+				Expect(i).ToNot(BeNil())
+
+				Expect(fakeStripe.ReceivedRequests).To(HaveLen(1))
+				r := fakeStripe.ReceivedRequests[0]
+				Expect(r["method"]).NotTo(Equal("DELETE"))
+			})
+		})
+
 		It("should not allow next_payment_attempt to be 0 if the invoice is too new", func() {
 			t := time.Unix(1434681522, 0)
 			_, err := db.Exec("UPDATE invoices SET created_at = now(), first_attempt_at = $1 WHERE id = $2;", t, inv.ID)

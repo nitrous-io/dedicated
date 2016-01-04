@@ -590,6 +590,19 @@ func (s *SubscriptionProvider) HandleSubscriptionInvoiceFailed(d *db.Database, i
 		inv.State = invoice.StateUnpaid
 		if final {
 			inv.State = invoice.StateFailed
+			// if trial_end and current_period_start are non-null and equal, we
+			// know that
+			// 1. this is a free trial
+			// 2. the first invoice has failed
+			// In this circumstance, we automatically cancel the subscription
+			if sub != nil {
+				if sub.TrialEnd.Valid && sub.CurrentPeriodStart.Valid && sub.TrialEnd.Time.Equal(sub.CurrentPeriodStart.Time) {
+					if err := s.Cancel(d, sub); err != nil {
+						// if this fails we will manually cancel it
+						logrus.Warnf("Failed to cancel sub that failed free trial first invoice %s", sub.StripeID)
+					}
+				}
+			}
 		}
 		t := time.Now()
 		if inv.FirstAttemptAt == nil || inv.FirstAttemptAt.IsZero() {
