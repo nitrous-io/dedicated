@@ -62,6 +62,8 @@ const (
 	EventSubscriptionDeleted        EventName = "subscription.deleted"
 	EventCollaboratorAdded          EventName = "collaborator.added"
 	EventCollaboratorRemoved        EventName = "collaborator.removed"
+	EventOrgMembersChanged          EventName = "org-member.changed"
+	EventOrgMemberRemoved           EventName = "org-member.removed"
 )
 
 type Event struct {

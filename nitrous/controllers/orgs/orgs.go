@@ -11,6 +11,7 @@ import (
 	"github.com/gorilla/mux"
 	"github.com/jmoiron/sqlx"
 	"github.com/lib/pq"
+	"github.com/nitrous-io/dedicated/nitrous/controllers"
 	"github.com/nitrous-io/dedicated/nitrous/envvars"
 	"github.com/nitrous-io/dedicated/nitrous/middleware"
 	"github.com/nitrous-io/dedicated/nitrous/models/billingprofile"
@@ -22,6 +23,7 @@ import (
 	"github.com/nitrous-io/dedicated/nitrous/pkg/blacklist"
 	"github.com/nitrous-io/dedicated/nitrous/pkg/httperror"
 	"github.com/nitrous-io/dedicated/nitrous/pkg/mailer"
+	"github.com/nitrous-io/dedicated/nitrous/pkg/pubsub"
 	"github.com/nitrous-io/dedicated/nitrous/serializers"
 )
 
@@ -83,9 +85,8 @@ func Create(env *middleware.Env, w http.ResponseWriter, r *http.Request) error {
 	err = db.Get(&edu, `SELECT COUNT(*) > 0 FROM edu_emails_whitelist WHERE email = $1 LIMIT 1;`, o.Email)
 	if err != nil {
 		return err
-	} else {
-		o.Edu = edu
 	}
+	o.Edu = edu
 
 	if intent == "edu" && !o.Edu {
 		return errNotEduWhitelisted
@@ -276,10 +277,7 @@ func ShowMembers(env *middleware.Env, w http.ResponseWriter, r *http.Request) er
 
 	members, err := orgmembership.FindAllByOrgID(db, o.ID)
 	if err != nil {
-		if err != sql.ErrNoRows {
-			return err
-		}
-		members = []*orgmembership.OrgMember{}
+		return err
 	}
 
 	env.Status = http.StatusOK
@@ -294,9 +292,6 @@ func PutMember(env *middleware.Env, w http.ResponseWriter, r *http.Request) erro
 	currentUser := env.User
 	slug := strings.ToLower(mux.Vars(r)["slug"])
 	identifier := strings.ToLower(mux.Vars(r)["identifier"])
-	if identifier == "" {
-		identifier = strings.ToLower(r.FormValue("username"))
-	}
 
 	if slug == "" || identifier == "" {
 		return errNotFound
@@ -352,7 +347,17 @@ func PutMember(env *middleware.Env, w http.ResponseWriter, r *http.Request) erro
 		return err
 	}
 
-	return serializeOrgMembersData(env, o)
+	members, err := orgmembership.FindAllByOrgID(env.DB, o.ID)
+	if err != nil {
+		return err
+	}
+
+	broadcastChangeToOrg(members, o, env.User, env.Events)
+
+	env.Data = map[string]interface{}{
+		"members": serializers.SerializeOrgMembers(members),
+	}
+	return nil
 }
 
 func getPermissibleRoles(env *middleware.Env, identifier, orgSlug string) ([]string, error) {
@@ -406,20 +411,6 @@ func handleUpdateOrAddMember(env *middleware.Env, o *org.Org, permissibleRoles [
 			return err
 		}
 		env.Status = http.StatusOK
-	}
-	return nil
-}
-
-func serializeOrgMembersData(env *middleware.Env, o *org.Org) error {
-	members, err := orgmembership.FindAllByOrgID(env.DB, o.ID)
-	if err != nil {
-		if err != sql.ErrNoRows {
-			return err
-		}
-		members = []*orgmembership.OrgMember{}
-	}
-	env.Data = map[string]interface{}{
-		"members": serializers.SerializeOrgMembers(members),
 	}
 	return nil
 }
@@ -522,19 +513,47 @@ func RemoveMember(env *middleware.Env, w http.ResponseWriter, r *http.Request) e
 		return nil
 	}
 
+	if u != nil {
+		// Publish event informing removed user that they have been removed
+		// from the org.
+		env.Events.Publish(controllers.NewEvent(controllers.EventOrgMemberRemoved, map[string]interface{}{
+			"org_slug": o.Slug,
+			"username": u.Username,
+		}), u.Topic())
+	}
+
 	members, err := orgmembership.FindAllByOrgID(db, o.ID)
 	if err != nil {
-		if err != sql.ErrNoRows {
-			return err
-		}
-		members = []*orgmembership.OrgMember{}
+		return err
 	}
+
+	broadcastChangeToOrg(members, o, env.User, env.Events)
 
 	env.Status = http.StatusOK
 	env.Data = map[string]interface{}{
 		"members": serializers.SerializeOrgMembers(members),
 	}
 	return nil
+}
+
+// broadcastChangeToOrg publishes a member list to all members of the org,
+// except the current user.
+func broadcastChangeToOrg(members []*orgmembership.OrgMember, o *org.Org, currentUser *user.User, ps *pubsub.Pubsub) {
+	topics := []pubsub.Topic{}
+	for _, mem := range members {
+		if !mem.UserID.Valid {
+			continue // Skip pending invited members.
+		}
+		if mem.UserID.Int64 == currentUser.ID {
+			continue
+		}
+		topics = append(topics, pubsub.Topic(fmt.Sprintf("user-%d", mem.UserID.Int64)))
+	}
+	evt := controllers.NewEvent(controllers.EventOrgMembersChanged, map[string]interface{}{
+		"org_slug": o.Slug,
+		"members":  serializers.SerializeOrgMembers(members),
+	})
+	ps.Publish(evt, topics...)
 }
 
 func containsString(strs []string, s string) bool {
