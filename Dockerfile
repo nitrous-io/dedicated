@@ -45,7 +45,7 @@ RUN apt-get update \
   && rm -r /usr/src/ruby
 
 # install go
-RUN curl -s https://storage.googleapis.com/golang/go1.5.2.linux-amd64.tar.gz \
+RUN curl -s https://storage.googleapis.com/golang/go1.4.2.linux-amd64.tar.gz \
   | tar -C /usr/local -xz
 
 ENV GOPATH /opt

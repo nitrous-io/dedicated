@@ -146,7 +146,7 @@ func AddMember(d db.QueryReceiver, orgID int64, identifier, role string) (*OrgMe
 		return nil, InvalidRoleError{Role: role}
 	}
 
-	var s *sqlx.NamedStmt
+	var nstmt *sqlx.NamedStmt
 	om := &OrgMembership{
 		OrgID: orgID,
 		Role:  role,
@@ -160,14 +160,14 @@ func AddMember(d db.QueryReceiver, orgID int64, identifier, role string) (*OrgMe
 		}
 		om.InviteEmail = sql.NullString{identifier, true}
 		om.InviteCode = sql.NullString{token, true}
-		s, err = d.PrepareNamed(`
+		nstmt, err = d.PrepareNamed(`
 		  INSERT INTO org_memberships
 		  (org_id, invite_email, invite_code, role, email_sent_at)
 		  VALUES (:org_id, :invite_email, :invite_code, :role, now())
 		  RETURNING *;`)
 	} else {
 		om.UserID = sql.NullInt64{id, true}
-		s, err = d.PrepareNamed(`
+		nstmt, err = d.PrepareNamed(`
 		  INSERT INTO org_memberships
 		  (org_id, user_id, role)
 		  VALUES (:org_id, :user_id, :role)
@@ -176,7 +176,7 @@ func AddMember(d db.QueryReceiver, orgID int64, identifier, role string) (*OrgMe
 	if err != nil {
 		return nil, err
 	}
-	_, err = s.Exec(om)
+	err = nstmt.QueryRowx(om).StructScan(om)
 	return om, err
 }
 

@@ -6,6 +6,7 @@ import (
 	"io/ioutil"
 	"net"
 	"net/http"
+	"net/http/httptest"
 	"strconv"
 	"strings"
 	"time"
@@ -53,7 +54,7 @@ func (st *ServerTest) Setup() (*ServerTest, error) {
 		return nil, err
 	}
 
-	host := freighterclient.NewHost(ip, port, "example.com", test.LocalhostCert)
+	host := freighterclient.NewHost(ip, port, "example.com", test.GoLocalhostCert)
 	client, err := freighterclient.NewClientTransport(host, "mysecret", "myuuid", st.tp)
 
 	if err != nil {
@@ -69,6 +70,9 @@ func (st *ServerTest) Close() {
 	if st.server.HTTPTestServer != nil {
 		st.server.Close()
 	}
+	Eventually(func() *httptest.Server {
+		return st.server.HTTPTestServer
+	}).Should(BeNil())
 }
 
 func ipAndPort(s *ghttp.Server) (string, int, error) {
