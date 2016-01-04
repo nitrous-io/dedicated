@@ -198,8 +198,8 @@ func (c *Container) Insert(d db.QueryReceiver) error {
 		c.Secret = sec[:255]
 	}
 	nstmt, err := d.PrepareNamed(`INSERT INTO containers
-		(cid, user_id, host_id, image, slug, name, secret, metadata)
-    VALUES (:cid, :user_id, :host_id, :image, :slug, :name, :secret, :metadata)
+		(cid, user_id, host_id, snapshot_id, image, slug, name, secret, metadata)
+		VALUES (:cid, :user_id, :host_id, :snapshot_id, :image, :slug, :name, :secret, :metadata)
 		RETURNING *;`)
 	if err != nil {
 		return err

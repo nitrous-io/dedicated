@@ -85,6 +85,8 @@ func createAtomic(h *host.Host, env *middleware.Env, w http.ResponseWriter, r *h
 	snapshotIDStr := r.PostFormValue("snapshot_id")
 	skipPull, _ := strconv.ParseBool(r.PostFormValue("skip_pull"))
 
+	var snapshotID int64
+
 	repository := "" // The container will be created using this Docker image.
 	containerCfg := &freighterclient.ContainerConfig{}
 
@@ -114,6 +116,12 @@ func createAtomic(h *host.Host, env *middleware.Env, w http.ResponseWriter, r *h
 			tx.Rollback()
 			return err
 		}
+
+		snapshotID, err = strconv.ParseInt(snapshotIDStr, 10, 64)
+		if err != nil {
+			tx.Rollback()
+			return err
+		}
 	}
 
 	hostVols, err := hostVolumes(tx, h)
@@ -140,6 +148,9 @@ func createAtomic(h *host.Host, env *middleware.Env, w http.ResponseWriter, r *h
 		Slug:   slug,
 		Name:   sql.NullString{name, true},
 		Image:  repository,
+	}
+	if snapshotID != 0 {
+		cn.SnapshotID = sql.NullInt64{snapshotID, true}
 	}
 	if err := cn.Validate(); err != nil {
 		tx.Rollback()
