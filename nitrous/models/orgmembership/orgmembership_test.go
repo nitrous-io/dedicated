@@ -416,12 +416,33 @@ var _ = Describe("models/orgmembership", func() {
 
 		Context("when a user with a given id exists", func() {
 			It("adds user as an org member", func() {
-				_, err := orgmembership.AddMember(db, o.ID, strconv.FormatInt(u.ID, 10), "owner")
+				om1, err := orgmembership.AddMember(db, o.ID, strconv.FormatInt(u.ID, 10), "owner")
 				Expect(err).To(BeNil())
-				_, err = orgmembership.AddMember(db, o2.ID, strconv.FormatInt(u2.ID, 10), "admin")
+				om2, err := orgmembership.AddMember(db, o2.ID, strconv.FormatInt(u2.ID, 10), "admin")
 				Expect(err).To(BeNil())
-				_, err = orgmembership.AddMember(db, o.ID, strconv.FormatInt(u3.ID, 10), "member")
+				om3, err := orgmembership.AddMember(db, o.ID, strconv.FormatInt(u3.ID, 10), "member")
 				Expect(err).To(BeNil())
+
+				Expect(om1.ID).NotTo(BeZero())
+				Expect(om1.OrgID).To(Equal(o.ID))
+				Expect(om1.UserID.Int64).To(Equal(u.ID))
+				Expect(om1.Role).To(Equal("owner"))
+				Expect(om1.CreatedAt).NotTo(BeNil())
+				Expect(om1.UpdatedAt).NotTo(BeNil())
+
+				Expect(om2.ID).NotTo(BeZero())
+				Expect(om2.OrgID).To(Equal(o2.ID))
+				Expect(om2.UserID.Int64).To(Equal(u2.ID))
+				Expect(om2.Role).To(Equal("admin"))
+				Expect(om2.CreatedAt).NotTo(BeNil())
+				Expect(om2.UpdatedAt).NotTo(BeNil())
+
+				Expect(om3.ID).NotTo(BeZero())
+				Expect(om3.OrgID).To(Equal(o.ID))
+				Expect(om3.UserID.Int64).To(Equal(u3.ID))
+				Expect(om3.Role).To(Equal("member"))
+				Expect(om3.CreatedAt).NotTo(BeNil())
+				Expect(om3.UpdatedAt).NotTo(BeNil())
 
 				m, err := orgmembership.FindAllByOrgID(db, o.ID)
 				Expect(err).To(BeNil())
@@ -472,12 +493,39 @@ var _ = Describe("models/orgmembership", func() {
 
 			Context("when email is provided", func() {
 				It("adds pending user as an org member", func() {
-					_, err := orgmembership.AddMember(db, o.ID, "owner@bob.com", "owner")
+					om1, err := orgmembership.AddMember(db, o.ID, "owner@bob.com", "owner")
 					Expect(err).To(BeNil())
-					_, err = orgmembership.AddMember(db, o2.ID, "admin@bob.com", "admin")
+					om2, err := orgmembership.AddMember(db, o2.ID, "admin@bob.com", "admin")
 					Expect(err).To(BeNil())
-					_, err = orgmembership.AddMember(db, o.ID, "member@bob.com", "member")
+					om3, err := orgmembership.AddMember(db, o.ID, "member@bob.com", "member")
 					Expect(err).To(BeNil())
+
+					Expect(om1.ID).NotTo(BeZero())
+					Expect(om1.OrgID).To(Equal(o.ID))
+					Expect(om1.UserID.Valid).To(BeFalse())
+					Expect(om1.Role).To(Equal("owner"))
+					Expect(om1.InviteEmail.String).To(Equal("owner@bob.com"))
+					Expect(om1.InviteCode.Valid).To(BeTrue())
+					Expect(om1.CreatedAt).NotTo(BeNil())
+					Expect(om1.UpdatedAt).NotTo(BeNil())
+
+					Expect(om2.ID).NotTo(BeZero())
+					Expect(om2.OrgID).To(Equal(o2.ID))
+					Expect(om2.UserID.Valid).To(BeFalse())
+					Expect(om2.Role).To(Equal("admin"))
+					Expect(om2.InviteEmail.String).To(Equal("admin@bob.com"))
+					Expect(om2.InviteCode.Valid).To(BeTrue())
+					Expect(om2.CreatedAt).NotTo(BeNil())
+					Expect(om2.UpdatedAt).NotTo(BeNil())
+
+					Expect(om3.ID).NotTo(BeZero())
+					Expect(om3.OrgID).To(Equal(o.ID))
+					Expect(om3.UserID.Valid).To(BeFalse())
+					Expect(om3.Role).To(Equal("member"))
+					Expect(om3.InviteEmail.String).To(Equal("member@bob.com"))
+					Expect(om3.InviteCode.Valid).To(BeTrue())
+					Expect(om3.CreatedAt).NotTo(BeNil())
+					Expect(om3.UpdatedAt).NotTo(BeNil())
 
 					m, err := orgmembership.FindAllByOrgID(db, o.ID)
 					Expect(err).To(BeNil())
