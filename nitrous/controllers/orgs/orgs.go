@@ -483,15 +483,17 @@ func RemoveMember(env *middleware.Env, w http.ResponseWriter, r *http.Request) e
 	}
 
 	// User must not have any more valid hosts under this org.
-	hosts, err := host.FindAllByUserAndOrg(db, u.ID, o.ID)
-	if err != nil {
-		return err
-	}
-	if len(hosts) > 0 {
-		if isSelf {
-			return errCannotLeaveWithExistingHosts
+	if u != nil {
+		hosts, err := host.FindAllByUserAndOrg(db, u.ID, o.ID)
+		if err != nil {
+			return err
 		}
-		return errCannotRemoveWithExistingHosts
+		if len(hosts) > 0 {
+			if isSelf {
+				return errCannotLeaveWithExistingHosts
+			}
+			return errCannotRemoveWithExistingHosts
+		}
 	}
 
 	if u != nil {
