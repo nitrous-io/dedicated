@@ -507,15 +507,7 @@ func RemoveMember(env *middleware.Env, w http.ResponseWriter, r *http.Request) e
 		return err
 	}
 
-	if isSelf {
-		env.Status = http.StatusOK
-		env.Data = map[string]interface{}{
-			"removed": true,
-		}
-		return nil
-	}
-
-	if u != nil {
+	if u != nil && !isSelf {
 		// Publish event informing removed user that they have been removed
 		// from the org.
 		env.Events.Publish(controllers.NewEvent(controllers.EventOrgMemberRemoved, map[string]interface{}{
@@ -531,10 +523,16 @@ func RemoveMember(env *middleware.Env, w http.ResponseWriter, r *http.Request) e
 
 	broadcastChangeToOrg(members, o, env.User, env.Events)
 
-	env.Status = http.StatusOK
-	env.Data = map[string]interface{}{
-		"members": serializers.SerializeOrgMembers(members),
+	if isSelf {
+		env.Data = map[string]interface{}{
+			"removed": true,
+		}
+	} else {
+		env.Data = map[string]interface{}{
+			"members": serializers.SerializeOrgMembers(members),
+		}
 	}
+	env.Status = http.StatusOK
 	return nil
 }
 

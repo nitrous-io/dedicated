@@ -1173,6 +1173,48 @@ var _ = Describe("controllers/orgs", func() {
 				Expect(j["removed"]).To(BeTrue())
 			})
 
+			It("publishes an org members changed event to other members of the org", func() {
+				ch := svr.Events.Subscribe(u.Topic())
+				defer svr.Events.Unsubscribe(ch, u.Topic())
+				u2Ch := svr.Events.Subscribe(u2.Topic())
+				defer svr.Events.Unsubscribe(u2Ch, u2.Topic())
+
+				_, err := orgmembership.AddMember(db, o.ID, strconv.FormatInt(u.ID, 10), "member")
+				Expect(err).To(BeNil())
+				_, err = orgmembership.AddMember(db, o.ID, strconv.FormatInt(u2.ID, 10), "member")
+				Expect(err).To(BeNil())
+
+				res := doRequest(o.Slug, u.Username)
+				Expect(res.Code).To(Equal(http.StatusOK))
+
+				// u2 should receive the org members changed event.
+				select {
+				case <-time.After(50 * time.Millisecond):
+					Fail("Timed out waiting for org members changed event for u2")
+				case e := <-u2Ch:
+					evt, ok := e.(*controllers.Event)
+					Expect(ok).To(BeTrue())
+					Expect(evt.Name).To(Equal(controllers.EventOrgMembersChanged))
+					evtData, ok := evt.Data.(map[string]interface{})
+					Expect(ok).To(BeTrue())
+
+					orgSlug, ok := evtData["org_slug"].(string)
+					Expect(ok).To(BeTrue())
+					Expect(orgSlug).To(Equal(o.Slug))
+
+					serialized, ok := evtData["members"].([]*serializers.OrgMember)
+					Expect(ok).To(BeTrue())
+
+					members, err := orgmembership.FindAllByOrgID(db, o.ID)
+					Expect(err).To(BeNil())
+					Expect(serialized).To(Equal(serializers.SerializeOrgMembers(members)))
+					Expect(members).To(HaveLen(1))
+				}
+
+				// The requesting user should not receive any event.
+				Consistently(ch).ShouldNot(Receive())
+			})
+
 			It("should not allow an owner to be deleted", func() {
 				_, err := orgmembership.AddMember(db, o.ID, strconv.FormatInt(u.ID, 10), "owner")
 				Expect(err).To(BeNil())
