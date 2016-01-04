@@ -272,9 +272,7 @@ var _ = Describe("client", func() {
 
 		Context("when the request fails", func() {
 			BeforeEach(func() {
-				// Close server to simulate a failed request.
-				server.Close()
-				time.Sleep(50 * time.Millisecond) // try to introduce some slack for heisentest
+				st.Close() // Close server to simulate a failed request.
 			})
 
 			It("returns a RequestFailedError", func() {
@@ -1331,7 +1329,7 @@ var _ = Describe("client", func() {
 
 		Context("when the response fails", func() {
 			BeforeEach(func() {
-				server.Close() // simulate failure
+				st.Close() // simulate failure
 			})
 
 			It("returns error", func() {
