@@ -6,6 +6,7 @@ import (
 	"io/ioutil"
 	"net"
 	"net/http"
+	"net/http/httptest"
 	"strconv"
 	"strings"
 	"time"
@@ -69,6 +70,9 @@ func (st *ServerTest) Close() {
 	if st.server.HTTPTestServer != nil {
 		st.server.Close()
 	}
+	Eventually(func() *httptest.Server {
+		return st.server.HTTPTestServer
+	}).Should(BeNil())
 }
 
 func ipAndPort(s *ghttp.Server) (string, int, error) {
