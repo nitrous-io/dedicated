@@ -24,6 +24,7 @@ import (
 	"github.com/nitrous-io/dedicated/nitrous/controllers/oauth"
 	"github.com/nitrous-io/dedicated/nitrous/controllers/orgs"
 	"github.com/nitrous-io/dedicated/nitrous/controllers/passwords"
+	"github.com/nitrous-io/dedicated/nitrous/controllers/pendingmembers"
 	"github.com/nitrous-io/dedicated/nitrous/controllers/pinger"
 	"github.com/nitrous-io/dedicated/nitrous/controllers/plans"
 	"github.com/nitrous-io/dedicated/nitrous/controllers/promocodes"
@@ -111,6 +112,7 @@ func (s *Server) drawRoutes() {
 				"/hosts/{slug}/apt_allowed":         r("hosts.AptAllowed", hosts.AptAllowed),
 				"/mailchimp_hook":                   r("mailchimphooks.VerifyWebhook", mailchimphooks.VerifyWebhook),
 				"/subscriptions/promo_codes/{slug}": r("promocodes.ShowSubscriptionPromocode", promocodes.ShowSubscriptionPromocode),
+				"/pending_members/{code}":           r("pendingmembers.Show", pendingmembers.Show),
 			},
 			"POST": {
 				"/oauth/token":                   r("oauth.IssueToken", oauth.IssueToken),
