@@ -70,6 +70,19 @@ func FindAll(d db.QueryReceiver, cID int64) ([]*ContainerCollabUser, error) {
 	return shared, nil
 }
 
+func FindByInviteCode(d db.QueryReceiver, code string) (*ContainerCollab, error) {
+	member := &ContainerCollab{}
+	err := d.Get(member, `
+	  SELECT *
+         FROM container_collabs
+         WHERE invite_code = $1;
+	`, code)
+	if err != nil {
+		return nil, err
+	}
+	return member, nil
+}
+
 func GetCollaboratorIDs(d db.QueryReceiver, cID int64) ([]int64, error) {
 	var userIDs []int64
 	err := d.Select(&userIDs, `SELECT user_id FROM container_collabs WHERE container_id = $1;`, cID)
