@@ -6,7 +6,7 @@ import (
 	"fmt"
 	"net/mail"
 	"strings"
-	templateLib "text/template"
+	"text/template"
 
 	"github.com/jmoiron/sqlx"
 	"github.com/lib/pq"
@@ -54,8 +54,8 @@ type Announcement struct {
 	CreatedAt       pq.NullTime `db:"created_at"`
 	UpdatedAt       pq.NullTime `db:"updated_at"`
 
-	compiledSubjectTemplate *templateLib.Template
-	compiledMessageTemplate *templateLib.Template
+	compiledSubjectTemplate *template.Template
+	compiledMessageTemplate *template.Template
 }
 
 /*
@@ -75,11 +75,11 @@ func (ann *Announcement) IsGlobal() bool {
 }
 
 func (ann *Announcement) RenderSubject(owner *HostOwner) (string, error) {
-	return renderTemplate(&ann.compiledSubjectTemplate, "AnnouncementSubject", ann.SubjectTemplate, owner)
+	return renderTemplate(ann.compiledSubjectTemplate, "AnnouncementSubject", ann.SubjectTemplate, owner)
 }
 
 func (ann *Announcement) RenderMessage(owner *HostOwner) (string, error) {
-	return renderTemplate(&ann.compiledMessageTemplate, "AnnouncementMessage", ann.MessageTemplate, owner)
+	return renderTemplate(ann.compiledMessageTemplate, "AnnouncementMessage", ann.MessageTemplate, owner)
 }
 
 func (ann *HostAnnouncement) Subject() (string, error) {
@@ -325,21 +325,19 @@ func InsertForHosts(db *ndb.Database, ann *Announcement, hostIDs []int64) error 
 	})
 }
 
-func renderTemplate(templateCache **templateLib.Template, templateName, templateText string, ctx interface{}) (string, error) {
-	var err error
-	template := *templateCache
-
-	if template == nil {
-		template, err = templateLib.New(templateName).Parse(templateText)
+func renderTemplate(cachedTemplate *template.Template, templateName, templateText string, ctx interface{}) (string, error) {
+	if cachedTemplate == nil {
+		var err error
+		cachedTemplate, err = template.New(templateName).Parse(templateText)
 		if err != nil {
 			return "", err
 		}
-
-		*templateCache = template
 	}
 
 	buf := bytes.NewBuffer(nil)
-	template.Execute(buf, ctx)
+	if err := cachedTemplate.Execute(buf, ctx); err != nil {
+		return "", err
+	}
 
 	return buf.String(), nil
 }
