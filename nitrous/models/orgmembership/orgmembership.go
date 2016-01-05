@@ -93,6 +93,19 @@ func FindAllByOrgID(d db.QueryReceiver, id int64) ([]*OrgMember, error) {
 	return members, nil
 }
 
+func FindByInviteCode(d db.QueryReceiver, code string) (*OrgMembership, error) {
+	member := &OrgMembership{}
+	err := d.Get(member, `
+	  SELECT *
+         FROM org_memberships
+         WHERE invite_code = $1;
+	`, code)
+	if err != nil {
+		return nil, err
+	}
+	return member, nil
+}
+
 // Identifier can be the userid, username or invite email
 func FindByIdentifierAndOrgSlug(d db.QueryReceiver, identifier, slug string) (*OrgMembership, error) {
 	member := &OrgMembership{}
