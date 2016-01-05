@@ -29,6 +29,7 @@ func Show(env *middleware.Env, w http.ResponseWriter, r *http.Request) error {
 			OrgMembership: *orgMem,
 		}
 		env.Data = map[string]interface{}{
+			"type":   "org",
 			"member": serializers.SerializeOrgMember(mem),
 		}
 		return nil
@@ -44,6 +45,7 @@ func Show(env *middleware.Env, w http.ResponseWriter, r *http.Request) error {
 			ContainerCollab: *collabMem,
 		}
 		env.Data = map[string]interface{}{
+			"type":   "collab",
 			"member": serializers.SerializeContainerCollabUser(mem),
 		}
 		return nil

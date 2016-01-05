@@ -126,6 +126,7 @@ var _ = Describe("controllers/pendingmembers", func() {
 				Expect(res.Code).To(Equal(http.StatusOK))
 
 				var j struct {
+					Type   string                 `json:"type"`
 					Member *serializers.OrgMember `json:"member"`
 				}
 				err := json.NewDecoder(res.Body).Decode(&j)
@@ -136,6 +137,8 @@ var _ = Describe("controllers/pendingmembers", func() {
 				Expect(j.Member.UserID).To(BeZero())
 				Expect(j.Member.Username).To(BeZero())
 				Expect(j.Member.Email).To(BeZero())
+
+				Expect(j.Type).To(Equal("org"))
 			})
 		})
 
@@ -145,6 +148,7 @@ var _ = Describe("controllers/pendingmembers", func() {
 				Expect(res.Code).To(Equal(http.StatusOK))
 
 				var j struct {
+					Type   string                           `json:"type"`
 					Member *serializers.ContainerCollabUser `json:"member"`
 				}
 				err := json.NewDecoder(res.Body).Decode(&j)
@@ -153,6 +157,8 @@ var _ = Describe("controllers/pendingmembers", func() {
 				Expect(j.Member.PendingEmail).To(Equal("bob@pendingcollab.com"))
 				Expect(j.Member.UserID).To(BeZero())
 				Expect(j.Member.Username).To(BeZero())
+
+				Expect(j.Type).To(Equal("collab"))
 			})
 		})
 	})
