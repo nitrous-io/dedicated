@@ -11,6 +11,7 @@ import (
 	"github.com/nitrous-io/dedicated/nitrous/envvars"
 	"github.com/nitrous-io/dedicated/nitrous/middleware"
 	"github.com/nitrous-io/dedicated/nitrous/models/host"
+	"github.com/nitrous-io/dedicated/nitrous/models/org"
 	"github.com/nitrous-io/dedicated/nitrous/models/plan"
 	"github.com/nitrous-io/dedicated/nitrous/models/subscription"
 	"github.com/nitrous-io/dedicated/nitrous/pkg/helpscout"
@@ -75,6 +76,10 @@ func prepareMetadata(env *middleware.Env, r *http.Request) (string, error) {
 	if err != nil {
 		return "", err
 	}
+	orgInfo, err := getOrgInfo(env.DB, env.User.ID)
+	if err != nil {
+		return "", err
+	}
 
 	metadata := strings.Join([]string{
 		fmt.Sprintf("<strong>Billing Profile State</strong>: %s", billingProfile.State),
@@ -87,8 +92,10 @@ func prepareMetadata(env *middleware.Env, r *http.Request) (string, error) {
 		fmt.Sprintf("Email: %s, ", env.User.Email),
 		fmt.Sprintf("Confirmed At: %s, ", env.User.ConfirmedAt.Time.Format("Mon Jan _2 15:04:05 2006")),
 		fmt.Sprintf("Phone Authed: %t ", env.User.PhoneAuthed),
+		fmt.Sprintf("<br><strong>Org(s) Info</strong>: %s", orgInfo),
 		fmt.Sprintf("<br><strong>Workspace(s) Info</strong>: %s", workspaceInfo),
 	}, "")
+
 	return metadata, nil
 }
 
@@ -122,4 +129,26 @@ func getWorkspaceInfo(db db.QueryReceiver, userID int64) (string, error) {
 	workspaceInfo := strings.Join(hostsInfo, "<br>")
 
 	return workspaceInfo, nil
+}
+
+func getOrgInfo(db db.QueryReceiver, userID int64) (string, error) {
+	orgs, err := org.FindAllByMemberUserID(db, userID)
+	if err != nil {
+		return "", err
+	}
+
+	var orgsInfo []string
+	if len(orgs) == 0 {
+		orgsInfo = []string{"No org"}
+	} else {
+		for i, org := range orgs {
+			orgInfo := strings.Join([]string{
+				fmt.Sprintf("%v.", i+1),
+				fmt.Sprintf("Name: %s", org.Name),
+			}, " ")
+			orgsInfo = append(orgsInfo, orgInfo)
+		}
+	}
+
+	return strings.Join(orgsInfo, "<br>"), nil
 }

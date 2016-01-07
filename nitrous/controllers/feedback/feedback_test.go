@@ -7,6 +7,7 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"net/url"
+	"strconv"
 	"testing"
 
 	"github.com/gorilla/mux"
@@ -16,6 +17,8 @@ import (
 	"github.com/nitrous-io/dedicated/nitrous/envvars"
 	"github.com/nitrous-io/dedicated/nitrous/models/billingprofile"
 	"github.com/nitrous-io/dedicated/nitrous/models/host"
+	"github.com/nitrous-io/dedicated/nitrous/models/org"
+	"github.com/nitrous-io/dedicated/nitrous/models/orgmembership"
 	"github.com/nitrous-io/dedicated/nitrous/models/plan"
 	"github.com/nitrous-io/dedicated/nitrous/models/providertemplate"
 	"github.com/nitrous-io/dedicated/nitrous/models/subscription"
@@ -48,6 +51,7 @@ var _ = Describe("controllers/feedback", func() {
 
 		u  *user.User
 		t  *token.Token
+		o  *org.Org
 		p  *plan.Plan
 		s  *subscription.Subscription
 		hs *HostStack
@@ -101,6 +105,18 @@ var _ = Describe("controllers/feedback", func() {
 		Expect(err).To(BeNil())
 
 		bp, err = u.BillingProfile(db)
+		Expect(err).To(BeNil())
+
+		o = &org.Org{
+			Name:  "Cozy Org",
+			Slug:  "cozy-org",
+			Email: "cozyorg@orgorg.com",
+			Edu:   false,
+		}
+		err = o.Insert(db)
+		Expect(err).To(BeNil())
+
+		_, err = orgmembership.AddMember(db, o.ID, strconv.FormatInt(u.ID, 10), orgmembership.RoleOwner)
 		Expect(err).To(BeNil())
 
 		p = &plan.Plan{
@@ -185,6 +201,7 @@ VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9);`,
 
 				Expect(fakeHelpScout.Threads[1].Body).To(ContainSubstring("Username: cats, Email: cats@example.com"))
 				Expect(fakeHelpScout.Threads[1].Body).To(ContainSubstring("Phone Authed: false"))
+				Expect(fakeHelpScout.Threads[1].Body).To(ContainSubstring("<strong>Org(s) Info</strong>: 1. Name: Cozy Org"))
 				Expect(fakeHelpScout.Threads[1].Body).To(ContainSubstring("<strong>Workspace(s) Info</strong>: 1. Slug: abc, Region Identifier: , State: running, Plan Name: cozy-workplace, Subscription State: active"))
 
 				j := map[string]interface{}{}
