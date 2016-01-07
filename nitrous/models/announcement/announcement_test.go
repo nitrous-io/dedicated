@@ -2,6 +2,7 @@ package announcement_test
 
 import (
 	"fmt"
+	"sync"
 	"testing"
 	"time"
 
@@ -28,14 +29,23 @@ type sentMailStruct struct {
 type mailSpyStruct struct {
 	retErr    error
 	sentMails []*sentMailStruct
+	mu        sync.Mutex
+}
+
+func (s *mailSpyStruct) SentMails() []*sentMailStruct {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	return s.sentMails
 }
 
 func (s *mailSpyStruct) SendMail(from string, tos []string, ccs []string, bccs []string, replyTo, subject, body, htmltext string) error {
+	s.mu.Lock()
 	s.sentMails = append(s.sentMails, &sentMailStruct{
 		to:      tos[0],
 		subject: subject,
 		message: body,
 	})
+	s.mu.Unlock()
 
 	return s.retErr
 }
@@ -318,12 +328,12 @@ var _ = Describe("models/announcement", func() {
 					return err
 				}
 
-				if len(expectedMails) == len(mailSpy.sentMails) {
+				if len(expectedMails) == len(mailSpy.SentMails()) {
 					return nil
 				}
-				return fmt.Errorf("Expected to receive %d emails, only received %d emails", len(expectedMails), len(mailSpy.sentMails))
+				return fmt.Errorf("Expected to receive %d emails, only received %d emails", len(expectedMails), len(mailSpy.SentMails()))
 			}, 100*time.Millisecond).Should(BeNil())
-			Expect(mailSpy.sentMails).To(ConsistOf(expectedMails))
+			Expect(mailSpy.SentMails()).To(ConsistOf(expectedMails))
 		}
 
 		Context("Global Announcement", func() {

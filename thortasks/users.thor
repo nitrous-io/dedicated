@@ -1,3 +1,5 @@
+require 'securerandom'
+
 class Users < Thor
   desc "info IDENT",  "Outputs information on single user, where IDENT is id, username, or email"
   def info(ident)
@@ -40,6 +42,36 @@ class Users < Thor
     results.to_a.take(5).each do |r|
       puts "-" * 20
       puts User.new(r)
+    end
+  end
+
+  desc "flatiron_token IDENT", "Returns most recent token for flatiron user IDENT. Creates token if none present"
+  def flatiron_token(ident)
+    u = User.find(ident) {|ds| ds.where(users__deleted_at: nil) }
+    r = DB[:orgs].
+      select_more(:users__id___uid).
+      join(:org_memberships, org_id: :orgs__id).
+      join(:users, id: :org_memberships__user_id).
+      where(orgs__deleted_at: nil).
+      where(orgs__slug: 'flatiron-org').
+      where(users__id: u.uid)
+    halt "no flatiron user found for IDENT #{ident}" if r.count != 1
+    t = DB[:tokens].where(user_id: u.uid).
+      order(Sequel.desc(:created_at))
+    if t.count > 1
+      puts "Token is:\n#{t.all[0][:token]}"
+      return
+    end
+    puts "No token found for #{u.summary}. Creating..."
+    # SecureRandom has some issues, but should suffice for these purposes:
+    # https://bugs.ruby-lang.org/issues/9569
+    tokenstr = SecureRandom::base64(191)[0..254]
+    h = {:user_id => u.uid, :token => tokenstr, :type => 'login', :scope => 'full'}
+    begin
+      DB[:tokens] << h
+      puts "created token #{h}"
+    rescue Sequel::DatabaseError => e
+      puts "error creating token #{h}: #{e}"
     end
   end
 

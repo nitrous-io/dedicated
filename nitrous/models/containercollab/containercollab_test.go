@@ -1,6 +1,7 @@
 package containercollab_test
 
 import (
+	"database/sql"
 	"testing"
 
 	"github.com/nitrous-io/dedicated/nitrous/models/container"
@@ -172,6 +173,39 @@ var _ = Describe("models/containercollab", func() {
 
 			Expect([]int64{items[1].UserID.Int64, items[2].UserID.Int64}).To(ConsistOf([]int64{u1.ID, u2.ID}))
 			Expect([]string{items[1].Username.String, items[2].Username.String}).To(ConsistOf([]string{"foo", "bar"}))
+		})
+	})
+
+	Describe("FindByInviteCode()", func() {
+		BeforeEach(func() {
+			_, err := db.Exec(`INSERT INTO container_collabs (container_id, invite_email, invite_code) VALUES ($1, 'bob@pendingcollab.com', '22x2') RETURNING ID`, cnr.ID)
+			Expect(err).To(BeNil())
+		})
+
+		Context("when pending member does not exist", func() {
+			It("returns err", func() {
+				_, err := containercollab.FindByInviteCode(db, "22x2"+"9000")
+				Expect(err).To(MatchError(sql.ErrNoRows))
+			})
+		})
+
+		Context("when pending member exists", func() {
+			It("returns member", func() {
+				m, err := containercollab.FindByInviteCode(db, "22x2")
+				Expect(err).To(BeNil())
+
+				Expect(m.UserID).To(BeZero())
+				Expect(m.InviteEmail.String).To(Equal("bob@pendingcollab.com"))
+				Expect(m.ContainerID).To(Equal(cnr.ID))
+			})
+		})
+
+		Context("when some other error occurs", func() {
+			It("returns error", func() {
+				db.Close()
+				_, err := containercollab.FindByInviteCode(db, "22x2")
+				Expect(err).NotTo(BeNil())
+			})
 		})
 	})
 

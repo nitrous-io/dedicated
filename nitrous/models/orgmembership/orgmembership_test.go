@@ -206,6 +206,53 @@ var _ = Describe("models/orgmembership", func() {
 		})
 	})
 
+	Describe("FindByInviteCode()", func() {
+		var (
+			o  *org.Org
+			om *orgmembership.OrgMembership
+		)
+
+		BeforeEach(func() {
+			o = &org.Org{
+				Name:  "Foo Bar, Inc.",
+				Slug:  "foobar",
+				Email: "eng@foobar.com",
+			}
+			err := o.Insert(db)
+			Expect(err).To(BeNil())
+
+			om, err = orgmembership.AddMember(db, o.ID, "bob@pending.com", "member")
+			Expect(err).To(BeNil())
+		})
+
+		Context("when pending member does not exist", func() {
+			It("returns err", func() {
+				_, err := orgmembership.FindByInviteCode(db, om.InviteCode.String+"9000")
+				Expect(err).To(MatchError(sql.ErrNoRows))
+			})
+		})
+
+		Context("when pending member exists", func() {
+			It("returns member", func() {
+				m, err := orgmembership.FindByInviteCode(db, om.InviteCode.String)
+				Expect(err).To(BeNil())
+
+				Expect(m.UserID).To(BeZero())
+				Expect(m.OrgID).To(Equal(o.ID))
+				Expect(m.InviteEmail.String).To(Equal("bob@pending.com"))
+				Expect(m.Role).To(Equal("member"))
+			})
+		})
+
+		Context("when some other error occurs", func() {
+			It("returns error", func() {
+				db.Close()
+				_, err := orgmembership.FindByInviteCode(db, om.InviteCode.String)
+				Expect(err).NotTo(BeNil())
+			})
+		})
+	})
+
 	Describe("FindByIdentifierAndOrgSlug()", func() {
 		Context("when user exists", func() {
 			BeforeEach(func() {
