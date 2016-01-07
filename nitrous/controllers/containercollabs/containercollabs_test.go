@@ -495,7 +495,7 @@ var _ = Describe("controllers/containercollabs", func() {
 
 			Expect(collab.EmailSentAt.Valid).To(BeTrue())
 
-			url := fmt.Sprintf("https://nitrous.example/app/#/signup?email=robin@example.com&invite_code=%s", collab.InviteCode.String)
+			url := fmt.Sprintf("https://nitrous.example/app/#/signup?invite=%s", collab.InviteCode.String)
 
 			Expect(fakeMailer.From).To(Equal(envvars.SupportEmail))
 			Expect(fakeMailer.Tos).To(Equal([]string{"robin@example.com"}))
