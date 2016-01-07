@@ -43,13 +43,15 @@ func inviteUser(d *db.Database, c *container.Container, email string, sharer *us
 		if host == "" {
 			host = "www.nitrous.io"
 		}
-		url := &url.URL{
+		baseUrl := &url.URL{
 			Scheme:   "https",
 			Host:     host,
 			Path:     "/app/",
 			Fragment: "/signup",
 		}
-		urlString := fmt.Sprintf("%s?email=%s&invite_code=%s", url.String(), email, token)
+		query := url.Values{}
+		query.Set("invite", token)
+		urlString := fmt.Sprintf("%s?%s", baseUrl, query.Encode())
 
 		tmplData := struct {
 			Subject       string
