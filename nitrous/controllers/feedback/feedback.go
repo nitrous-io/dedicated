@@ -141,14 +141,11 @@ func getOrgInfo(db db.QueryReceiver, userID int64) (string, error) {
 	if len(orgs) == 0 {
 		orgsInfo = []string{"No org"}
 	} else {
-		for i, org := range orgs {
-			orgInfo := strings.Join([]string{
-				fmt.Sprintf("%v.", i+1),
-				fmt.Sprintf("Name: %s", org.Name),
-			}, " ")
+		for _, org := range orgs {
+			orgInfo := fmt.Sprintf("%s (%v)", org.Slug, org.ID)
 			orgsInfo = append(orgsInfo, orgInfo)
 		}
 	}
 
-	return strings.Join(orgsInfo, "<br>"), nil
+	return strings.Join(orgsInfo, ", "), nil
 }
