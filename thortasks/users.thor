@@ -18,17 +18,22 @@ class Users < Thor
     end
   end
 
-  desc "forgive IDENT", "Makes user IDENT no longer suspicious"
-  def forgive(ident)
+  desc "unsuspicious IDENT", "Makes user IDENT no longer suspicious"
+  def unsuspicious(ident)
     u = User.find(ident) {|ds| ds.where(users__deleted_at: nil) }
     halt "User #{u.username} is not suspicious" if !u.suspicious
     old_suspicious = u.suspicious
     DB.transaction do
       r = DB[:users].where(id: u.uid).update(suspicious: nil)
       rows_expected!(r, 1)
+      puts "#{u.summary}: suspicious '#{old_suspicious}' => null"
+      if u.bp_state == 'delinquent'
+        # users from brazil and turkey are set to delinquent when adding their card
+        # we need to change them back to 'paid' state
+        r = DB[:billing_profiles].where(user_id: u.uid).update(state: 'paid')
+        puts "#{u.summary}: bp state 'delinquent' => 'paid'"
+      end
     end
-
-    puts "#{u.summary}: suspicious '#{old_suspicious}' => null"
   end
 
   desc "search TERM", "Searches user usernames and e-mails for TERM"
