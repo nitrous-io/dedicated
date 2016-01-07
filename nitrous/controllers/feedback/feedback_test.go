@@ -201,7 +201,7 @@ VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9);`,
 
 				Expect(fakeHelpScout.Threads[1].Body).To(ContainSubstring("Username: cats, Email: cats@example.com"))
 				Expect(fakeHelpScout.Threads[1].Body).To(ContainSubstring("Phone Authed: false"))
-				Expect(fakeHelpScout.Threads[1].Body).To(ContainSubstring("<strong>Org(s) Info</strong>: 1. Name: Cozy Org"))
+				Expect(fakeHelpScout.Threads[1].Body).To(ContainSubstring(fmt.Sprintf("<strong>Org(s) Info</strong>: cozy-org (%v)", o.ID)))
 				Expect(fakeHelpScout.Threads[1].Body).To(ContainSubstring("<strong>Workspace(s) Info</strong>: 1. Slug: abc, Region Identifier: , State: running, Plan Name: cozy-workplace, Subscription State: active"))
 
 				j := map[string]interface{}{}
