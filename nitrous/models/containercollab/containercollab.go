@@ -7,6 +7,7 @@ import (
 
 	"github.com/lib/pq"
 	"github.com/nitrous-io/dedicated/nitrous/db"
+	"github.com/nitrous-io/dedicated/nitrous/pkg/securerandom"
 )
 
 var (
@@ -47,11 +48,16 @@ func Create(d db.QueryReceiver, cID, uID int64) (*ContainerCollab, error) {
 	return sc, nstmt.QueryRowx(sc).StructScan(sc)
 }
 
-func CreatePendingMember(d db.QueryReceiver, cID int64, email, code string) (*ContainerCollab, error) {
+func CreatePendingMember(d db.QueryReceiver, cID int64, email string) (*ContainerCollab, error) {
+	token, err := securerandom.Alphanumeric(20)
+	if err != nil {
+		return nil, err
+	}
+
 	sc := &ContainerCollab{
 		ContainerID: cID,
 		InviteEmail: sql.NullString{email, true},
-		InviteCode:  sql.NullString{code, true},
+		InviteCode:  sql.NullString{token, true},
 	}
 	nstmt, err := d.PrepareNamed(`
                INSERT INTO container_collabs

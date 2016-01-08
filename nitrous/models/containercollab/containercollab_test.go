@@ -77,12 +77,12 @@ var _ = Describe("models/containercollab", func() {
 
 	Describe("CreatePendingMember", func() {
 		It("should associate a container collaborator between a pending collab and a container", func() {
-			sc, err := containercollab.CreatePendingMember(db, cnr.ID, "bob@collab.com", "2x22")
+			sc, err := containercollab.CreatePendingMember(db, cnr.ID, "bob@collab.com")
 			Expect(err).To(BeNil())
 			Expect(sc).ToNot(BeNil())
 
 			var found bool
-			err = db.Get(&found, `SELECT COUNT(*) = 1 FROM container_collabs WHERE invite_email = 'bob@collab.com' AND container_id = $1 AND invite_code = '2x22';`, cnr.ID)
+			err = db.Get(&found, `SELECT COUNT(*) = 1 FROM container_collabs WHERE invite_email = 'bob@collab.com' AND container_id = $1 AND invite_code = $2;`, cnr.ID, sc.InviteCode.String)
 			Expect(err).To(BeNil())
 			Expect(found).To(BeTrue())
 		})

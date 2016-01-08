@@ -12,17 +12,12 @@ import (
 	"github.com/nitrous-io/dedicated/nitrous/models/container"
 	"github.com/nitrous-io/dedicated/nitrous/models/containercollab"
 	"github.com/nitrous-io/dedicated/nitrous/models/user"
-	"github.com/nitrous-io/dedicated/nitrous/pkg/securerandom"
 )
 
 func inviteUser(d *db.Database, c *container.Container, email string, sharer *user.User) (err error) {
-	token, err := securerandom.Alphanumeric(20)
-	if err != nil {
-		return err
-	}
-
 	return d.WithTransaction(func(tx *sqlx.Tx) error {
-		if _, err := containercollab.CreatePendingMember(tx, c.ID, email, token); err != nil {
+		sc, err := containercollab.CreatePendingMember(tx, c.ID, email)
+		if err != nil {
 			return err
 		}
 
@@ -37,7 +32,7 @@ func inviteUser(d *db.Database, c *container.Container, email string, sharer *us
 			Fragment: "/signup",
 		}
 		query := url.Values{}
-		query.Set("invite", token)
+		query.Set("invite", sc.InviteCode.String)
 		urlString := fmt.Sprintf("%s?%s", baseUrl, query.Encode())
 
 		tmplData := struct {
