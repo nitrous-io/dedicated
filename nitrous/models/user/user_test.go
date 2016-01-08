@@ -14,6 +14,7 @@ import (
 	"github.com/nitrous-io/dedicated/nitrous/envvars"
 	"github.com/nitrous-io/dedicated/nitrous/models/billingprofile"
 	"github.com/nitrous-io/dedicated/nitrous/models/container"
+	"github.com/nitrous-io/dedicated/nitrous/models/containercollab"
 	"github.com/nitrous-io/dedicated/nitrous/models/org"
 	"github.com/nitrous-io/dedicated/nitrous/models/user"
 	"github.com/nitrous-io/dedicated/nitrous/models/userprofile"
@@ -1589,7 +1590,7 @@ var _ = Describe("models/user", func() {
 			_, err = db.Exec(`UPDATE users SET confirmation_sent_at = $1 WHERE id = $2;`, curTime.Add(-48*time.Hour), u.ID)
 			Expect(err).To(BeNil())
 
-			_, err = db.Exec(`INSERT INTO container_collabs (container_id, invite_email, invite_code) VALUES ($1, $2, '22x2') RETURNING ID`, cnr.ID, u.Email)
+			_, err = containercollab.Create(db, cnr.ID, u.Email)
 			Expect(err).To(BeNil())
 
 			u, err = user.FindByID(db, u.ID)
