@@ -1043,8 +1043,6 @@ var _ = Describe("models/host", func() {
 
 		BeforeEach(func() {
 			var err error
-			fv := "1.0.69-deadbeef-88"
-			dv := "1.4.1-nitrous"
 
 			t = time.Now()
 
@@ -1067,8 +1065,6 @@ var _ = Describe("models/host", func() {
 				LastPingedAt:       pq.NullTime{t, true},
 				AutoShutdown:       true,
 				Hotswap:            true,
-				FreighterdVersion:  fv,
-				DockerVersion:      dv,
 			}
 			err = h.Insert(db)
 			Expect(err).To(BeNil())
@@ -1083,15 +1079,11 @@ var _ = Describe("models/host", func() {
 			Expect(hosts[0].Slug).To(Equal("my-host-1"))
 			Expect(hosts[0].HourlyPrice).To(Equal(int64(634)))
 			Expect(hosts[0].Free).To(BeTrue())
-			Expect(hosts[0].FreighterdVersion).To(Equal("1.0.69-deadbeef-88"))
-			Expect(hosts[0].DockerVersion).To(Equal("1.4.1-nitrous"))
 			Expect(hosts[0].CreatedAt).NotTo(BeNil())
 			Expect(hosts[0].UpdatedAt).NotTo(BeNil())
 			Expect(hosts[0].LastPingedAt.Time.Unix()).To(Equal(t.Unix()))
 			Expect(hosts[0].AutoShutdown).To(BeTrue())
 			Expect(hosts[0].Hotswap).To(BeTrue())
-			Expect(hosts[0].FreighterdVersion).To(Equal("1.0.69-deadbeef-88"))
-			Expect(hosts[0].DockerVersion).To(Equal("1.4.1-nitrous"))
 		})
 
 		It("fills up ID and other fields in original struct", func() {
@@ -1160,8 +1152,6 @@ var _ = Describe("models/host", func() {
 			h.MaxContainers = sql.NullInt64{2, true}
 			h.FreighterdPort = sql.NullInt64{60000, true}
 			h.Preprovisioned = true
-			h.FreighterdVersion = "0.1.0"
-			h.DockerVersion = "1.5.0"
 			h.HourlyPrice = 0
 			h.Free = true
 			h.LastPingedAt = pq.NullTime{t, true}
@@ -1183,8 +1173,6 @@ var _ = Describe("models/host", func() {
 			Expect(h2.MaxContainers.Int64).To(Equal(int64(2)))
 			Expect(h2.FreighterdPort.Int64).To(Equal(int64(60000)))
 			Expect(h2.Preprovisioned).To(BeTrue())
-			Expect(h2.FreighterdVersion).To(Equal("0.1.0"))
-			Expect(h2.DockerVersion).To(Equal("1.5.0"))
 			Expect(h2.LastPingedAt.Valid).To(BeTrue())
 			Expect(h2.LastPingedAt.Time.Unix()).To(Equal(t.Unix()))
 			Expect(h2.AutoShutdown).To(BeTrue())
@@ -1398,8 +1386,6 @@ var _ = Describe("models/host", func() {
 			h.MaxContainers = sql.NullInt64{2, true}
 			h.FreighterdPort = sql.NullInt64{60000, true}
 			h.Preprovisioned = true
-			h.FreighterdVersion = "0.1.0"
-			h.DockerVersion = "1.5.0"
 			h.HourlyPrice = 0
 			h.Free = true
 			err := h.UpdateWithPrice(db)
@@ -1419,8 +1405,6 @@ var _ = Describe("models/host", func() {
 			Expect(h2.MaxContainers.Int64).To(Equal(int64(2)))
 			Expect(h2.FreighterdPort.Int64).To(Equal(int64(60000)))
 			Expect(h2.Preprovisioned).To(BeTrue())
-			Expect(h2.FreighterdVersion).To(Equal("0.1.0"))
-			Expect(h2.DockerVersion).To(Equal("1.5.0"))
 			Expect(h2.HourlyPrice).To(Equal(int64(0)))
 			Expect(h2.Free).To(Equal(true))
 
@@ -1509,8 +1493,6 @@ var _ = Describe("models/host", func() {
 			Expect(h2.MaxContainers.Int64).To(Equal(h.MaxContainers.Int64))
 			Expect(h2.FreighterdPort.Int64).To(Equal(h.FreighterdPort.Int64))
 			Expect(h2.Preprovisioned).To(Equal(h.Preprovisioned))
-			Expect(h2.FreighterdVersion).To(Equal(h.FreighterdVersion))
-			Expect(h2.DockerVersion).To(Equal(h.DockerVersion))
 		})
 
 		It("updates UpdatedAt", func() {

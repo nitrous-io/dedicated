@@ -17,8 +17,6 @@ type Host struct {
 	IPAddress                 string `json:"ip_address"`
 	StaticIP                  bool   `json:"static_ip"`
 	FreighterdPort            int64  `json:"freighterd_port"`
-	FreighterdVersion         string `json:"freighterd_version"`
-	DockerVersion             string `json:"docker_version"`
 	ProviderIdentifier        string `json:"provider_identifier"`
 	ProviderStorageIdentifier string `json:"provider_storage_identifier"`
 	Hotswap                   bool   `json:"hotswap"`
@@ -67,8 +65,6 @@ func SerializeHost(h *host.Host) *Host {
 		IPAddress:                 h.IPAddress.String,
 		StaticIP:                  h.StaticIP,
 		FreighterdPort:            h.FreighterdPort.Int64,
-		FreighterdVersion:         h.FreighterdVersion,
-		DockerVersion:             h.DockerVersion,
 		ProviderIdentifier:        h.ProviderIdentifier.String,
 		ProviderStorageIdentifier: h.ProviderStorageIdentifier.String,
 		Hotswap:                   h.Hotswap,
@@ -119,8 +115,8 @@ func SerializeUserHosts(hosts []*host.HostWithUser) []*HostWithUser {
 	for i, h := range hosts {
 		serHost := SerializeHost(h.Host)
 		ret[i] = &HostWithUser{
-			Host: serHost,
-			Username: h.Username,
+			Host:         serHost,
+			Username:     h.Username,
 			GravatarHash: generateGravatarHash(h.UserEmail),
 		}
 	}

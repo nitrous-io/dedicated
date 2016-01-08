@@ -159,16 +159,6 @@ func init() {
 		panic("DEFAULT_APT_DIST is not set")
 	}
 
-	fv = envvars.FreighterdVersion
-	if fv == "" {
-		logrus.Warn("FREIGHTERD_VERSION not set")
-	}
-
-	dv = envvars.DockerVersion
-	if dv == "" {
-		panic("provisioner: DOCKER_VERSION is not set")
-	}
-
 	// preloaded the caInfo at boot time, so we dont have to recalculate this
 	// for every host since the result will be the same
 	var err error
@@ -267,8 +257,6 @@ func (p *Provisioner) prepare(opts ProvisionOptions) (*preparedHost, error) {
 		Size:               sql.NullString{opts.Plan.Slug, true},
 		State:              host.StateBorn,
 		OrgID:              opts.OrgID(),
-		FreighterdVersion:  fv,
-		DockerVersion:      dv,
 		// If the host's provider_template.config has disable_eip => true, static_ip
 		// column should be false
 		StaticIP: !getOptionDisableEIP(opts),
@@ -425,11 +413,10 @@ func (p *Provisioner) mkHostbuilderConfig(phost *preparedHost, opts ProvisionOpt
 			"cert": phost.cert.ServerCert,
 			"key":  phost.cert.ServerKey,
 		},
-		"apt_username":       strconv.FormatInt(h.ID, 10),
-		"apt_password":       h.Secret,
-		"apt_location":       opts.AptLocation,
-		"apt_dist":           opts.AptDist,
-		"freighterd_version": phost.host.FreighterdVersion,
+		"apt_username": strconv.FormatInt(h.ID, 10),
+		"apt_password": h.Secret,
+		"apt_location": opts.AptLocation,
+		"apt_dist":     opts.AptDist,
 	}
 
 	h.ProviderTemplate = opts.Template
