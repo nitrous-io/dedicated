@@ -28,8 +28,6 @@ type Host struct {
 	ListPartialError bool   `json:"list_partial"`
 	RespecSuccess    bool   `json:"respec"`
 
-	Version string
-
 	requestID string
 }
 
@@ -183,7 +181,6 @@ func (h *Host) Settings() *host.Settings {
 		"/home/action",
 		"http://google.com",
 		"secret",
-		h.Version,
 		[]string{"pubkey1", "pubkey2"},
 	)
 }
