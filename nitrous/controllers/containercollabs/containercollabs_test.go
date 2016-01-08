@@ -8,6 +8,7 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"net/url"
+	"strconv"
 	"sync"
 	"testing"
 
@@ -650,7 +651,7 @@ var _ = Describe("controllers/containercollabs", func() {
 			_, err = db.Exec(`UPDATE users SET confirmed_at = now() WHERE id = $1;`, otherUser.ID)
 			Expect(err).To(BeNil())
 
-			_, err = containercollab.Create(db, cnr.ID, otherUser.ID)
+			_, err = containercollab.Create(db, cnr.ID, strconv.FormatInt(otherUser.ID, 10))
 			Expect(err).To(BeNil())
 
 			doRequest("steve")
@@ -745,7 +746,7 @@ var _ = Describe("controllers/containercollabs", func() {
 			}
 			err = cnr2.Insert(db)
 			Expect(err).To(BeNil())
-			cc, err := containercollab.Create(db, cnr2.ID, otherUser.ID)
+			cc, err := containercollab.Create(db, cnr2.ID, strconv.FormatInt(otherUser.ID, 10))
 			Expect(err).To(BeNil())
 
 			doRequest(cnr2.ID)
@@ -781,9 +782,9 @@ var _ = Describe("controllers/containercollabs", func() {
 			err = test.WrapInTransaction(db, usr3.Insert)
 			Expect(err).To(BeNil())
 
-			cc, err := containercollab.Create(db, cnr.ID, usr3.ID)
+			cc, err := containercollab.Create(db, cnr.ID, strconv.FormatInt(usr3.ID, 10))
 			Expect(err).To(BeNil())
-			_, err = containercollab.Create(db, cnr.ID, usr2.ID)
+			_, err = containercollab.Create(db, cnr.ID, strconv.FormatInt(usr2.ID, 10))
 			Expect(err).To(BeNil())
 
 			doRequest(cc.ID)
@@ -826,9 +827,9 @@ var _ = Describe("controllers/containercollabs", func() {
 			err = t.Insert(db)
 			Expect(err).To(BeNil())
 
-			cc, err := containercollab.Create(db, cnr.ID, otherUser.ID)
+			cc, err := containercollab.Create(db, cnr.ID, strconv.FormatInt(otherUser.ID, 10))
 			Expect(err).To(BeNil())
-			_, err = containercollab.Create(db, cnr.ID, adminUser.ID)
+			_, err = containercollab.Create(db, cnr.ID, strconv.FormatInt(adminUser.ID, 10))
 			Expect(err).To(BeNil())
 
 			doRequest(cc.ID)
@@ -857,7 +858,7 @@ var _ = Describe("controllers/containercollabs", func() {
 			err = t.Insert(db)
 			Expect(err).To(BeNil())
 
-			cc, err := containercollab.Create(db, cnr.ID, otherUser.ID)
+			cc, err := containercollab.Create(db, cnr.ID, strconv.FormatInt(otherUser.ID, 10))
 			Expect(err).To(BeNil())
 
 			doRequest(cc.ID)
@@ -878,7 +879,7 @@ var _ = Describe("controllers/containercollabs", func() {
 			}
 			err := test.WrapInTransaction(db, otherUser.Insert)
 			Expect(err).To(BeNil())
-			cc, err := containercollab.Create(db, cnr.ID, otherUser.ID)
+			cc, err := containercollab.Create(db, cnr.ID, strconv.FormatInt(otherUser.ID, 10))
 			Expect(err).To(BeNil())
 
 			doRequest(cc.ID)
@@ -926,7 +927,7 @@ var _ = Describe("controllers/containercollabs", func() {
 			}
 			err := test.WrapInTransaction(db, otherUser.Insert)
 			Expect(err).To(BeNil())
-			cc, err := containercollab.Create(db, cnr.ID, otherUser.ID)
+			cc, err := containercollab.Create(db, cnr.ID, strconv.FormatInt(otherUser.ID, 10))
 			Expect(err).To(BeNil())
 
 			chOwner := svr.Events.Subscribe(u.Topic())

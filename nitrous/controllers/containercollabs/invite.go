@@ -14,9 +14,9 @@ import (
 	"github.com/nitrous-io/dedicated/nitrous/models/user"
 )
 
-func inviteUser(d *db.Database, c *container.Container, email string, sharer *user.User) (err error) {
+func inviteUser(d *db.Database, c *container.Container, email string, sharer *user.User) error {
 	return d.WithTransaction(func(tx *sqlx.Tx) error {
-		sc, err := containercollab.CreatePendingMember(tx, c.ID, email)
+		sc, err := containercollab.Create(tx, c.ID, email)
 		if err != nil {
 			return err
 		}

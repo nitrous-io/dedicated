@@ -2,6 +2,7 @@ package containercollab_test
 
 import (
 	"database/sql"
+	"strconv"
 	"testing"
 
 	"github.com/nitrous-io/dedicated/nitrous/models/container"
@@ -55,7 +56,7 @@ var _ = Describe("models/containercollab", func() {
 	})
 
 	Describe("Create", func() {
-		It("should associate a container collaborator between a user and a container", func() {
+		It("should associate a container collaborator between an existing user and a container", func() {
 			u := &user.User{
 				Username: "foo",
 				Email:    "foo@example.com",
@@ -64,7 +65,7 @@ var _ = Describe("models/containercollab", func() {
 			err := test.WrapInTransaction(db, u.Insert)
 			Expect(err).To(BeNil())
 
-			sc, err := containercollab.Create(db, cnr.ID, u.ID)
+			sc, err := containercollab.Create(db, cnr.ID, strconv.FormatInt(u.ID, 10))
 			Expect(err).To(BeNil())
 			Expect(sc).ToNot(BeNil())
 
@@ -73,11 +74,9 @@ var _ = Describe("models/containercollab", func() {
 			Expect(err).To(BeNil())
 			Expect(found).To(BeTrue())
 		})
-	})
 
-	Describe("CreatePendingMember", func() {
 		It("should associate a container collaborator between a pending collab and a container", func() {
-			sc, err := containercollab.CreatePendingMember(db, cnr.ID, "bob@collab.com")
+			sc, err := containercollab.Create(db, cnr.ID, "bob@collab.com")
 			Expect(err).To(BeNil())
 			Expect(sc).ToNot(BeNil())
 
