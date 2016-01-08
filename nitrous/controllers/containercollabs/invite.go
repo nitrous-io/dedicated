@@ -21,11 +21,10 @@ func inviteUser(d *db.Database, c *container.Container, email string, sharer *us
 		ContainerID: c.ID,
 		InviteEmail: sql.NullString{email, true},
 	}
-	t, err := securerandom.Base64(15)
+	token, err := securerandom.Alphanumeric(20)
 	if err != nil {
-		return
+		return err
 	}
-	token := fmt.Sprintf("%s", t[:20])
 	sc.InviteCode = sql.NullString{token, true}
 
 	return d.WithTransaction(func(tx *sqlx.Tx) error {
