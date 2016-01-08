@@ -92,14 +92,13 @@ type hostConfig struct {
 	StorageSize int `json:"storage_size"`
 
 	// freighter specific config
-	PublicKeys        []string        `json:"public_keys"`
-	TLS               *host.TLSConfig `json:"tls"`
-	Secret            string          `json:"secret"`
-	AptUsername       string          `json:"apt_username"` // host id on nitrous.io
-	AptPassword       string          `json:"apt_password"` // host secret
-	AptLocation       string          `json:"apt_location"` // URI of the repository
-	AptDist           string          `json:"apt_dist"`     // distribution of the repo
-	FreighterdVersion string          `json:"freighterd_version"`
+	PublicKeys  []string        `json:"public_keys"`
+	TLS         *host.TLSConfig `json:"tls"`
+	Secret      string          `json:"secret"`
+	AptUsername string          `json:"apt_username"` // host id on nitrous.io
+	AptPassword string          `json:"apt_password"` // host secret
+	AptLocation string          `json:"apt_location"` // URI of the repository
+	AptDist     string          `json:"apt_dist"`     // distribution of the repo
 }
 
 func (c *hostConfig) securityGroups() []ec2.SecurityGroup {

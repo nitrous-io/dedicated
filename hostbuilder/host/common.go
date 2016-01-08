@@ -49,7 +49,7 @@ func WaitForSSH(ctx *HostContext) error {
 }
 
 // create settings for the host with the provided dynamic properties.
-func NewSettings(tls *TLSConfig, apt *AptConfig, home, notifyURL, secret, version string, publicKeys []string) *Settings {
+func NewSettings(tls *TLSConfig, apt *AptConfig, home, notifyURL, secret string, publicKeys []string) *Settings {
 	return &Settings{
 		TLSConfig: tls,
 		AptConfig: apt,
@@ -68,7 +68,6 @@ func NewSettings(tls *TLSConfig, apt *AptConfig, home, notifyURL, secret, versio
 		},
 		Home:       home,
 		Secret:     secret,
-		Version:    version,
 		PublicKeys: publicKeys,
 	}
 }

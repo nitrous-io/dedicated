@@ -76,8 +76,6 @@ type HostConfig struct {
 	AptPassword string `json:"apt_password"` // host secret
 	AptLocation string `json:"apt_location"` // URI of the repository
 	AptDist     string `json:"apt_dist"`     // distribution of the repo
-
-	FreighterdVersion string `json:"freighterd_version"`
 }
 
 type Host struct {
@@ -434,7 +432,6 @@ func (h *Host) Settings() *host.Settings {
 		"/root",
 		h.generateNotifyURL(),
 		h.Config.Secret,
-		h.Config.FreighterdVersion,
 		h.Config.PublicKeys,
 	)
 }

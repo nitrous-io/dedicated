@@ -64,7 +64,6 @@ var _ = Describe("NewSettings", func() {
 			"/home/action",
 			"http://google.com",
 			"secret",
-			"0.0.1",
 			[]string{"pubkey1", "pubkey2"},
 		)
 
@@ -74,7 +73,6 @@ var _ = Describe("NewSettings", func() {
 		Expect(settings.Config.TLSVerify).To(BeTrue())
 		Expect(settings.Home).To(Equal("/home/action"))
 		Expect(settings.Secret).To(Equal("secret"))
-		Expect(settings.Version).To(Equal("0.0.1"))
 		Expect(settings.PublicKeys).To(ConsistOf("pubkey1", "pubkey2"))
 	})
 })
