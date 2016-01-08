@@ -28,8 +28,6 @@ var (
 	DefaultAptDist     = os.Getenv("DEFAULT_APT_DIST")
 	DefaultAptLocation = os.Getenv("DEFAULT_APT_LOCATION")
 	DefaultProvider    = os.Getenv("DEFAULT_PROVIDER")
-	DockerVersion      = os.Getenv("DOCKER_VERSION")
-	FreighterdVersion  = os.Getenv("FREIGHTERD_VERSION")
 	HostBuilderURL     = os.Getenv("HOSTBUILDER_URL")
 	HostHostname       = os.Getenv("HOST_HOSTNAME")
 	MixpanelToken      = os.Getenv(MixpanelEnvVar)

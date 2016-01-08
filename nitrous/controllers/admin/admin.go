@@ -29,7 +29,6 @@ var (
 	errProviderRequired           = httperror.New(http.StatusBadRequest, "invalid_request", "provider is required")
 	errProviderIdentifierRequired = httperror.New(http.StatusBadRequest, "invalid_request", "provider_identifier is required")
 	errHostIsNotUnaccounted       = httperror.New(http.StatusBadRequest, "invalid_request", "host is known in DB, cannot terminate directly")
-	errFreighterdVersionRequired  = httperror.New(http.StatusBadRequest, "invalid_request", "freighterd version required")
 	errOldStateRequired           = httperror.New(http.StatusBadRequest, "invalid_request", "old-state required")
 	errNewStateRequired           = httperror.New(http.StatusBadRequest, "invalid_request", "new-state required")
 	errNewStateInvalid            = httperror.New(http.StatusBadRequest, "invalid_request", "new-state invalid")

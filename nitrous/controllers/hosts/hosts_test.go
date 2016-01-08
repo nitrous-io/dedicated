@@ -260,7 +260,6 @@ var _ = Describe("controllers/hosts", func() {
 
 	Describe("GET /api/v0/hosts/{slug}", func() {
 		var hs *test.HostStack
-		var mockClient *freighterclient.MockClient
 
 		doRequest := func(slug, token string) {
 			req, err := test.NewRequest("GET", "/api/v0/hosts/"+slug, nil)
@@ -270,31 +269,18 @@ var _ = Describe("controllers/hosts", func() {
 		}
 
 		BeforeEach(func() {
-			mockClient = &freighterclient.MockClient{}
-			mockClient.HostVersionsReturn = &freighterclient.HostVersions{
-				DockerVersion:     "1.5.0-nitrous1",
-				FreighterdVersion: "1.0.1-deadbeef",
-			}
-			test.StubDefaultFreighterFn(mockClient)
-
 			var err error
 			hs, err = test.CreateHostStack(db, &test.HostStack{
 				H: &host.Host{
-					Slug:              "foo",
-					IPAddress:         sql.NullString{"1.2.3.4", true},
-					FreighterdPort:    sql.NullInt64{64000, true},
-					Size:              sql.NullString{"large", true},
-					State:             host.StateRunning,
-					FreighterdVersion: "1.0.1-deadbeef-1",
-					DockerVersion:     "1.5.0-nitrous1",
+					Slug:           "foo",
+					IPAddress:      sql.NullString{"1.2.3.4", true},
+					FreighterdPort: sql.NullInt64{64000, true},
+					Size:           sql.NullString{"large", true},
+					State:          host.StateRunning,
 				},
 				U: u,
 			})
 			Expect(err).To(BeNil())
-		})
-
-		AfterEach(func() {
-			test.UnstubFreighterFn()
 		})
 
 		It("should allow the user even if it has billing issues", func() {

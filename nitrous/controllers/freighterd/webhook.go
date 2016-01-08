@@ -16,10 +16,8 @@ import (
 )
 
 type message struct {
-	Event             string `json:"event"`
-	DockerVersion     string `json:"docker_version"`
-	FreighterdVersion string `json:"freighterd_version"`
-	Error             string `json:"error"`
+	Event string `json:"event"`
+	Error string `json:"error"`
 }
 
 var (
