@@ -13,9 +13,12 @@ import (
 	"github.com/nitrous-io/dedicated/nitrous/models/container"
 	"github.com/nitrous-io/dedicated/nitrous/models/cvolume"
 	"github.com/nitrous-io/dedicated/nitrous/models/host"
+	"github.com/nitrous-io/dedicated/nitrous/models/image"
+	"github.com/nitrous-io/dedicated/nitrous/models/org"
 	"github.com/nitrous-io/dedicated/nitrous/models/plan"
 	"github.com/nitrous-io/dedicated/nitrous/models/providertemplate"
 	"github.com/nitrous-io/dedicated/nitrous/models/region"
+	"github.com/nitrous-io/dedicated/nitrous/models/snapshot"
 	"github.com/nitrous-io/dedicated/nitrous/models/user"
 	"github.com/nitrous-io/dedicated/nitrous/models/volume"
 	. "github.com/nitrous-io/dedicated/nitrous/test"
@@ -473,63 +476,120 @@ var _ = Describe("models/container", func() {
 	Describe("Insert()", func() {
 		var (
 			c *container.Container
+			s *snapshot.Snapshot
 		)
 
-		BeforeEach(func() {
-			var err error
-			c = &container.Container{
-				CID:    "cafebabe",
-				UserID: u.ID,
-				HostID: h.ID,
-				Image:  "nitrous-base",
-				Slug:   "java-test-container",
-				Metadata: hstore.Hstore{
-					Map: map[string]sql.NullString{
-						"Key":  {"Value", true},
-						"Some": {"Thing", true},
+		Context("when snapshot id is not provided", func() {
+
+			BeforeEach(func() {
+				var err error
+				c = &container.Container{
+					CID:    "cafebabe",
+					UserID: u.ID,
+					HostID: h.ID,
+					Image:  "nitrous-base",
+					Slug:   "java-test-container",
+					Metadata: hstore.Hstore{
+						Map: map[string]sql.NullString{
+							"Key":  {"Value", true},
+							"Some": {"Thing", true},
+						},
 					},
-				},
-			}
-			err = c.Insert(db)
-			Expect(err).To(BeNil())
+				}
+				err = c.Insert(db)
+				Expect(err).To(BeNil())
+			})
+
+			It("persists the container in the database", func() {
+				cntnr, err := container.FindByCID(db, "cafebabe")
+				Expect(err).To(BeNil())
+				Expect(cntnr).NotTo(BeNil())
+				Expect(cntnr.CID).To(Equal("cafebabe"))
+				Expect(cntnr.UserID).To(Equal(u.ID))
+				Expect(cntnr.HostID).To(Equal(h.ID))
+				Expect(cntnr.Image).To(Equal("nitrous-base"))
+				Expect(cntnr.Slug).To(Equal("java-test-container"))
+				Expect(cntnr.Metadata.Map["Key"].Valid).To(BeTrue())
+				Expect(cntnr.Metadata.Map["Key"].String).To(Equal("Value"))
+				Expect(cntnr.Metadata.Map["Some"].Valid).To(BeTrue())
+				Expect(cntnr.Metadata.Map["Some"].String).To(Equal("Thing"))
+			})
+
+			It("fills up the fields in original struct", func() {
+				Expect(c.CreatedAt).NotTo(BeNil())
+				Expect(c.UpdatedAt).NotTo(BeNil())
+			})
+
+			It("generates a new secret", func() {
+				Expect(c.Secret).NotTo(BeEmpty())
+				Expect(c.Secret).To(HaveLen(255))
+
+				c2 := &container.Container{
+					CID:    "deadbeef",
+					UserID: u.ID,
+					HostID: h.ID,
+					Image:  "nitrous-base",
+					Slug:   "java-test-container-2",
+				}
+				err := c2.Insert(db)
+				Expect(err).To(BeNil())
+				Expect(c2.Secret).NotTo(BeEmpty())
+				Expect(c2.Secret).To(HaveLen(255))
+				Expect(c2.Secret).NotTo(Equal(c.Secret))
+			})
 		})
 
-		It("persists the container in the database", func() {
-			cntnr, err := container.FindByCID(db, "cafebabe")
-			Expect(err).To(BeNil())
-			Expect(cntnr).NotTo(BeNil())
-			Expect(cntnr.CID).To(Equal("cafebabe"))
-			Expect(cntnr.UserID).To(Equal(u.ID))
-			Expect(cntnr.HostID).To(Equal(h.ID))
-			Expect(cntnr.Image).To(Equal("nitrous-base"))
-			Expect(cntnr.Slug).To(Equal("java-test-container"))
-			Expect(cntnr.Metadata.Map["Key"].Valid).To(BeTrue())
-			Expect(cntnr.Metadata.Map["Key"].String).To(Equal("Value"))
-			Expect(cntnr.Metadata.Map["Some"].Valid).To(BeTrue())
-			Expect(cntnr.Metadata.Map["Some"].String).To(Equal("Thing"))
-		})
+		Context("when snapshot id is provided", func() {
+			BeforeEach(func() {
+				img := &image.Image{
+					UserID:      u.ID,
+					HostID:      h.ID,
+					FreighterID: "cafebabe",
+					Name:        "nestorbot",
+					Slug:        "nestorbot",
+					Tag:         "latest",
+				}
+				Expect(img.Insert(db)).To(BeNil())
 
-		It("fills up the fields in original struct", func() {
-			Expect(c.CreatedAt).NotTo(BeNil())
-			Expect(c.UpdatedAt).NotTo(BeNil())
-		})
+				o := &org.Org{
+					Name:  "ze robot labs",
+					Email: "admin@zerobotlabs.com",
+					Slug:  "zerobotlabs",
+				}
+				Expect(o.Insert(db)).To(BeNil())
 
-		It("generates a new secret", func() {
-			Expect(c.Secret).NotTo(BeEmpty())
-			Expect(c.Secret).To(HaveLen(255))
+				s = &snapshot.Snapshot{
+					ImageID:       img.ID,
+					UserID:        u.ID,
+					OrgID:         sql.NullInt64{o.ID, true},
+					Namespace:     "zerobotlabs",
+					Name:          "nestorbot",
+					Tag:           "latest",
+					DisplayName:   "Nestorbot dev",
+					OriginalImage: "golang:latest",
+				}
+				err := s.Insert(db)
+				Expect(err).To(BeNil())
 
-			c2 := &container.Container{
-				CID:    "deadbeef",
-				UserID: u.ID,
-				HostID: h.ID,
-				Image:  "nitrous-base",
-				Slug:   "java-test-container-2",
-			}
-			err := c2.Insert(db)
-			Expect(err).To(BeNil())
-			Expect(c2.Secret).NotTo(BeEmpty())
-			Expect(c2.Secret).To(HaveLen(255))
-			Expect(c2.Secret).NotTo(Equal(c.Secret))
+				c = &container.Container{
+					CID:        "deadbeef",
+					UserID:     u.ID,
+					HostID:     h.ID,
+					SnapshotID: sql.NullInt64{s.ID, true},
+					Image:      "nitrous-base",
+					Slug:       "java-test-container-2",
+				}
+				err = c.Insert(db)
+				Expect(err).To(BeNil())
+			})
+
+			It("persists the container with snapshot id", func() {
+				Expect(c.SnapshotID.Int64).To(Equal(s.ID))
+				Expect(c.UserID).To(Equal(u.ID))
+				Expect(c.HostID).To(Equal(h.ID))
+				Expect(c.Image).To(Equal("nitrous-base"))
+				Expect(c.Slug).To(Equal("java-test-container-2"))
+			})
 		})
 	})
 

@@ -17,6 +17,7 @@ type Container struct {
 	CID             string           `json:"cid"`
 	UserID          int64            `json:"user_id"`
 	HostID          int64            `json:"host_id"`
+	SnapshotID      int64            `json:"snapshot_id,omitempty"`
 	Image           string           `json:"image"`
 	Slug            string           `json:"slug"`
 	Name            string           `json:"name,omitempty"`
@@ -74,6 +75,10 @@ func SerializeContainer(c *container.Container) *Container {
 		CreatedAt:       c.CreatedAt,
 		UpdatedAt:       c.UpdatedAt,
 		TerminatedAt:    c.TerminatedAt,
+	}
+
+	if c.SnapshotID.Valid {
+		con.SnapshotID = c.SnapshotID.Int64
 	}
 
 	for key, value := range c.Metadata.Map {
