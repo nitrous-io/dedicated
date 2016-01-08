@@ -2,7 +2,6 @@ package containercollabs
 
 import (
 	"bytes"
-	"database/sql"
 	"fmt"
 	"html"
 	"net/url"
@@ -17,24 +16,13 @@ import (
 )
 
 func inviteUser(d *db.Database, c *container.Container, email string, sharer *user.User) (err error) {
-	sc := &containercollab.ContainerCollab{
-		ContainerID: c.ID,
-		InviteEmail: sql.NullString{email, true},
-	}
 	token, err := securerandom.Alphanumeric(20)
 	if err != nil {
 		return err
 	}
-	sc.InviteCode = sql.NullString{token, true}
 
 	return d.WithTransaction(func(tx *sqlx.Tx) error {
-		nstmt, err := tx.PrepareNamed(`INSERT INTO container_collabs (container_id, invite_email, invite_code, email_sent_at)
-		  VALUES (:container_id, :invite_email, :invite_code, now()) RETURNING *;`)
-		if err != nil {
-			return err
-		}
-		err = nstmt.QueryRowx(sc).StructScan(sc)
-		if err != nil {
+		if _, err := containercollab.CreatePendingMember(tx, c.ID, email, token); err != nil {
 			return err
 		}
 

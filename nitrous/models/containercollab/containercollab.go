@@ -47,6 +47,23 @@ func Create(d db.QueryReceiver, cID, uID int64) (*ContainerCollab, error) {
 	return sc, nstmt.QueryRowx(sc).StructScan(sc)
 }
 
+func CreatePendingMember(d db.QueryReceiver, cID int64, email, code string) (*ContainerCollab, error) {
+	sc := &ContainerCollab{
+		ContainerID: cID,
+		InviteEmail: sql.NullString{email, true},
+		InviteCode:  sql.NullString{code, true},
+	}
+	nstmt, err := d.PrepareNamed(`
+               INSERT INTO container_collabs
+		(invite_email, invite_code, container_id, email_sent_at)
+		VALUES (:invite_email, :invite_code, :container_id, now())
+		RETURNING *;`)
+	if err != nil {
+		return nil, err
+	}
+	return sc, nstmt.QueryRowx(sc).StructScan(sc)
+}
+
 func Delete(d db.QueryReceiver, scID, cID int64) error {
 	_, err := d.Exec(`DELETE FROM container_collabs WHERE id = $1 AND container_id = $2 RETURNING *;`, scID, cID)
 	return err
