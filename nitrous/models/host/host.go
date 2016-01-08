@@ -68,11 +68,9 @@ type Host struct {
 	SourceAMI sql.NullString `db:"source_ami"`
 
 	// Slug is used as a DNS label in the host's FQDN (thus limited to 63 chars).
-	Slug              string         `db:"slug"`
-	Name              sql.NullString `db:"name"`
-	State             string         `db:"state"`
-	FreighterdVersion string         `db:"freighterd_version"`
-	DockerVersion     string         `db:"docker_version"`
+	Slug  string         `db:"slug"`
+	Name  sql.NullString `db:"name"`
+	State string         `db:"state"`
 
 	// The following fields are set using the response we get from
 	// hostbuilder's creation pipeline and should be considered immutable for a
@@ -413,12 +411,12 @@ func (h *Host) Insert(d db.QueryReceiver) error {
 	nstmt, err := d.PrepareNamed(`INSERT INTO hosts (
 			user_id, org_id, region_id, plan_id, provider_template_id, slug, name, secret,
 			state, ip_address, static_ip, provider_identifier, max_containers, size, freighterd_port,
-			hourly_price, free, preprovisioned, freighterd_version, docker_version,
+			hourly_price, free, preprovisioned,
 			region_identifier, last_pinged_at, auto_shutdown, hotswap, subscription_id
 		) VALUES (
 			:user_id, :org_id, :region_id, :plan_id, :provider_template_id, :slug, :name, :secret,
 			:state, :ip_address, :static_ip, :provider_identifier, :max_containers, :size, :freighterd_port,
-			:hourly_price, :free, :preprovisioned, :freighterd_version, :docker_version,
+			:hourly_price, :free, :preprovisioned,
 			:region_identifier, :last_pinged_at, :auto_shutdown, :hotswap, :subscription_id
 		)
 		RETURNING *;`)
@@ -431,10 +429,10 @@ func (h *Host) Insert(d db.QueryReceiver) error {
 func (h *Host) Update(d db.QueryReceiver) error {
 	nstmt, err := d.PrepareNamed(`UPDATE hosts
 		SET (slug, name, state, ip_address, provider_identifier, max_containers, freighterd_port,
-			preprovisioned, freighterd_version, docker_version, updated_at,
+			preprovisioned, updated_at,
 			region_identifier, last_pinged_at, auto_shutdown)
 		= (:slug, :name, :state, :ip_address, :provider_identifier, :max_containers, :freighterd_port,
-			:preprovisioned, :freighterd_version, :docker_version, now(),
+			:preprovisioned, now(),
 			:region_identifier, :last_pinged_at, :auto_shutdown)
 		WHERE id = :id
 		RETURNING *;`)
@@ -479,10 +477,10 @@ func (h *Host) UpdateState(d db.QueryReceiver, newState string) error {
 func (h *Host) UpdateWithPrice(d db.QueryReceiver) error {
 	nstmt, err := d.PrepareNamed(`UPDATE hosts
 		SET (slug, name, state, ip_address, provider_identifier, max_containers, freighterd_port,
-			preprovisioned, hourly_price, free, freighterd_version, docker_version, updated_at,
+			preprovisioned, hourly_price, free, updated_at,
 			region_identifier, last_pinged_at, auto_shutdown)
 		= (:slug, :name, :state, :ip_address, :provider_identifier, :max_containers, :freighterd_port,
-			:preprovisioned, :hourly_price, :free, :freighterd_version, :docker_version, now(),
+			:preprovisioned, :hourly_price, :free, now(),
 			:region_identifier, :last_pinged_at, :auto_shutdown)
 		WHERE id = :id
 		RETURNING *;`)
