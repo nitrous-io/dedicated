@@ -245,12 +245,10 @@ func (s *Server) drawRoutes() {
 			"PUT": {
 				"/users":                            r("users.Update", users.Update, EventUserUpdatedProfile),
 				"/hosts/{slug}":                     r("hosts.Update", mw.HostViaPath("slug", hosts.Update)),
-				"/hosts/{slug}/versions":            r("hosts.UpdateVersions", mw.HostViaPath("slug", hosts.UpdateVersions)),
 				"/containers/{slug}/keys":           r("userkeys.Create", userkeys.Create, EventContainerKeyAdded),
 				"/user/billing_profile":             r("billingprofiles.Update", billingprofiles.Update, EventUserUpdatedBillingProfile),
 				"/containers/{slug}/metadata":       rNoLog("containers.Metadata", containers.Metadata),
 				"/containers/{slug}/user_data":      rNoLog("usercontainerdata.SetData", usercontainerdata.SetData),
-				"/admin/host/{slug}":                r("admin.UpdateHost", admin.UpdateHost),
 				"/admin/template/{slug}":            r("admin.TemplateUpdate", admin.TemplateUpdate),
 				"/orgs/{slug}/members/{identifier}": r("orgs.PutMember", orgs.PutMember, EventOrgMemberUpdated),
 				"/orgs/{org_slug}/billing_profile":  r("billingprofiles.Update", billingprofiles.Update, EventUserUpdatedBillingProfile),

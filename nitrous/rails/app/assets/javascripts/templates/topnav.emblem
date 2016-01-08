@@ -58,9 +58,6 @@
             li
               = link-to 'admin.amazon-hosts'
                 | Amazon
-            li
-              a href='#' click='updateAdminHosts target="view"'
-                | Update My Hosts
 
       li.ui.dropdown
         a href='#'

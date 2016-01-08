@@ -1523,52 +1523,6 @@ var _ = Describe("models/host", func() {
 		})
 	})
 
-	Describe("UpdateVersions()", func() {
-		var (
-			h    *host.Host
-			slug = "foo"
-		)
-
-		BeforeEach(func() {
-			var err error
-			h = &host.Host{
-				Slug:               slug,
-				UserID:             hs.U.ID,
-				RegionID:           hs.R.ID,
-				PlanID:             hs.P.ID,
-				ProviderTemplateID: hs.PT.ID,
-				State:              host.StateRunning,
-				TerminatedAt:       nil,
-				Preprovisioned:     false,
-			}
-			err = h.Insert(db)
-			Expect(err).To(BeNil())
-		})
-
-		It("updates the host's versions in the database", func() {
-			fv := "2.0.88-badbed-55"
-			dv := "2.6.9-nitrous"
-			err := h.UpdateVersions(db, fv, dv)
-			Expect(err).To(BeNil())
-
-			h2 := &host.Host{}
-			err = db.Get(h2, `SELECT * FROM hosts WHERE id = $1`, h.ID)
-			Expect(err).To(BeNil())
-			Expect(h2).NotTo(BeNil())
-
-			// Updated fields.
-			Expect(h2.FreighterdVersion).To(Equal("2.0.88-badbed-55"))
-			Expect(h2.DockerVersion).To(Equal("2.6.9-nitrous"))
-
-			// Unchanged fields.
-			Expect(h2.UserID).To(Equal(hs.U.ID))
-			Expect(h2.Slug).To(Equal("foo"))
-			Expect(h2.RegionID).To(Equal(hs.R.ID))
-			Expect(h2.PlanID).To(Equal(hs.P.ID))
-			Expect(h2.ProviderTemplateID).To(Equal(hs.PT.ID))
-		})
-	})
-
 	Describe("Reassign()", func() {
 		It("updates the host's user_id to the given user's ID and the assigned_at timestamp", func() {
 			h := &host.Host{
