@@ -12,6 +12,7 @@ import (
 	"github.com/gorilla/mux"
 	"github.com/nitrous-io/dedicated/nitrous/db"
 	"github.com/nitrous-io/dedicated/nitrous/models/container"
+	"github.com/nitrous-io/dedicated/nitrous/models/containercollab"
 	"github.com/nitrous-io/dedicated/nitrous/models/org"
 	"github.com/nitrous-io/dedicated/nitrous/models/orgmembership"
 	"github.com/nitrous-io/dedicated/nitrous/models/user"
@@ -57,6 +58,7 @@ var _ = Describe("controllers/pendingmembers", func() {
 		var (
 			o      *org.Org
 			om     *orgmembership.OrgMembership
+			cc     *containercollab.ContainerCollab
 			params *url.Values
 		)
 
@@ -96,7 +98,7 @@ var _ = Describe("controllers/pendingmembers", func() {
 			err = cnr.Insert(db)
 			Expect(err).To(BeNil())
 
-			_, err = db.Exec(`INSERT INTO container_collabs (container_id, invite_email, invite_code) VALUES ($1, 'bob@pendingcollab.com', '22x2') RETURNING ID`, cnr.ID)
+			cc, err = containercollab.Create(db, cnr.ID, "bob@pendingcollab.com")
 			Expect(err).To(BeNil())
 		})
 
@@ -144,7 +146,7 @@ var _ = Describe("controllers/pendingmembers", func() {
 
 		Context("when member with a valid invite code exists in container collabs", func() {
 			It("responds OK and returns member data", func() {
-				doRequest("22x2")
+				doRequest(cc.InviteCode.String)
 				Expect(res.Code).To(Equal(http.StatusOK))
 
 				var j struct {

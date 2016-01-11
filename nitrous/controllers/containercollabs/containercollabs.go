@@ -130,7 +130,7 @@ func add(cn *container.Container, h *host.Host, env *middleware.Env, w http.Resp
 		return errUserNotConfirmed
 	}
 
-	collab, err := containercollab.Create(env.DB, cn.ID, usr.ID)
+	collab, err := containercollab.Create(env.DB, cn.ID, strconv.FormatInt(usr.ID, 10))
 	if err != nil {
 		pqErr, ok := err.(*pq.Error)
 		if ok && strings.Contains(pqErr.Message, "duplicate key") {
