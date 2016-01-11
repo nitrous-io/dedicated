@@ -4,12 +4,13 @@ import (
 	"database/sql"
 	"encoding/json"
 	"fmt"
-	"gopkg.in/redis.v2"
 	"net/http"
 	"net/http/httptest"
 	"net/url"
 	"testing"
 	"time"
+
+	"gopkg.in/redis.v2"
 
 	"github.com/gorilla/mux"
 	"github.com/jmoiron/sqlx"
@@ -752,18 +753,20 @@ var _ = Describe("controllers/users", func() {
 	})
 
 	Describe("PUT /api/v0/user", func() {
-		doRequest := func(params *url.Values) {
+		doRequest := func(params *url.Values) *httptest.ResponseRecorder {
 			var err error
 			req, err = test.NewAuthedFormRequest(t, "PUT", "/api/v0/users", params)
 			Expect(err).To(BeNil())
+			res := httptest.NewRecorder()
 			handler.ServeHTTP(res, req)
+			return res
 		}
 
 		It("should block if the user has billing issues", func() {
 			test.MarkDelinquentUser(db, u)
 			params := &url.Values{}
 			params.Set("name", "Something")
-			doRequest(params)
+			res := doRequest(params)
 			test.VerifyDelinquentUserResponse(res)
 		})
 
@@ -778,7 +781,7 @@ var _ = Describe("controllers/users", func() {
 			})
 
 			It("updates fields", func() {
-				doRequest(params)
+				res := doRequest(params)
 
 				Expect(res.Code).To(Equal(http.StatusOK))
 				updated, err := user.FindByID(db, u.ID)
@@ -792,8 +795,27 @@ var _ = Describe("controllers/users", func() {
 				_, err := db.Exec(`UPDATE tokens SET scope = 'third_party' WHERE id = $1;`, t.ID)
 				Expect(err).To(BeNil())
 
-				doRequest(params)
+				res := doRequest(params)
 				Expect(res.Code).To(Equal(http.StatusForbidden))
+			})
+
+			It("responds with the user, user profile, and billing profile", func() {
+				res := doRequest(params)
+				Expect(res.Code).To(Equal(http.StatusOK))
+
+				j := struct {
+					User serializers.User `json:"user"`
+				}{}
+				err := json.Unmarshal(res.Body.Bytes(), &j)
+				Expect(err).To(BeNil())
+
+				serialized := j.User
+				Expect(serialized.ID).To(Equal(u.ID))
+				Expect(serialized.Username).To(Equal(u.Username))
+				Expect(serialized.UserProfile).NotTo(BeNil())
+				Expect(serialized.UserProfile.UserID).To(Equal(u.ID))
+				Expect(serialized.BillingProfile).NotTo(BeNil())
+				Expect(serialized.BillingProfile.UserID).To(Equal(u.ID))
 			})
 		})
 
@@ -803,7 +825,7 @@ var _ = Describe("controllers/users", func() {
 
 			params := &url.Values{}
 			params.Set("password", "abcdef")
-			doRequest(params)
+			res := doRequest(params)
 			Expect(res.Code).To(Equal(http.StatusOK))
 
 			type con struct {
@@ -823,7 +845,7 @@ var _ = Describe("controllers/users", func() {
 			params := &url.Values{}
 			params.Set("password", "abcdef")
 			params.Set("existing_password", "iamwrong")
-			doRequest(params)
+			res := doRequest(params)
 			Expect(res.Code).To(Equal(http.StatusBadRequest))
 		})
 
@@ -834,7 +856,7 @@ var _ = Describe("controllers/users", func() {
 			params := &url.Values{}
 			params.Set("password", "abcdef")
 			params.Set("existing_password", "123456")
-			doRequest(params)
+			res := doRequest(params)
 			Expect(res.Code).To(Equal(http.StatusOK))
 		})
 
@@ -847,13 +869,13 @@ var _ = Describe("controllers/users", func() {
 				}
 				err := test.WrapInTransaction(db, u.Insert)
 				Expect(err).To(BeNil())
-
-				params := &url.Values{}
-				params.Set("email", "taken@example.com")
-				doRequest(params)
 			})
 
 			It("responds with 400 bad request", func() {
+				params := &url.Values{}
+				params.Set("email", "taken@example.com")
+				res := doRequest(params)
+
 				Expect(res.Code).To(Equal(http.StatusBadRequest))
 				errType, errDesc := test.ErrorSlug(res.Body)
 				Expect(errType).To(Equal("validation_failed"))
@@ -862,13 +884,12 @@ var _ = Describe("controllers/users", func() {
 		})
 
 		Context("when validation fails", func() {
-			BeforeEach(func() {
+			It("responds with 400 bad request", func() {
 				params := &url.Values{}
 				params.Set("password", "a")
-				doRequest(params)
-			})
 
-			It("responds with 400 bad request", func() {
+				res := doRequest(params)
+
 				Expect(res.Code).To(Equal(http.StatusBadRequest))
 				errType, errDesc := test.ErrorSlug(res.Body)
 				Expect(errType).To(Equal("validation_failed"))
@@ -877,13 +898,12 @@ var _ = Describe("controllers/users", func() {
 		})
 
 		Context("when username is given", func() {
-			BeforeEach(func() {
+			It("does not update", func() {
 				params := &url.Values{}
 				params.Set("username", "nocando")
-				doRequest(params)
-			})
 
-			It("does not update", func() {
+				res := doRequest(params)
+
 				Expect(res.Code).To(Equal(http.StatusOK))
 				usr, err := user.FindByID(db, u.ID)
 				Expect(err).To(BeNil())
@@ -910,7 +930,7 @@ var _ = Describe("controllers/users", func() {
 			It("should not fire off an email if the email is the same", func() {
 				params := &url.Values{}
 				params.Set("email", u.Email)
-				doRequest(params)
+				res := doRequest(params)
 				Expect(res.Code).To(Equal(http.StatusOK))
 
 				usr, err := user.FindByID(db, u.ID)
@@ -923,7 +943,7 @@ var _ = Describe("controllers/users", func() {
 			It("should fire off an email if the email differs from the current value", func() {
 				params := &url.Values{}
 				params.Set("email", "att@example.com")
-				doRequest(params)
+				res := doRequest(params)
 
 				Expect(res.Code).To(Equal(http.StatusOK))
 
@@ -941,7 +961,7 @@ var _ = Describe("controllers/users", func() {
 
 				params := &url.Values{}
 				params.Set("email", "att@example.com")
-				doRequest(params)
+				res := doRequest(params)
 
 				Expect(res.Code).To(Equal(http.StatusOK))
 
@@ -958,7 +978,7 @@ var _ = Describe("controllers/users", func() {
 
 				params := &url.Values{}
 				params.Set("email", u.Email)
-				doRequest(params)
+				res := doRequest(params)
 
 				Expect(res.Code).To(Equal(http.StatusOK))
 
@@ -1001,10 +1021,17 @@ var _ = Describe("controllers/users", func() {
 			}
 			err = json.Unmarshal(res.Body.Bytes(), &j)
 			Expect(err).To(BeNil())
-			Expect(j.User.Username).To(Equal("tokenuser"))
-			Expect(j.User.Phone).To(Equal("88884444"))
-			Expect(j.User.PhoneCountryCode).To(Equal("65"))
-			Expect(j.User.PhoneAuthed).To(BeFalse())
+
+			serialized := j.User
+			Expect(serialized.Username).To(Equal("tokenuser"))
+			Expect(serialized.Phone).To(Equal("88884444"))
+			Expect(serialized.PhoneCountryCode).To(Equal("65"))
+			Expect(serialized.PhoneAuthed).To(BeFalse())
+
+			Expect(serialized.UserProfile).NotTo(BeNil())
+			Expect(serialized.UserProfile.UserID).To(Equal(u.ID))
+			Expect(serialized.BillingProfile).NotTo(BeNil())
+			Expect(serialized.BillingProfile.UserID).To(Equal(u.ID))
 		})
 
 		It("should not allow update phone if token scope is not full", func() {
