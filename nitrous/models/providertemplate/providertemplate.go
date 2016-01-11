@@ -76,8 +76,8 @@ func Find(d db.QueryReceiver, region *region.Region, plan *plan.Plan, provider s
 func (pt *ProviderTemplate) RespecTemplate(d db.QueryReceiver, newPlan *plan.Plan) (*ProviderTemplate, error) {
 	newPT := &ProviderTemplate{}
 	err := d.Get(newPT, `SELECT * FROM provider_templates
-		WHERE region_id = $1 AND plan_id = $2 AND provider = $3 AND hotswap = $4;`,
-		pt.RegionID, newPlan.ID, pt.Provider, pt.Hotswap)
+		WHERE region_id = $1 AND plan_id = $2 AND provider = $3`,
+		pt.RegionID, newPlan.ID, pt.Provider)
 	if err != nil {
 		return nil, err
 	}

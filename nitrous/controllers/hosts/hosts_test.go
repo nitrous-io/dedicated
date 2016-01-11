@@ -2842,7 +2842,7 @@ var _ = Describe("controllers/hosts", func() {
 			Expect(config["volume_id"]).To(Equal(hs.H.ProviderStorageIdentifier.String))
 			Expect(config["region_id"]).To(Equal(hs.H.RegionIdentifier.String))
 			Expect(config["ip_address"]).To(Equal(hs.H.IPAddress.String))
-			Expect(config["hotswap"]).To(Equal(hs.H.Hotswap))
+			Expect(config["hotswap"]).To(Equal(true))
 
 			// Provider template config.
 			Expect(config["instance_type"]).To(Equal("t2.micro"))

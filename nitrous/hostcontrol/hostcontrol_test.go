@@ -186,34 +186,6 @@ var _ = Describe("hostcontrol", func() {
 			})
 		}
 
-		Context("when host does not have a provider identifier and is not a hotswap host", func() {
-			BeforeEach(func() {
-				h.ProviderIdentifier = sql.NullString{}
-				Expect(h.Update(db)).To(BeNil())
-
-				hb := hostbuilderclient.NewHostbuilder("www.example.com")
-				rt = &test.FakeRoundTripper{
-					Message: okResponse,
-					Status:  http.StatusOK,
-				}
-				replaceTransport(hb, rt)
-				hostcontrol.HostbuilderClient = hb
-			})
-
-			It("does not send a request hostbuilder", func() {
-				Expect(terminateHost()).To(BeNil())
-
-				Expect(rt.Requests).To(HaveLen(0))
-			})
-
-			It("deletes the host record", func() {
-				Expect(terminateHost()).To(BeNil())
-
-				_, err := host.Find(db, hs.U, hs.H.Slug)
-				Expect(err).To(MatchError(sql.ErrNoRows))
-			})
-		})
-
 		Context("when hostbuilder successfully deletes the host", func() {
 			BeforeEach(func() {
 				hb := hostbuilderclient.NewHostbuilder("www.example.com")
