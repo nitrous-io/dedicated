@@ -260,7 +260,6 @@ var _ = Describe("controllers/hosts", func() {
 
 	Describe("GET /api/v0/hosts/{slug}", func() {
 		var hs *test.HostStack
-		var mockClient *freighterclient.MockClient
 
 		doRequest := func(slug, token string) {
 			req, err := test.NewRequest("GET", "/api/v0/hosts/"+slug, nil)
@@ -270,31 +269,18 @@ var _ = Describe("controllers/hosts", func() {
 		}
 
 		BeforeEach(func() {
-			mockClient = &freighterclient.MockClient{}
-			mockClient.HostVersionsReturn = &freighterclient.HostVersions{
-				DockerVersion:     "1.5.0-nitrous1",
-				FreighterdVersion: "1.0.1-deadbeef",
-			}
-			test.StubDefaultFreighterFn(mockClient)
-
 			var err error
 			hs, err = test.CreateHostStack(db, &test.HostStack{
 				H: &host.Host{
-					Slug:              "foo",
-					IPAddress:         sql.NullString{"1.2.3.4", true},
-					FreighterdPort:    sql.NullInt64{64000, true},
-					Size:              sql.NullString{"large", true},
-					State:             host.StateRunning,
-					FreighterdVersion: "1.0.1-deadbeef-1",
-					DockerVersion:     "1.5.0-nitrous1",
+					Slug:           "foo",
+					IPAddress:      sql.NullString{"1.2.3.4", true},
+					FreighterdPort: sql.NullInt64{64000, true},
+					Size:           sql.NullString{"large", true},
+					State:          host.StateRunning,
 				},
 				U: u,
 			})
 			Expect(err).To(BeNil())
-		})
-
-		AfterEach(func() {
-			test.UnstubFreighterFn()
 		})
 
 		It("should allow the user even if it has billing issues", func() {
@@ -2918,83 +2904,6 @@ var _ = Describe("controllers/hosts", func() {
 					},
 				}))
 			}
-		})
-	})
-
-	Describe("PUT /api/v0/hosts/:slug/versions", func() {
-		var (
-			hs     *test.HostStack
-			params *url.Values
-			err    error
-			tok    *token.Token
-		)
-
-		doRequest := func() {
-			req, err := test.NewAuthedRequest(t, "PUT", fmt.Sprintf("/api/v0/hosts/%s/versions", hs.H.Slug), params)
-			Expect(err).To(BeNil())
-			req.Header.Set("Authorization", "Bearer "+tok.Token)
-			handler.ServeHTTP(res, req)
-		}
-
-		BeforeEach(func() {
-			tok = t
-		})
-
-		Context("when the user is not an admin", func() {
-			It("responds with 404", func() {
-				hs, err = test.CreateHostStack(db, &test.HostStack{U: u})
-				Expect(err).To(BeNil())
-
-				params := &url.Values{}
-				params.Set("freighterd_version", "1.0.88-acecafe-42")
-				params.Set("docker_version", "1.2.3-nitrous")
-
-				doRequest()
-				Expect(res.Code).To(Equal(http.StatusNotFound))
-			})
-		})
-
-		Context("when valid params are received and user is an admin", func() {
-			BeforeEach(func() {
-				_, err = db.Exec("UPDATE users SET admin = true WHERE id = $1", u.ID)
-				Expect(err).To(BeNil())
-
-				hs, err = test.CreateHostStack(db, &test.HostStack{U: u})
-				Expect(err).To(BeNil())
-
-				params = &url.Values{}
-				params.Set("freighterd_version", "1.0.88-acecafe-42")
-				params.Set("docker_version", "1.2.3-nitrous")
-
-				doRequest()
-			})
-
-			It("updates a host's versions record in the db", func() {
-				h, err := queryHost(db, hs.H.ID)
-				Expect(err).To(BeNil())
-				Expect(h.FreighterdVersion).To(Equal("1.0.88-acecafe-42"))
-				Expect(h.DockerVersion).To(Equal("1.2.3-nitrous"))
-			})
-
-			It("responds with created and serialized host versions", func() {
-				var j struct {
-					Host *serializers.Host `json:"host"`
-				}
-				err := json.Unmarshal(res.Body.Bytes(), &j)
-				Expect(err).To(BeNil())
-				Expect(j.Host.FreighterdVersion).To(Equal("1.0.88-acecafe-42"))
-				Expect(j.Host.DockerVersion).To(Equal("1.2.3-nitrous"))
-			})
-		})
-
-		It("should not be accessible by a collaborator", func() {
-			hs, err = test.CreateHostStack(db, &test.HostStack{U: u})
-			Expect(err).To(BeNil())
-			_, t := createCollaborator(hs)
-			tok = t
-
-			doRequest()
-			Expect(res.Code).To(Equal(http.StatusNotFound))
 		})
 	})
 

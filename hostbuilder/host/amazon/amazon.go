@@ -179,7 +179,6 @@ func (h *Host) Settings() *host.Settings {
 		"/home/ubuntu",
 		h.generateNotifyURL(),
 		h.Config.Secret,
-		h.Config.FreighterdVersion,
 		h.Config.PublicKeys,
 	)
 }

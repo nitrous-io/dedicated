@@ -29,14 +29,15 @@ var (
 )
 
 type Container struct {
-	ID     int64          `db:"id"`
-	CID    string         `db:"cid"`
-	UserID int64          `db:"user_id"`
-	HostID int64          `db:"host_id"`
-	Image  string         `db:"image"`
-	Slug   string         `db:"slug"`
-	Name   sql.NullString `db:"name"`
-	Secret string         `db:"secret"`
+	ID         int64          `db:"id"`
+	CID        string         `db:"cid"`
+	UserID     int64          `db:"user_id"`
+	HostID     int64          `db:"host_id"`
+	SnapshotID sql.NullInt64  `db:"snapshot_id"`
+	Image      string         `db:"image"`
+	Slug       string         `db:"slug"`
+	Name       sql.NullString `db:"name"`
+	Secret     string         `db:"secret"`
 
 	// TempState can be used to overlay the actual container state.
 	// ResolvedState() returns this value when set.
@@ -197,8 +198,8 @@ func (c *Container) Insert(d db.QueryReceiver) error {
 		c.Secret = sec[:255]
 	}
 	nstmt, err := d.PrepareNamed(`INSERT INTO containers
-		(cid, user_id, host_id, image, slug, name, secret, metadata)
-    VALUES (:cid, :user_id, :host_id, :image, :slug, :name, :secret, :metadata)
+		(cid, user_id, host_id, snapshot_id, image, slug, name, secret, metadata)
+		VALUES (:cid, :user_id, :host_id, :snapshot_id, :image, :slug, :name, :secret, :metadata)
 		RETURNING *;`)
 	if err != nil {
 		return err

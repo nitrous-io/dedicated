@@ -37,7 +37,6 @@
     ' :
     = model.nonRunning.length
   = render 'admin/host' model.nonRunning
-  button.ui.btn.raised click='updateHosts model.nonRunning target="view"' Update Hosts
 
   h3
     ' Dangling
@@ -53,12 +52,10 @@
     ' Assigned:
     = model.assigned.length
   = render 'admin/host' model.assigned
-  button.ui.btn.raised click='updateHosts model.assigned target="view"' Update Hosts
   h4
     ' Preprovisioned:
     = model.preprovisioned.length
   = render 'admin/host' model.preprovisioned
-  button.ui.btn.raised click='updateHosts model.preprovisioned target="view"' Update Hosts
 
 #terminate-modal-dialog.ui.modal
   .ui.card

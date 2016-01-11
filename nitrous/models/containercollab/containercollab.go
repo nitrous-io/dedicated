@@ -3,10 +3,12 @@ package containercollab
 import (
 	"database/sql"
 	"errors"
+	"strconv"
 	"time"
 
 	"github.com/lib/pq"
 	"github.com/nitrous-io/dedicated/nitrous/db"
+	"github.com/nitrous-io/dedicated/nitrous/pkg/securerandom"
 )
 
 var (
@@ -35,15 +37,37 @@ type ContainerCollab struct {
 	UpdatedAt *time.Time `db:"updated_at"`
 }
 
-func Create(d db.QueryReceiver, cID, uID int64) (*ContainerCollab, error) {
+func Create(d db.QueryReceiver, cID int64, identifier string) (*ContainerCollab, error) {
 	sc := &ContainerCollab{
 		ContainerID: cID,
-		UserID:      sql.NullInt64{uID, true},
 	}
-	nstmt, err := d.PrepareNamed(`INSERT INTO container_collabs (user_id, container_id) VALUES (:user_id, :container_id) RETURNING *;`)
+
+	id, err := strconv.ParseInt(identifier, 10, 64)
+	var query string
+	if err != nil {
+		token, err := securerandom.Alphanumeric(20)
+		if err != nil {
+			return nil, err
+		}
+
+		sc.InviteEmail = sql.NullString{identifier, true}
+		sc.InviteCode = sql.NullString{token, true}
+		query = `INSERT INTO container_collabs
+		        (invite_email, invite_code, container_id, email_sent_at)
+		        VALUES (:invite_email, :invite_code, :container_id, now())
+		        RETURNING *;`
+	} else {
+		sc.UserID = sql.NullInt64{id, true}
+		query = `INSERT INTO container_collabs
+		        (user_id, container_id)
+                       VALUES (:user_id, :container_id)
+		        RETURNING *;`
+	}
+	nstmt, err := d.PrepareNamed(query)
 	if err != nil {
 		return nil, err
 	}
+
 	return sc, nstmt.QueryRowx(sc).StructScan(sc)
 }
 

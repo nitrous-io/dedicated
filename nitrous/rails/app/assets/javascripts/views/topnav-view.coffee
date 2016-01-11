@@ -50,8 +50,5 @@ App.TopnavView = Em.View.extend
     viewUser: ->
       App.trigger 'open-view-user-dialog'
 
-    updateAdminHosts: ->
-      App.trigger 'show-update-hosts', App.get('hosts')
-
     switchBackAdmin: ->
       App.switchBackAdmin()

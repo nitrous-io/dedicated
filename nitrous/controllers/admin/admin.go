@@ -6,7 +6,6 @@ import (
 	"net/url"
 	"strconv"
 
-	"github.com/gorilla/mux"
 	"github.com/nitrous-io/dedicated/nitrous/middleware"
 	"github.com/nitrous-io/dedicated/nitrous/models/credit"
 	"github.com/nitrous-io/dedicated/nitrous/models/credittype"
@@ -30,7 +29,6 @@ var (
 	errProviderRequired           = httperror.New(http.StatusBadRequest, "invalid_request", "provider is required")
 	errProviderIdentifierRequired = httperror.New(http.StatusBadRequest, "invalid_request", "provider_identifier is required")
 	errHostIsNotUnaccounted       = httperror.New(http.StatusBadRequest, "invalid_request", "host is known in DB, cannot terminate directly")
-	errFreighterdVersionRequired  = httperror.New(http.StatusBadRequest, "invalid_request", "freighterd version required")
 	errOldStateRequired           = httperror.New(http.StatusBadRequest, "invalid_request", "old-state required")
 	errNewStateRequired           = httperror.New(http.StatusBadRequest, "invalid_request", "new-state required")
 	errNewStateInvalid            = httperror.New(http.StatusBadRequest, "invalid_request", "new-state invalid")
@@ -48,7 +46,6 @@ var (
 	Hosts                    = VerifyAdmin(hosts)
 	ChangeHostState          = VerifyAdmin(changeHostState)
 	TerminateUnaccountedHost = VerifyAdmin(terminateUnaccountedHost)
-	UpdateHost               = VerifyAdmin(updateHost)
 	CreditUser               = VerifyAdmin(creditUser)
 	CreditTypes              = VerifyAdmin(creditTypes)
 )
@@ -247,34 +244,6 @@ func terminateUnaccountedHost(env *middleware.Env, w http.ResponseWriter, r *htt
 	env.Status = http.StatusOK
 	env.Data = map[string]interface{}{
 		"status": resp.Status,
-	}
-	return nil
-}
-
-func updateHost(env *middleware.Env, w http.ResponseWriter, r *http.Request) error {
-	db := env.DB
-
-	freighterdVer := r.FormValue("freighterd_version")
-	if freighterdVer == "" {
-		return errFreighterdVersionRequired
-	}
-
-	h, err := host.FindByIdentifier(db, mux.Vars(r)["slug"])
-	if err != nil {
-		if err == sql.ErrNoRows {
-			return middleware.ErrHostNotFound
-		}
-		return err
-	}
-
-	h.FreighterdVersion = freighterdVer
-	if err = h.Update(db); err != nil {
-		return err
-	}
-
-	env.Status = http.StatusOK
-	env.Data = map[string]interface{}{
-		"host": serializers.SerializeHost(h),
 	}
 	return nil
 }

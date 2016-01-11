@@ -557,6 +557,7 @@ var _ = Describe("CreateAtomic", func() {
 					Expect(cn.ID).To(Equal(cntrs[0].ID))
 					Expect(cn.UserID).To(Equal(u.ID))
 					Expect(cn.HostID).To(Equal(hs.H.ID))
+					Expect(cn.SnapshotID).To(Equal(int64(0)))
 					Expect(cn.Name).To(Equal("golang-project"))
 					Expect(cn.Image).To(Equal(tmpl.Image))
 
@@ -845,9 +846,15 @@ var _ = Describe("CreateAtomic", func() {
 						Expect(err).To(BeNil())
 						Expect(cntrs).To(HaveLen(1))
 
+						Expect(cntrs[0].SnapshotID.Int64).To(Equal(snap1.ID))
+						Expect(cntrs[0].UserID).To(Equal(u.ID))
+						Expect(cntrs[0].HostID).To(Equal(hs.H.ID))
+						Expect(cntrs[0].Name.String).To(Equal("Nestorbot"))
+
 						Expect(cn.ID).To(Equal(cntrs[0].ID))
 						Expect(cn.UserID).To(Equal(u.ID))
 						Expect(cn.HostID).To(Equal(hs.H.ID))
+						Expect(cn.SnapshotID).To(Equal(snap1.ID))
 						Expect(cn.Name).To(Equal("Nestorbot"))
 
 						expectedImage := fmt.Sprintf("%s/%s", envvars.DockerRegistryHostname, snap1.Repository())

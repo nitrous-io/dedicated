@@ -20,6 +20,7 @@ import (
 	"github.com/nitrous-io/dedicated/nitrous/envvars"
 	"github.com/nitrous-io/dedicated/nitrous/models/billingprofile"
 	"github.com/nitrous-io/dedicated/nitrous/models/container"
+	"github.com/nitrous-io/dedicated/nitrous/models/containercollab"
 	"github.com/nitrous-io/dedicated/nitrous/models/oauthclient"
 	"github.com/nitrous-io/dedicated/nitrous/models/org"
 	"github.com/nitrous-io/dedicated/nitrous/models/orgmembership"
@@ -371,6 +372,7 @@ var _ = Describe("controllers/users", func() {
 		Context("invited by container collaborator", func() {
 			var (
 				cnr *container.Container
+				cc  *containercollab.ContainerCollab
 			)
 
 			BeforeEach(func() {
@@ -398,12 +400,12 @@ var _ = Describe("controllers/users", func() {
 				err = cnr.Insert(db)
 				Expect(err).To(BeNil())
 
-				_, err = db.Exec(`INSERT INTO container_collabs (container_id, invite_email, invite_code) VALUES ($1, 'foo@example.com', '22x2') RETURNING ID`, cnr.ID)
+				cc, err = containercollab.Create(db, cnr.ID, "foo@example.com")
 				Expect(err).To(BeNil())
 			})
 
 			It("should register the user as a collab member by updating container_collabs if invite_code provided with correct email", func() {
-				params.Set("invite_code", "22x2")
+				params.Set("invite_code", cc.InviteCode.String)
 				doRequest()
 
 				Expect(res.Code).To(Equal(http.StatusCreated))

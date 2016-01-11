@@ -48,7 +48,6 @@ type Settings struct {
 	*freighter.Config
 	Home       string // Home directory of the current user
 	Secret     string
-	Version    string
 	PublicKeys []string
 }
 

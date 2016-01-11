@@ -8,6 +8,7 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"net/url"
+	"strconv"
 	"sync"
 	"testing"
 
@@ -141,13 +142,13 @@ var _ = Describe("controllers/containercollabs", func() {
 				err = test.WrapInTransaction(db, u2.Insert)
 				Expect(err).To(BeNil())
 
-				_, err = db.Exec(`INSERT INTO container_collabs (container_id, user_id) VALUES ($1, $2) RETURNING ID`, cnr.ID, u1.ID)
+				_, err = containercollab.Create(db, cnr.ID, strconv.FormatInt(u1.ID, 10))
 				Expect(err).To(BeNil())
 
-				_, err = db.Exec(`INSERT INTO container_collabs (container_id, user_id) VALUES ($1, $2) RETURNING ID`, cnr.ID, u2.ID)
+				_, err = containercollab.Create(db, cnr.ID, strconv.FormatInt(u2.ID, 10))
 				Expect(err).To(BeNil())
 
-				_, err = db.Exec(`INSERT INTO container_collabs (container_id, invite_email, invite_code) VALUES ($1, 'abc@example.com', '22x2') RETURNING ID`, cnr.ID)
+				_, err = containercollab.Create(db, cnr.ID, "abc@example.com")
 				Expect(err).To(BeNil())
 
 				all, err = containercollab.FindAll(db, cnr.ID)
@@ -650,7 +651,7 @@ var _ = Describe("controllers/containercollabs", func() {
 			_, err = db.Exec(`UPDATE users SET confirmed_at = now() WHERE id = $1;`, otherUser.ID)
 			Expect(err).To(BeNil())
 
-			_, err = containercollab.Create(db, cnr.ID, otherUser.ID)
+			_, err = containercollab.Create(db, cnr.ID, strconv.FormatInt(otherUser.ID, 10))
 			Expect(err).To(BeNil())
 
 			doRequest("steve")
@@ -745,7 +746,7 @@ var _ = Describe("controllers/containercollabs", func() {
 			}
 			err = cnr2.Insert(db)
 			Expect(err).To(BeNil())
-			cc, err := containercollab.Create(db, cnr2.ID, otherUser.ID)
+			cc, err := containercollab.Create(db, cnr2.ID, strconv.FormatInt(otherUser.ID, 10))
 			Expect(err).To(BeNil())
 
 			doRequest(cnr2.ID)
@@ -781,9 +782,9 @@ var _ = Describe("controllers/containercollabs", func() {
 			err = test.WrapInTransaction(db, usr3.Insert)
 			Expect(err).To(BeNil())
 
-			cc, err := containercollab.Create(db, cnr.ID, usr3.ID)
+			cc, err := containercollab.Create(db, cnr.ID, strconv.FormatInt(usr3.ID, 10))
 			Expect(err).To(BeNil())
-			_, err = containercollab.Create(db, cnr.ID, usr2.ID)
+			_, err = containercollab.Create(db, cnr.ID, strconv.FormatInt(usr2.ID, 10))
 			Expect(err).To(BeNil())
 
 			doRequest(cc.ID)
@@ -826,9 +827,9 @@ var _ = Describe("controllers/containercollabs", func() {
 			err = t.Insert(db)
 			Expect(err).To(BeNil())
 
-			cc, err := containercollab.Create(db, cnr.ID, otherUser.ID)
+			cc, err := containercollab.Create(db, cnr.ID, strconv.FormatInt(otherUser.ID, 10))
 			Expect(err).To(BeNil())
-			_, err = containercollab.Create(db, cnr.ID, adminUser.ID)
+			_, err = containercollab.Create(db, cnr.ID, strconv.FormatInt(adminUser.ID, 10))
 			Expect(err).To(BeNil())
 
 			doRequest(cc.ID)
@@ -857,7 +858,7 @@ var _ = Describe("controllers/containercollabs", func() {
 			err = t.Insert(db)
 			Expect(err).To(BeNil())
 
-			cc, err := containercollab.Create(db, cnr.ID, otherUser.ID)
+			cc, err := containercollab.Create(db, cnr.ID, strconv.FormatInt(otherUser.ID, 10))
 			Expect(err).To(BeNil())
 
 			doRequest(cc.ID)
@@ -878,7 +879,7 @@ var _ = Describe("controllers/containercollabs", func() {
 			}
 			err := test.WrapInTransaction(db, otherUser.Insert)
 			Expect(err).To(BeNil())
-			cc, err := containercollab.Create(db, cnr.ID, otherUser.ID)
+			cc, err := containercollab.Create(db, cnr.ID, strconv.FormatInt(otherUser.ID, 10))
 			Expect(err).To(BeNil())
 
 			doRequest(cc.ID)
@@ -898,11 +899,10 @@ var _ = Describe("controllers/containercollabs", func() {
 		})
 
 		It("should perform a delete for a pending invite", func() {
-			var collabID int64
-			err := db.QueryRow(`INSERT INTO container_collabs (container_id, invite_email, invite_code) VALUES ($1, 'abc@example.com', '22x2') RETURNING ID`, cnr.ID).Scan(&collabID)
+			cc, err := containercollab.Create(db, cnr.ID, "abc@example.com")
 			Expect(err).To(BeNil())
 
-			doRequest(collabID)
+			doRequest(cc.ID)
 
 			Expect(res.Code).To(Equal(http.StatusOK))
 			var j struct {
@@ -913,7 +913,7 @@ var _ = Describe("controllers/containercollabs", func() {
 			Expect(j.Success).To(BeTrue())
 
 			var count int
-			err = db.QueryRow(`SELECT COUNT(*) FROM container_collabs WHERE id = $1;`, collabID).Scan(&count)
+			err = db.QueryRow(`SELECT COUNT(*) FROM container_collabs WHERE id = $1;`, cc.ID).Scan(&count)
 			Expect(err).To(BeNil())
 			Expect(count).To(Equal(0))
 		})
@@ -926,7 +926,7 @@ var _ = Describe("controllers/containercollabs", func() {
 			}
 			err := test.WrapInTransaction(db, otherUser.Insert)
 			Expect(err).To(BeNil())
-			cc, err := containercollab.Create(db, cnr.ID, otherUser.ID)
+			cc, err := containercollab.Create(db, cnr.ID, strconv.FormatInt(otherUser.ID, 10))
 			Expect(err).To(BeNil())
 
 			chOwner := svr.Events.Subscribe(u.Topic())
@@ -1009,14 +1009,13 @@ var _ = Describe("controllers/containercollabs", func() {
 		})
 
 		It("should not include collaborator data when firing off events if target user is pending invite", func() {
-			var collabID int64
-			err := db.QueryRow(`INSERT INTO container_collabs (container_id, invite_email, invite_code) VALUES ($1, 'abc@example.com', '22x2') RETURNING ID`, cnr.ID).Scan(&collabID)
+			cc, err := containercollab.Create(db, cnr.ID, "abc@example.com")
 			Expect(err).To(BeNil())
 
 			chOwner := svr.Events.Subscribe(u.Topic())
 			defer svr.Events.Unsubscribe(chOwner, u.Topic())
 
-			doRequest(collabID)
+			doRequest(cc.ID)
 
 			msgsOwners := []pubsub.Message{}
 			var wg sync.WaitGroup

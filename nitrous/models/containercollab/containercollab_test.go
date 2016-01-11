@@ -2,6 +2,7 @@ package containercollab_test
 
 import (
 	"database/sql"
+	"strconv"
 	"testing"
 
 	"github.com/nitrous-io/dedicated/nitrous/models/container"
@@ -55,7 +56,7 @@ var _ = Describe("models/containercollab", func() {
 	})
 
 	Describe("Create", func() {
-		It("should associate a container collaborator between a user and a container", func() {
+		It("should associate a container collaborator between an existing user and a container", func() {
 			u := &user.User{
 				Username: "foo",
 				Email:    "foo@example.com",
@@ -64,12 +65,23 @@ var _ = Describe("models/containercollab", func() {
 			err := test.WrapInTransaction(db, u.Insert)
 			Expect(err).To(BeNil())
 
-			sc, err := containercollab.Create(db, cnr.ID, u.ID)
+			sc, err := containercollab.Create(db, cnr.ID, strconv.FormatInt(u.ID, 10))
 			Expect(err).To(BeNil())
 			Expect(sc).ToNot(BeNil())
 
 			var found bool
 			err = db.Get(&found, `SELECT COUNT(*) = 1 FROM container_collabs WHERE user_id = $1 AND container_id = $2`, u.ID, cnr.ID)
+			Expect(err).To(BeNil())
+			Expect(found).To(BeTrue())
+		})
+
+		It("should associate a container collaborator between a pending collab and a container", func() {
+			sc, err := containercollab.Create(db, cnr.ID, "bob@collab.com")
+			Expect(err).To(BeNil())
+			Expect(sc).ToNot(BeNil())
+
+			var found bool
+			err = db.Get(&found, `SELECT COUNT(*) = 1 FROM container_collabs WHERE invite_email = 'bob@collab.com' AND container_id = $1 AND invite_code = $2;`, cnr.ID, sc.InviteCode.String)
 			Expect(err).To(BeNil())
 			Expect(found).To(BeTrue())
 		})
@@ -85,11 +97,10 @@ var _ = Describe("models/containercollab", func() {
 			err := test.WrapInTransaction(db, u.Insert)
 			Expect(err).To(BeNil())
 
-			var scID int64
-			err = db.QueryRow(`INSERT INTO container_collabs (container_id, user_id) VALUES ($1, $2) RETURNING ID`, cnr.ID, u.ID).Scan(&scID)
+			cc, err := containercollab.Create(db, cnr.ID, strconv.FormatInt(u.ID, 10))
 			Expect(err).To(BeNil())
 
-			err = containercollab.Delete(db, scID, cnr.ID)
+			err = containercollab.Delete(db, cc.ID, cnr.ID)
 			Expect(err).To(BeNil())
 
 			var found bool
@@ -107,11 +118,10 @@ var _ = Describe("models/containercollab", func() {
 			err := test.WrapInTransaction(db, u.Insert)
 			Expect(err).To(BeNil())
 
-			var scID int64
-			err = db.QueryRow(`INSERT INTO container_collabs (container_id, user_id) VALUES ($1, $2) RETURNING ID`, cnr.ID, u.ID).Scan(&scID)
+			cc, err := containercollab.Create(db, cnr.ID, strconv.FormatInt(u.ID, 10))
 			Expect(err).To(BeNil())
 
-			err = containercollab.Delete(db, scID, -2)
+			err = containercollab.Delete(db, cc.ID, -2)
 			Expect(err).To(BeNil())
 
 			var found bool
@@ -147,16 +157,16 @@ var _ = Describe("models/containercollab", func() {
 			err = test.WrapInTransaction(db, u3.Insert)
 			Expect(err).To(BeNil())
 
-			_, err = db.Exec(`INSERT INTO container_collabs (container_id, user_id) VALUES ($1, $2) RETURNING ID`, cnr.ID, u1.ID)
+			_, err = containercollab.Create(db, cnr.ID, strconv.FormatInt(u1.ID, 10))
 			Expect(err).To(BeNil())
 
-			_, err = db.Exec(`INSERT INTO container_collabs (container_id, user_id) VALUES ($1, $2) RETURNING ID`, cnr.ID, u2.ID)
+			_, err = containercollab.Create(db, cnr.ID, strconv.FormatInt(u2.ID, 10))
 			Expect(err).To(BeNil())
 
-			_, err = db.Exec(`INSERT INTO container_collabs (container_id, user_id) VALUES ($1, $2) RETURNING ID`, cnr.ID, u3.ID)
+			_, err = containercollab.Create(db, cnr.ID, strconv.FormatInt(u3.ID, 10))
 			Expect(err).To(BeNil())
 
-			_, err = db.Exec(`INSERT INTO container_collabs (container_id, invite_email, invite_code) VALUES ($1, 'abc@example.com', '2xx2') RETURNING ID`, cnr.ID)
+			_, err = containercollab.Create(db, cnr.ID, "abc@example.com")
 			Expect(err).To(BeNil())
 
 			_, err = db.Exec(`UPDATE users SET deleted_at = now() WHERE id = $1;`, u3.ID)
@@ -177,21 +187,25 @@ var _ = Describe("models/containercollab", func() {
 	})
 
 	Describe("FindByInviteCode()", func() {
+		var (
+			cc  *containercollab.ContainerCollab
+			err error
+		)
 		BeforeEach(func() {
-			_, err := db.Exec(`INSERT INTO container_collabs (container_id, invite_email, invite_code) VALUES ($1, 'bob@pendingcollab.com', '22x2') RETURNING ID`, cnr.ID)
+			cc, err = containercollab.Create(db, cnr.ID, "bob@pendingcollab.com")
 			Expect(err).To(BeNil())
 		})
 
 		Context("when pending member does not exist", func() {
 			It("returns err", func() {
-				_, err := containercollab.FindByInviteCode(db, "22x2"+"9000")
+				_, err := containercollab.FindByInviteCode(db, cc.InviteCode.String+"9000")
 				Expect(err).To(MatchError(sql.ErrNoRows))
 			})
 		})
 
 		Context("when pending member exists", func() {
 			It("returns member", func() {
-				m, err := containercollab.FindByInviteCode(db, "22x2")
+				m, err := containercollab.FindByInviteCode(db, cc.InviteCode.String)
 				Expect(err).To(BeNil())
 
 				Expect(m.UserID).To(BeZero())
@@ -203,7 +217,7 @@ var _ = Describe("models/containercollab", func() {
 		Context("when some other error occurs", func() {
 			It("returns error", func() {
 				db.Close()
-				_, err := containercollab.FindByInviteCode(db, "22x2")
+				_, err := containercollab.FindByInviteCode(db, cc.InviteCode.String)
 				Expect(err).NotTo(BeNil())
 			})
 		})
@@ -302,21 +316,25 @@ var _ = Describe("models/containercollab", func() {
 		})
 
 		It("updates container collabs with user data and removes pending invite data", func() {
-			_, err := db.Exec(`INSERT INTO container_collabs (container_id, invite_email, invite_code) VALUES ($1, $2, $3) RETURNING ID`, cnr.ID, "bob@collab.com", "12345678912345678912")
+			cc, err := containercollab.Create(db, cnr.ID, "bob@collab.com")
 			Expect(err).To(BeNil())
+			Expect(cc).ToNot(BeNil())
 
-			cc, err := containercollab.PromotePendingMemberToUser(db, "bob@collab.com", "12345678912345678912", cnr.UserID)
+			cc1, err := containercollab.PromotePendingMemberToUser(db, "bob@collab.com", cc.InviteCode.String, cnr.UserID)
 			Expect(err).To(BeNil())
-			Expect(cc.UserID.Valid).To(BeTrue())
-			Expect(cc.UserID.Int64).To(Equal(cnr.UserID))
-			Expect(cc.InviteEmail.Valid).To(BeFalse())
-			Expect(cc.InviteCode.Valid).To(BeFalse())
+			Expect(cc1.UserID.Valid).To(BeTrue())
+			Expect(cc1.UserID.Int64).To(Equal(cnr.UserID))
+			Expect(cc1.InviteEmail.Valid).To(BeFalse())
+			Expect(cc1.InviteCode.Valid).To(BeFalse())
 		})
 
 		Context("when some other error occurs", func() {
 			It("returns error", func() {
+				cc, err := containercollab.Create(db, cnr.ID, "bob@collab.com")
+				Expect(err).To(BeNil())
+
 				db.Close()
-				_, err := containercollab.PromotePendingMemberToUser(db, "bob@collab.com", "12345678912345678912", cnr.UserID)
+				_, err = containercollab.PromotePendingMemberToUser(db, "bob@collab.com", cc.InviteCode.String, cnr.UserID)
 				Expect(err).NotTo(BeNil())
 			})
 		})

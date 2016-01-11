@@ -28,6 +28,7 @@ var _ = Describe("container serializer", func() {
 			CID:        "deadbeef",
 			UserID:     11,
 			HostID:     12,
+			SnapshotID: sql.NullInt64{13, true},
 			Image:      "busybox",
 			Slug:       "railsbox-10",
 			Name:       sql.NullString{"Rails dev box", true},
@@ -72,6 +73,7 @@ var _ = Describe("container serializer", func() {
 				"cid": "deadbeef",
 				"user_id": 11,
 				"host_id": 12,
+				"snapshot_id": 13,
 				"image": "busybox",
 				"slug": "railsbox-10",
 				"name": "Rails dev box",
@@ -105,6 +107,62 @@ var _ = Describe("container serializer", func() {
 			}`, model.ResolvedState(), model.PreviewHostname())))
 		})
 
+		Context("snapshot id is null", func() {
+			BeforeEach(func() {
+				model.SnapshotID = sql.NullInt64{0, false}
+			})
+
+			It("does not serialize snapshot id to JSON", func() {
+				c := serializers.SerializeContainer(model)
+				c.Config = &serializers.ContainerConfig{
+					Cmd:                []string{"/bin/yes"},
+					Env:                []string{"NITROUS_IMAGE_VERSION=1.2.3", "PAGER=less"},
+					ConfigPortBindings: []string{"public::5050", "private::3000"},
+					Ports:              []string{"public:4040:5050", "private:4000:3000"},
+					Mounts:             []string{"db"},
+					Privileged:         true,
+					PublishAll:         true,
+				}
+				b, err := json.Marshal(c)
+				Expect(err).To(BeNil())
+				Expect(b).To(MatchJSON(fmt.Sprintf(`{
+				"id": 10,
+				"cid": "deadbeef",
+				"user_id": 11,
+				"host_id": 12,
+				"image": "busybox",
+				"slug": "railsbox-10",
+				"name": "Rails dev box",
+				"ip_address": "1.2.3.4",
+				"gateway_ip": "1.2.3.0",
+				"state": "%s",
+				"user": "guest",
+				"cmd": ["/sbin/init"],
+				"entrypoint": ["/bin/blah"],
+				"exit_code": 0,
+				"preview_hostname": "%s",
+				"metadata": {
+					"Key": "Value",
+					"Some": "Thing"
+				},
+				"user_data": null,
+				"started_at": "2014-08-13T00:00:00Z",
+				"finished_at": null,
+				"terminated_at": "2013-11-03T00:00:00Z",
+				"created_at": "2013-11-01T00:00:00Z",
+				"updated_at": "2013-11-02T00:00:00Z",
+				"config": {
+					"config_port_bindings": ["public::5050", "private::3000"],
+					"port": ["public:4040:5050", "private:4000:3000"],
+					"env": ["NITROUS_IMAGE_VERSION=1.2.3", "PAGER=less"],
+					"cmd": ["/bin/yes"],
+					"volume": ["db"],
+					"privileged": true,
+					"publish_all": true
+				}
+			}`, model.ResolvedState(), model.PreviewHostname())))
+			})
+		})
 	})
 })
 

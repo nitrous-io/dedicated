@@ -176,12 +176,6 @@ func CreateHostStack(db *db.Database, hs *HostStack) (*HostStack, error) {
 	hs.H.PlanID = hs.P.ID
 	hs.H.ProviderTemplateID = hs.PT.ID
 	hs.H.UserID = hs.U.ID
-	if hs.H.FreighterdVersion == "" {
-		hs.H.FreighterdVersion = "1.0.69-deadbeef-88"
-	}
-	if hs.H.DockerVersion == "" {
-		hs.H.DockerVersion = "1.4.1-nitrous"
-	}
 
 	if hs.O != nil {
 		hs.H.OrgID = sql.NullInt64{hs.O.ID, true}
