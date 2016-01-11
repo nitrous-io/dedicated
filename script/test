@@ -33,7 +33,7 @@ test_app() {
 
   export TESTING=1
   if [ -f .env-example ]; then
-    forego run -e .env-example ginkgo -r -trace $@
+    forego run -e .env-example ginkgo -r -trace -noColor -slowSpecThreshold=2 $@
   else
     ginkgo -r -trace $@
   fi
