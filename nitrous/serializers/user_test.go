@@ -155,7 +155,7 @@ var _ = Describe("user serializer", func() {
 	Describe("SerializeUserWithProfiles", func() {
 		It("serializes to JSON", func() {
 			up := &userprofile.UserProfile{
-				ID:        10,
+				ID:        8,
 				UserID:    10,
 				MaxHosts:  2,
 				Advanced:  false,
@@ -164,7 +164,7 @@ var _ = Describe("user serializer", func() {
 			}
 
 			bp := &billingprofile.BillingProfile{
-				ID:        10,
+				ID:        9,
 				UserID:    10,
 				State:     "paid",
 				StripeID:  sql.NullString{"sk_0001", true},
@@ -187,12 +187,13 @@ var _ = Describe("user serializer", func() {
 				"unconfirmed_email": "h.granger+nospam@hogwarts.edu",
 				"admin": true,
 				"user_profile": {
+					"user_id": 10,
 					"max_hosts": 2,
 					"advanced": false,
 					"can_delete_github_public_keys": false
 				},
 				"billing_profile": {
-					"id": 10,
+					"id": 9,
 					"user_id": 10,
 					"org_id": null,
 					"state": "paid",
