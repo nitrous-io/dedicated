@@ -39,16 +39,6 @@
 			"Rev": "4aacc5a471d5027aeebf371f0acf7b38f276a77d"
 		},
 		{
-			"ImportPath": "github.com/deferpanic/deferclient/deferclient",
-			"Comment": "1.11",
-			"Rev": "50b0457815f367d6a7d354b070d1212cebcb9779"
-		},
-		{
-			"ImportPath": "github.com/deferpanic/deferclient/deferstats",
-			"Comment": "1.11",
-			"Rev": "50b0457815f367d6a7d354b070d1212cebcb9779"
-		},
-		{
 			"ImportPath": "github.com/digitalocean/godo",
 			"Comment": "v0.5.0-7-g6ae442f",
 			"Rev": "6ae442f8d5dae46921484681156699b1ba8ecf0c"
