@@ -86,8 +86,7 @@ var _ = Describe("controllers/hosts", func() {
 		db, err = test.TestDatabase("nitrous_test")
 		Expect(err).To(BeNil())
 		ft = test.NewFakeTracker()
-		svr = server.NewServer("", db, nil, nil)
-		svr.Tracker = ft
+		svr = test.NewTestServer("", db, ft)
 		handler = svr.Router()
 		res = httptest.NewRecorder()
 		authTokenInputs = test.AuthTokenInputs{Handler: handler}

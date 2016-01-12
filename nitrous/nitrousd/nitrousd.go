@@ -10,7 +10,6 @@ import (
 	"time"
 
 	"github.com/Sirupsen/logrus"
-	"github.com/deferpanic/deferclient/deferstats"
 	"github.com/nitrous-io/dedicated/nitrous/db"
 	"github.com/nitrous-io/dedicated/nitrous/envvars"
 	"github.com/nitrous-io/dedicated/nitrous/pkg/certauth"
@@ -109,16 +108,8 @@ func main() {
 		)
 	}
 
-	// Setting Defer Panic
-	var deferstatsClient *deferstats.Client
-	if envvars.DeferPanicToken != "" {
-		deferstatsClient = deferstats.NewClient(envvars.DeferPanicToken)
-		deferstatsClient.SetappGroup("Nitrousd")
-		go deferstatsClient.CaptureStats()
-	}
-
 	conf := &provisioner.Config{}
-	svr := server.NewServer(envvars.RootDir, dbConn, conf, deferstatsClient)
+	svr := server.NewServer(envvars.RootDir, dbConn, conf)
 
 	st, err := time.ParseDuration(envvars.StopTimeout)
 	if err != nil {

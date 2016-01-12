@@ -43,7 +43,7 @@ var _ = Describe("controllers/pendingmembers", func() {
 		var err error
 		db, err = TestDatabase("nitrous_test")
 		Expect(err).To(BeNil())
-		svr = server.NewServer("", db, nil, nil)
+		svr = NewTestServer("", db, nil)
 		handler = svr.Router()
 		res = httptest.NewRecorder()
 	})

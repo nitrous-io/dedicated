@@ -40,7 +40,7 @@ var _ = Describe("controllers/pinger", func() {
 		db, err = test.TestDatabase("nitrous_test")
 		Expect(err).To(BeNil())
 
-		svr = server.NewServer("", db, nil, nil)
+		svr = test.NewTestServer("", db, nil)
 
 		u = &user.User{Username: "foo", Password: "123456", Email: "foo@example.com"}
 		err = test.WrapInTransaction(db, u.Insert)

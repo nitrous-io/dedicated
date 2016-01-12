@@ -39,7 +39,7 @@ var _ = Describe("middleware", func() {
 		var err error
 		db, err = TestDatabase("nitrous_test")
 		Expect(err).To(BeNil())
-		svr = server.NewServer("", db, nil, nil)
+		svr = NewTestServer("", db, nil)
 
 		handler = mux.NewRouter()
 		res = httptest.NewRecorder()
