@@ -36,7 +36,7 @@ var _ = Describe("controllers/regions", func() {
 
 		db, err = TestDatabase("nitrous_test")
 		Expect(err).To(BeNil())
-		svr = server.NewServer("", db, nil, nil)
+		svr = NewTestServer("", db, nil)
 		res = httptest.NewRecorder()
 	})
 

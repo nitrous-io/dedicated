@@ -55,7 +55,7 @@ var _ = Describe("controllers/usercontainerdata", func() {
 
 		d, err = test.TestDatabase("nitrous_test")
 		Expect(err).To(BeNil())
-		svr = server.NewServer("", d, nil, nil)
+		svr = test.NewTestServer("", d, nil)
 		handler = svr.Router()
 		res = httptest.NewRecorder()
 
