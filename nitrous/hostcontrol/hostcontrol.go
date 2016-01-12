@@ -86,18 +86,15 @@ func OnStopped(db *db.Database, h *host.Host, info *HostInfo, initiatorID int64)
 }
 
 func Terminate(tx *sqlx.Tx, h *host.Host, headers http.Header, initiatorID int64, origState string) error {
-	// Don't delete the host in Hostbuilder if provider identifier is empty,
-	// unless this is a hotswap instance (where an empty provider identifier is
-	// legal).
-	if h.ProviderIdentifier.String != "" || h.Hotswap {
-		urlArgs := host.URLArgsFromHost(h)
-		_, err := HostbuilderClient.Delete(h.Provider, h.MachineConfig(), headers, urlArgs)
-		if err != nil {
-			if e, ok := err.(net.Error); ok && e.Timeout() {
-				logrus.Errorf("hostbuilder timeout deleting host: %v", e)
-			}
-			return err
+	urlArgs := host.URLArgsFromHost(h)
+	_, err := HostbuilderClient.Delete(h.Provider, h.MachineConfig(), headers, urlArgs)
+	if err != nil {
+		if e, ok := err.(net.Error); ok && e.Timeout() {
+			logrus.Errorf("hostcontrol.Terminate: timeout deleting host: %v", e)
+		} else {
+			logrus.Errorf("hostcontrol.Terminate: error deleting host: %v", e)
 		}
+		// continue and delete from DB on error
 	}
 
 	if origState == "" {

@@ -1277,18 +1277,13 @@ var _ = Describe("controllers/hosts", func() {
 				hosts.HostbuilderClient = hb
 			})
 
-			It("does not delete the host", func() {
+			It("deletes the host in db", func() {
 				doRequest(hs.H.Slug, t.Token)
 
 				h, err := host.Find(db, hs.U, hs.H.Slug)
-				Expect(err).To(BeNil())
-				Expect(h).NotTo(BeNil())
-			})
-
-			It("responds with HTTP 500 Internal Server Error", func() {
-				doRequest(hs.H.Slug, t.Token)
-
-				Expect(res.Code).To(Equal(http.StatusInternalServerError))
+				Expect(err).To(MatchError(sql.ErrNoRows))
+				Expect(h).To(BeNil())
+				Expect(res.Code).To(Equal(http.StatusOK))
 			})
 		})
 
@@ -2842,7 +2837,7 @@ var _ = Describe("controllers/hosts", func() {
 			Expect(config["volume_id"]).To(Equal(hs.H.ProviderStorageIdentifier.String))
 			Expect(config["region_id"]).To(Equal(hs.H.RegionIdentifier.String))
 			Expect(config["ip_address"]).To(Equal(hs.H.IPAddress.String))
-			Expect(config["hotswap"]).To(Equal(hs.H.Hotswap))
+			Expect(config["hotswap"]).To(Equal(true))
 
 			// Provider template config.
 			Expect(config["instance_type"]).To(Equal("t2.micro"))

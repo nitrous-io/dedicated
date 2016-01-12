@@ -2,7 +2,6 @@ package groupedhosts
 
 import (
 	"sort"
-	"strings"
 	"time"
 
 	"github.com/nitrous-io/dedicated/hostbuilder"
@@ -130,8 +129,6 @@ func indexHosts(liveHosts []*hostbuilder.Response, dbHosts []*host.Host) (HostIn
 
 	// Now, add all db host data to the same map, and also identify "dangling"
 	// hosts.
-	// A non-hotswap host is "dangling" when a record exists in the db but we
-	// don't know what its instance ID is.
 	// A hotswap host is "dangling" when a record exists in db but we don't know
 	// what its volume ID is.
 	for _, h := range dbHosts {
@@ -143,12 +140,10 @@ func indexHosts(liveHosts []*hostbuilder.Response, dbHosts []*host.Host) (HostIn
 			identifiable = true
 		}
 
-		if h.Hotswap {
-			if identifier := h.ProviderStorageIdentifier.String; identifier != "" {
-				entry := index.getEntry(identifier)
-				entry.DBHost = h
-				identifiable = true
-			}
+		if identifier := h.ProviderStorageIdentifier.String; identifier != "" {
+			entry := index.getEntry(identifier)
+			entry.DBHost = h
+			identifiable = true
 		}
 
 		if identifiable {
@@ -165,17 +160,7 @@ func indexHosts(liveHosts []*hostbuilder.Response, dbHosts []*host.Host) (HostIn
 	return index, danglingHosts
 }
 
-func isDbAndLiveConsistent(db *ndb.Database, liveHost *hostbuilder.Response, dbHost *host.Host) bool {
-	// if live and db state is the same, we're consistent
-	liveState := strings.ToLower(liveHost.State)
-	if liveState == strings.ToLower(dbHost.State) {
-		return true
-	}
-
-	return isTransitioning(db, dbHost)
-}
-
-func isHotswapConsistent(db *ndb.Database, liveHost *hostbuilder.Response, dbHost *host.Host) bool {
+func isConsistent(db *ndb.Database, liveHost *hostbuilder.Response, dbHost *host.Host) bool {
 	switch dbHost.State {
 	case host.StateRunning:
 		// A running host should be actually running.
@@ -236,20 +221,11 @@ func mapHost(db *ndb.Database, list *HostList, entry *HostEntry) {
 
 	switch {
 	case liveHost != nil && dbHost != nil:
-		if dbHost.Hotswap {
-			if isHotswapConsistent(db, liveHost, dbHost) {
-				list.HealthyHosts = append(list.HealthyHosts, entry)
-			} else {
-				list.InconsistentHosts = append(list.InconsistentHosts, entry)
-			}
+		if isConsistent(db, liveHost, dbHost) {
+			list.HealthyHosts = append(list.HealthyHosts, entry)
 		} else {
-			if isDbAndLiveConsistent(db, liveHost, dbHost) {
-				list.HealthyHosts = append(list.HealthyHosts, entry)
-			} else {
-				list.InconsistentHosts = append(list.InconsistentHosts, entry)
-			}
+			list.InconsistentHosts = append(list.InconsistentHosts, entry)
 		}
-
 	case liveHost != nil && dbHost == nil:
 		if liveHost.State == "Terminated" {
 			break

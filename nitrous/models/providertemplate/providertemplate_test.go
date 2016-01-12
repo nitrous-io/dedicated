@@ -42,9 +42,6 @@ var _ = Describe("models/providertemplate", func() {
 		_, err = db.Exec(`INSERT INTO provider_templates (region_id, plan_id, name, provider, config, hotswap)
 			values ($1, $2, $3, $4, $5, $6);`, r.ID, p1.ID, "do-512MB", "digitalocean", "", false)
 		Expect(err).To(BeNil())
-		_, err = db.Exec(`INSERT INTO provider_templates (region_id, plan_id, name, provider, config, hotswap)
-			values ($1, $2, $3, $4, $5, $6);`, r.ID, p2.ID, "do-1GB", "digitalocean", "", false)
-		Expect(err).To(BeNil())
 		_, err = db.Exec(`INSERT INTO provider_templates (region_id, plan_id, name, provider, config, hotswap, disabled)
 			values ($1, $2, $3, $4, $5, $6, $7);`, r.ID, p2.ID, "do-hotswap-1GB", "digitalocean", "", true, true)
 		Expect(err).To(BeNil())
@@ -61,17 +58,15 @@ var _ = Describe("models/providertemplate", func() {
 			pts, err := providertemplate.All(db)
 			Expect(err).To(BeNil())
 
-			Expect(pts).To(HaveLen(3))
+			Expect(pts).To(HaveLen(2))
 
-			pt1, pt2, pt3 := pts[0], pts[1], pts[2]
+			pt1, pt2 := pts[0], pts[1]
 
 			Expect([]string{
 				pt1.Name, pt1.Provider,
 				pt2.Name, pt2.Provider,
-				pt3.Name, pt3.Provider,
 			}).To(ConsistOf([]string{
 				"do-512MB", "digitalocean",
-				"do-1GB", "digitalocean",
 				"do-hotswap-1GB", "digitalocean",
 			}))
 		})
@@ -173,13 +168,13 @@ var _ = Describe("models/providertemplate", func() {
 				Provider: "digitalocean",
 				Name:     "",
 				Disabled: false,
-				Hotswap:  false,
+				Hotswap:  true,
 			}
 
 			newPT, err := pt.RespecTemplate(db, p2)
 			Expect(err).To(BeNil())
 
-			Expect(newPT.Name).To(Equal("do-1GB"))
+			Expect(newPT.Name).To(Equal("do-hotswap-1GB"))
 			Expect(newPT.ID).NotTo(BeZero())
 			Expect(newPT.RegionID).To(Equal(r.ID))
 			Expect(newPT.PlanID).To(Equal(p2.ID))
@@ -192,7 +187,7 @@ var _ = Describe("models/providertemplate", func() {
 				PlanID:   p1.ID,
 				Provider: "digitalocean",
 				Name:     "",
-				Disabled: false,
+				Disabled: true,
 				Hotswap:  true,
 			}
 
