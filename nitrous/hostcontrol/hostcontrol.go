@@ -90,9 +90,11 @@ func Terminate(tx *sqlx.Tx, h *host.Host, headers http.Header, initiatorID int64
 	_, err := HostbuilderClient.Delete(h.Provider, h.MachineConfig(), headers, urlArgs)
 	if err != nil {
 		if e, ok := err.(net.Error); ok && e.Timeout() {
-			logrus.Errorf("hostbuilder timeout deleting host: %v", e)
+			logrus.Errorf("hostcontrol.Terminate: timeout deleting host: %v", e)
+		} else {
+			logrus.Errorf("hostcontrol.Terminate: error deleting host: %v", e)
 		}
-		return err
+		// continue and delete from DB on error
 	}
 
 	if origState == "" {

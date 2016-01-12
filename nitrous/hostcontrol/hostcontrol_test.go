@@ -289,12 +289,12 @@ var _ = Describe("hostcontrol", func() {
 				hostcontrol.HostbuilderClient = hb
 			})
 
-			It("does not delete the host", func() {
-				Expect(terminateHost()).ToNot(BeNil())
+			It("deletes the host in db", func() {
+				Expect(terminateHost()).To(BeNil())
 
 				h, err := host.Find(db, hs.U, hs.H.Slug)
-				Expect(err).To(BeNil())
-				Expect(h).NotTo(BeNil())
+				Expect(err).To(MatchError(sql.ErrNoRows))
+				Expect(h).To(BeNil())
 			})
 		})
 	})
