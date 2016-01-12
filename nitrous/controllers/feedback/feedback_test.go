@@ -141,9 +141,9 @@ var _ = Describe("controllers/feedback", func() {
 		Expect(err).To(BeNil())
 
 		_, err = db.Exec(`INSERT INTO hosts 
-(user_id, plan_id, region_id, subscription_id, state, slug, provider_template_id, freighterd_version, docker_version)
-VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9);`,
-			u.ID, p.ID, hs.R.ID, s.ID, host.StateRunning, "abc", hs.PT.ID, "xyz", "abc")
+(user_id, plan_id, region_id, subscription_id, state, slug, provider_template_id)
+VALUES ($1, $2, $3, $4, $5, $6, $7);`,
+			u.ID, p.ID, hs.R.ID, s.ID, host.StateRunning, "abc", hs.PT.ID)
 		Expect(err).To(BeNil())
 	})
 

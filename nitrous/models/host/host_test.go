@@ -169,11 +169,6 @@ var _ = Describe("models/host", func() {
 	})
 
 	Describe("FindAllByProvider()", func() {
-		var (
-			fv = "1.0.69-deadbeef-88"
-			dv = "1.4.1-nitrous"
-		)
-
 		It("returns all (unterminated) hosts of the given provider", func() {
 			// Terminate the host created with the shared host stack so we don't
 			// have to account for it.
@@ -189,14 +184,14 @@ var _ = Describe("models/host", func() {
 
 			Expect(err).To(BeNil())
 			_, err = db.Exec(`INSERT INTO hosts
-				(user_id, slug, region_id, plan_id, provider_template_id, freighterd_version, docker_version)
-				VALUES ($1, $2, $3, $4, $5, $6, $7);`,
-				u1.ID, "aruns-second-host", hs.R.ID, hs.P.ID, hs.PT.ID, fv, dv)
+				(user_id, slug, region_id, plan_id, provider_template_id)
+				VALUES ($1, $2, $3, $4, $5);`,
+				u1.ID, "aruns-second-host", hs.R.ID, hs.P.ID, hs.PT.ID)
 			Expect(err).To(BeNil())
 			_, err = db.Exec(`INSERT INTO hosts
-				(user_id, slug, region_id, plan_id, provider_template_id, freighterd_version, docker_version, terminated_at)
-				VALUES ($1, $2, $3, $4, $5, $6, $7, $8);`, // Terminated host.
-				u1.ID, "aruns-first-host", hs.R.ID, hs.P.ID, hs.PT.ID, fv, dv, time.Now())
+				(user_id, slug, region_id, plan_id, provider_template_id, terminated_at)
+				VALUES ($1, $2, $3, $4, $5, $6);`, // Terminated host.
+				u1.ID, "aruns-first-host", hs.R.ID, hs.P.ID, hs.PT.ID, time.Now())
 			Expect(err).To(BeNil())
 
 			// Create some pre-provisioned hosts.
@@ -208,14 +203,14 @@ var _ = Describe("models/host", func() {
 			err = test.WrapInTransaction(db, u2.Insert)
 			Expect(err).To(BeNil())
 			_, err = db.Exec(`INSERT INTO hosts
-				(user_id, slug, region_id, plan_id, freighterd_version, docker_version, provider_template_id, preprovisioned, state)
-				VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9);`,
-				u2.ID, "preprovisioned-host-1", hs.R.ID, hs.P.ID, fv, dv, hs.PT.ID, true, host.StateRunning)
+				(user_id, slug, region_id, plan_id, provider_template_id, preprovisioned, state)
+				VALUES ($1, $2, $3, $4, $5, $6, $7);`,
+				u2.ID, "preprovisioned-host-1", hs.R.ID, hs.P.ID, hs.PT.ID, true, host.StateRunning)
 			Expect(err).To(BeNil())
 			_, err = db.Exec(`INSERT INTO hosts
-				(user_id, slug, region_id, plan_id, freighterd_version, docker_version, provider_template_id,preprovisioned, terminated_at)
-				VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9);`, // Terminated host.
-				u2.ID, "preprovisioned-host-2", hs.R.ID, hs.P.ID, fv, dv, hs.PT.ID, true, time.Now())
+				(user_id, slug, region_id, plan_id, provider_template_id,preprovisioned, terminated_at)
+				VALUES ($1, $2, $3, $4, $5, $6, $7);`, // Terminated host.
+				u2.ID, "preprovisioned-host-2", hs.R.ID, hs.P.ID, hs.PT.ID, true, time.Now())
 			Expect(err).To(BeNil())
 
 			// Create a host belonging to a different provider.
@@ -242,8 +237,6 @@ var _ = Describe("models/host", func() {
 
 		BeforeEach(func() {
 			var err error
-			fv := "1.0.69-deadbeef-88"
-			dv := "1.4.1-nitrous"
 
 			u1 = &user.User{
 				Username: "foo",
@@ -294,30 +287,30 @@ var _ = Describe("models/host", func() {
 
 			// insert a valid running host
 			_, err = db.Exec(`INSERT INTO hosts
-				(user_id, slug, region_id, plan_id, provider_template_id, freighterd_version, docker_version, subscription_id, org_id)
-				VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9);`,
-				u1.ID, "my-host-1", hs.R.ID, hs.P.ID, hs.PT.ID, fv, dv, s.ID, o.ID)
+				(user_id, slug, region_id, plan_id, provider_template_id, subscription_id, org_id)
+				VALUES ($1, $2, $3, $4, $5, $6, $7);`,
+				u1.ID, "my-host-1", hs.R.ID, hs.P.ID, hs.PT.ID, s.ID, o.ID)
 			Expect(err).To(BeNil())
 
 			// insert a terminated host
 			_, err = db.Exec(`INSERT INTO hosts
-				(user_id, slug, region_id, plan_id, provider_template_id, freighterd_version, docker_version, terminated_at)
-				VALUES ($1, $2, $3, $4, $5, $6, $7, now());`,
-				u1.ID, "my-host-2", hs.R.ID, hs.P.ID, hs.PT.ID, fv, dv)
+				(user_id, slug, region_id, plan_id, provider_template_id, terminated_at)
+				VALUES ($1, $2, $3, $4, $5, now());`,
+				u1.ID, "my-host-2", hs.R.ID, hs.P.ID, hs.PT.ID)
 			Expect(err).To(BeNil())
 
 			// insert a orphaned host
 			_, err = db.Exec(`INSERT INTO hosts
-				(user_id, slug, region_id, plan_id, provider_template_id, freighterd_version, docker_version, state)
-				VALUES ($1, $2, $3, $4, $5, $6, $7, $8);`,
-				u1.ID, "my-host-3", hs.R.ID, hs.P.ID, hs.PT.ID, fv, dv, "orphan")
+				(user_id, slug, region_id, plan_id, provider_template_id, state)
+				VALUES ($1, $2, $3, $4, $5, $6);`,
+				u1.ID, "my-host-3", hs.R.ID, hs.P.ID, hs.PT.ID, "orphan")
 			Expect(err).To(BeNil())
 
 			// insert a migrating host
 			_, err = db.Exec(`INSERT INTO hosts
-				(user_id, slug, region_id, plan_id, provider_template_id, freighterd_version, docker_version, state)
-				VALUES ($1, $2, $3, $4, $5, $6, $7, $8);`,
-				u1.ID, "my-host-4", hs.R.ID, hs.P.ID, hs.PT.ID, fv, dv, "migrating")
+				(user_id, slug, region_id, plan_id, provider_template_id, state)
+				VALUES ($1, $2, $3, $4, $5, $6);`,
+				u1.ID, "my-host-4", hs.R.ID, hs.P.ID, hs.PT.ID, "migrating")
 			Expect(err).To(BeNil())
 		})
 
@@ -368,8 +361,6 @@ var _ = Describe("models/host", func() {
 
 		BeforeEach(func() {
 			var err error
-			fv := "1.0.69-deadbeef-88"
-			dv := "1.4.1-nitrous"
 
 			u = &user.User{
 				Username: "aroonthampy",
@@ -431,42 +422,42 @@ var _ = Describe("models/host", func() {
 
 			// insert valid running hosts belonging to the org
 			_, err = db.Exec(`INSERT INTO hosts
-				(user_id, slug, region_id, plan_id, provider_template_id, freighterd_version, docker_version, subscription_id, org_id)
-				VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9);`,
-				u.ID, "zerobotlabs-host-1", hs.R.ID, hs.P.ID, hs.PT.ID, fv, dv, orgSub.ID, o.ID)
+				(user_id, slug, region_id, plan_id, provider_template_id, subscription_id, org_id)
+				VALUES ($1, $2, $3, $4, $5, $6, $7);`,
+				u.ID, "zerobotlabs-host-1", hs.R.ID, hs.P.ID, hs.PT.ID, orgSub.ID, o.ID)
 			Expect(err).To(BeNil())
 			_, err = db.Exec(`INSERT INTO hosts
-				(user_id, slug, region_id, plan_id, provider_template_id, freighterd_version, docker_version, subscription_id, org_id)
-				VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9);`,
-				u.ID, "zerobotlabs-host-2", hs.R.ID, hs.P.ID, hs.PT.ID, fv, dv, orgSub.ID, o.ID)
+				(user_id, slug, region_id, plan_id, provider_template_id, subscription_id, org_id)
+				VALUES ($1, $2, $3, $4, $5, $6, $7);`,
+				u.ID, "zerobotlabs-host-2", hs.R.ID, hs.P.ID, hs.PT.ID, orgSub.ID, o.ID)
 			Expect(err).To(BeNil())
 
 			// insert valid personal host
 			_, err = db.Exec(`INSERT INTO hosts
-				(user_id, slug, region_id, plan_id, provider_template_id, freighterd_version, docker_version, subscription_id)
-				VALUES ($1, $2, $3, $4, $5, $6, $7, $8);`,
-				u.ID, "my-host-1", hs.R.ID, hs.P.ID, hs.PT.ID, fv, dv, s.ID)
+				(user_id, slug, region_id, plan_id, provider_template_id, subscription_id)
+				VALUES ($1, $2, $3, $4, $5, $6);`,
+				u.ID, "my-host-1", hs.R.ID, hs.P.ID, hs.PT.ID, s.ID)
 			Expect(err).To(BeNil())
 
 			// insert a terminated host
 			_, err = db.Exec(`INSERT INTO hosts
-				(user_id, slug, region_id, plan_id, provider_template_id, freighterd_version, docker_version, terminated_at, subscription_id, org_id)
-				VALUES ($1, $2, $3, $4, $5, $6, $7, now(), $8, $9);`,
-				u.ID, "my-host-2", hs.R.ID, hs.P.ID, hs.PT.ID, fv, dv, orgSub.ID, o.ID)
+				(user_id, slug, region_id, plan_id, provider_template_id, terminated_at, subscription_id, org_id)
+				VALUES ($1, $2, $3, $4, $5, now(), $6, $7);`,
+				u.ID, "my-host-2", hs.R.ID, hs.P.ID, hs.PT.ID, orgSub.ID, o.ID)
 			Expect(err).To(BeNil())
 
 			// insert a orphaned host
 			_, err = db.Exec(`INSERT INTO hosts
-				(user_id, slug, region_id, plan_id, provider_template_id, freighterd_version, docker_version, state, subscription_id, org_id)
-				VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10);`,
-				u.ID, "my-host-3", hs.R.ID, hs.P.ID, hs.PT.ID, fv, dv, "orphan", orgSub.ID, o.ID)
+				(user_id, slug, region_id, plan_id, provider_template_id, state, subscription_id, org_id)
+				VALUES ($1, $2, $3, $4, $5, $6, $7, $8);`,
+				u.ID, "my-host-3", hs.R.ID, hs.P.ID, hs.PT.ID, "orphan", orgSub.ID, o.ID)
 			Expect(err).To(BeNil())
 
 			// insert a migrating host
 			_, err = db.Exec(`INSERT INTO hosts
-				(user_id, slug, region_id, plan_id, provider_template_id, freighterd_version, docker_version, state, subscription_id, org_id)
-				VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10);`,
-				u.ID, "my-host-4", hs.R.ID, hs.P.ID, hs.PT.ID, fv, dv, "migrating", orgSub.ID, o.ID)
+				(user_id, slug, region_id, plan_id, provider_template_id, state, subscription_id, org_id)
+				VALUES ($1, $2, $3, $4, $5, $6, $7, $8);`,
+				u.ID, "my-host-4", hs.R.ID, hs.P.ID, hs.PT.ID, "migrating", orgSub.ID, o.ID)
 			Expect(err).To(BeNil())
 		})
 
@@ -517,8 +508,6 @@ var _ = Describe("models/host", func() {
 
 		BeforeEach(func() {
 			var err error
-			fv := "1.0.69-deadbeef-88"
-			dv := "1.4.1-nitrous"
 
 			u1 = &user.User{
 				Username: "foo",
@@ -537,14 +526,14 @@ var _ = Describe("models/host", func() {
 			Expect(err).To(BeNil())
 
 			_, err = db.Exec(`INSERT INTO hosts
-				(user_id, slug, region_id, plan_id, provider_template_id, freighterd_version, docker_version)
-				VALUES ($1, $2, $3, $4, $5, $6, $7);`,
-				u1.ID, "my-host-1", hs.R.ID, hs.P.ID, hs.PT.ID, fv, dv)
+				(user_id, slug, region_id, plan_id, provider_template_id)
+				VALUES ($1, $2, $3, $4, $5);`,
+				u1.ID, "my-host-1", hs.R.ID, hs.P.ID, hs.PT.ID)
 			Expect(err).To(BeNil())
 			_, err = db.Exec(`INSERT INTO hosts
-				(user_id, slug, region_id, plan_id, provider_template_id, freighterd_version, docker_version, terminated_at)
-				VALUES ($1, $2, $3, $4, $5, $6, $7, now());`,
-				u1.ID, "my-host-2", hs.R.ID, hs.P.ID, hs.PT.ID, fv, dv)
+				(user_id, slug, region_id, plan_id, provider_template_id, terminated_at)
+				VALUES ($1, $2, $3, $4, $5, now());`,
+				u1.ID, "my-host-2", hs.R.ID, hs.P.ID, hs.PT.ID)
 			Expect(err).To(BeNil())
 		})
 
@@ -582,8 +571,6 @@ var _ = Describe("models/host", func() {
 
 		BeforeEach(func() {
 			var err error
-			fv := "1.0.69-deadbeef-88"
-			dv := "1.4.1-nitrous"
 
 			u1 = &user.User{
 				Username: "foo",
@@ -640,23 +627,23 @@ var _ = Describe("models/host", func() {
 
 			// insert a valid running host
 			_, err = db.Exec(`INSERT INTO hosts
-				(user_id, slug, region_id, plan_id, provider_template_id, freighterd_version, docker_version, subscription_id)
-				VALUES ($1, $2, $3, $4, $5, $6, $7, $8);`,
-				u1.ID, "my-host-1", hs.R.ID, hs.P.ID, hs.PT.ID, fv, dv, s.ID)
+				(user_id, slug, region_id, plan_id, provider_template_id, subscription_id)
+				VALUES ($1, $2, $3, $4, $5, $6);`,
+				u1.ID, "my-host-1", hs.R.ID, hs.P.ID, hs.PT.ID, s.ID)
 			Expect(err).To(BeNil())
 
 			// insert a terminated host
 			_, err = db.Exec(`INSERT INTO hosts
-				(user_id, slug, region_id, plan_id, provider_template_id, freighterd_version, docker_version, subscription_id, terminated_at)
-				VALUES ($1, $2, $3, $4, $5, $6, $7, $8, now());`,
-				u1.ID, "my-host-2", hs.R.ID, hs.P.ID, hs.PT.ID, fv, dv, s.ID)
+				(user_id, slug, region_id, plan_id, provider_template_id, subscription_id, terminated_at)
+				VALUES ($1, $2, $3, $4, $5, $6, now());`,
+				u1.ID, "my-host-2", hs.R.ID, hs.P.ID, hs.PT.ID, s.ID)
 			Expect(err).To(BeNil())
 
 			// insert a valid running host
 			_, err = db.Exec(`INSERT INTO hosts
-				(user_id, slug, region_id, plan_id, provider_template_id, freighterd_version, docker_version, subscription_id)
-				VALUES ($1, $2, $3, $4, $5, $6, $7, $8);`,
-				u1.ID, "my-host-3", hs.R.ID, hs.P.ID, hs.PT.ID, fv, dv, s2.ID)
+				(user_id, slug, region_id, plan_id, provider_template_id, subscription_id)
+				VALUES ($1, $2, $3, $4, $5, $6);`,
+				u1.ID, "my-host-3", hs.R.ID, hs.P.ID, hs.PT.ID, s2.ID)
 			Expect(err).To(BeNil())
 		})
 

@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"time"
 
+	"github.com/lib/pq"
 	"github.com/nitrous-io/dedicated/nitrous/models/billingprofile"
 	"github.com/nitrous-io/dedicated/nitrous/models/user"
 	"github.com/nitrous-io/dedicated/nitrous/models/userprofile"
@@ -30,6 +31,7 @@ var _ = Describe("user serializer", func() {
 			Email:             "h.granger@hogwarts.edu",
 			Admin:             true,
 			UnconfirmedEmail:  sql.NullString{"h.granger+nospam@hogwarts.edu", true},
+			ConfirmedAt:       pq.NullTime{},
 			FirstTime:         true,
 			Phone:             sql.NullString{"88884444", true},
 			PhoneCountryCode:  sql.NullString{"65", true},
@@ -53,6 +55,7 @@ var _ = Describe("user serializer", func() {
 				"email": "h.granger@hogwarts.edu",
 				"admin": true,
 				"unconfirmed_email": "h.granger+nospam@hogwarts.edu",
+				"confirmed": false,
 				"first_time": true,
 				"phone": "88884444",
 				"phone_country_code": "65",
@@ -74,6 +77,31 @@ var _ = Describe("user serializer", func() {
 				"username": "emmawatson",
 				"email": "h.granger@hogwarts.edu",
 				"admin": true,
+				"confirmed": false,
+				"first_time": true,
+				"phone": "88884444",
+				"phone_country_code": "65",
+				"phone_authed": false,
+				"max_containers": 99,
+				"created_at": "2013-11-01T00:00:00Z",
+				"updated_at": "2013-11-02T00:00:00Z"
+			}`))
+		})
+
+		It("should include confirmed: true when ConfirmedAt is non-zero", func() {
+			model.UnconfirmedEmail = sql.NullString{}
+			model.ConfirmedAt = pq.NullTime{time.Date(2013, time.November, 1, 0, 0, 0, 0, time.UTC), true}
+
+			u := serializers.SerializeUser(model)
+			b, err := json.Marshal(u)
+			Expect(err).To(BeNil())
+			Expect(b).To(MatchJSON(`{
+				"id": 10,
+				"name": "Emma Watson",
+				"username": "emmawatson",
+				"email": "h.granger@hogwarts.edu",
+				"admin": true,
+				"confirmed": true,
 				"first_time": true,
 				"phone": "88884444",
 				"phone_country_code": "65",
@@ -96,6 +124,7 @@ var _ = Describe("user serializer", func() {
 				"email": "h.granger@hogwarts.edu",
 				"unconfirmed_email": "h.granger+nospam@hogwarts.edu",
 				"admin": true,
+				"confirmed": false,
 				"first_time": true,
 				"phone": "88884444",
 				"phone_country_code": "65",
@@ -117,11 +146,12 @@ var _ = Describe("user serializer", func() {
 				"email": "h.granger@hogwarts.edu",
 				"unconfirmed_email": "h.granger+nospam@hogwarts.edu",
 				"admin": true,
+				"confirmed": false,
 				"first_time": true,
 				"phone": "88884444",
 				"phone_country_code": "65",
 				"phone_authed": false,
-                                "max_containers": 99,
+				"max_containers": 99,
 				"can_use_desktop_app": false,
 				"created_at": "2013-11-01T00:00:00Z",
 				"updated_at": "2013-11-02T00:00:00Z"
@@ -140,11 +170,12 @@ var _ = Describe("user serializer", func() {
 				"email": "h.granger@hogwarts.edu",
 				"unconfirmed_email": "h.granger+nospam@hogwarts.edu",
 				"admin": true,
+				"confirmed": false,
 				"first_time": true,
 				"phone": "88884444",
 				"phone_country_code": "65",
 				"phone_authed": false,
-                                "max_containers": 99,
+				"max_containers": 99,
 				"can_use_desktop_app": true,
 				"created_at": "2013-11-01T00:00:00Z",
 				"updated_at": "2013-11-02T00:00:00Z"
@@ -155,7 +186,7 @@ var _ = Describe("user serializer", func() {
 	Describe("SerializeUserWithProfiles", func() {
 		It("serializes to JSON", func() {
 			up := &userprofile.UserProfile{
-				ID:        10,
+				ID:        8,
 				UserID:    10,
 				MaxHosts:  2,
 				Advanced:  false,
@@ -164,7 +195,7 @@ var _ = Describe("user serializer", func() {
 			}
 
 			bp := &billingprofile.BillingProfile{
-				ID:        10,
+				ID:        9,
 				UserID:    10,
 				State:     "paid",
 				StripeID:  sql.NullString{"sk_0001", true},
@@ -185,14 +216,16 @@ var _ = Describe("user serializer", func() {
 				"username": "emmawatson",
 				"email": "h.granger@hogwarts.edu",
 				"unconfirmed_email": "h.granger+nospam@hogwarts.edu",
+				"confirmed": false,
 				"admin": true,
 				"user_profile": {
+					"user_id": 10,
 					"max_hosts": 2,
 					"advanced": false,
 					"can_delete_github_public_keys": false
 				},
 				"billing_profile": {
-					"id": 10,
+					"id": 9,
 					"user_id": 10,
 					"org_id": null,
 					"state": "paid",

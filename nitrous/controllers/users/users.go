@@ -83,8 +83,7 @@ func Update(env *middleware.Env, w http.ResponseWriter, r *http.Request) error {
 	existingPassword := r.PostFormValue("existing_password")
 
 	if email == "" && password == "" && name == "" {
-		userResponse(env, u)
-		return nil
+		return setUserResponse(env, u)
 	}
 
 	if existingPassword != "" && password != "" && !bcrypt.Verify(u.EncryptedPassword, existingPassword) {
@@ -152,8 +151,7 @@ func Update(env *middleware.Env, w http.ResponseWriter, r *http.Request) error {
 		"$name":  u.Name,
 	})
 
-	userResponse(env, u)
-	return nil
+	return setUserResponse(env, u)
 }
 
 func UpdatePhone(env *middleware.Env, w http.ResponseWriter, r *http.Request) error {
@@ -202,8 +200,7 @@ func UpdatePhone(env *middleware.Env, w http.ResponseWriter, r *http.Request) er
 		return err
 	}
 
-	userResponse(env, u)
-	return nil
+	return setUserResponse(env, u)
 }
 
 func ResendPhoneCode(env *middleware.Env, w http.ResponseWriter, r *http.Request) error {
@@ -493,12 +490,22 @@ func Exists(env *middleware.Env, w http.ResponseWriter, r *http.Request) error {
 	return nil
 }
 
-func userResponse(env *middleware.Env, u *user.User) {
+func setUserResponse(env *middleware.Env, u *user.User) error {
+	up, err := userprofile.Find(env.DB, u.ID)
+	if err != nil {
+		return err
+	}
+
+	bp, err := billingprofile.Find(env.DB, u.ID)
+	if err != nil {
+		return err
+	}
+
 	env.Status = http.StatusOK
 	env.Data = map[string]interface{}{
-		"user": serializers.SerializeUser(u),
+		"user": serializers.SerializeUserWithProfiles(u, up, bp),
 	}
-	return
+	return nil
 }
 
 func sanitizePhone(phoneNum string) string {

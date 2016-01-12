@@ -17,8 +17,8 @@ var _ = Describe("userprofile serializer", func() {
 		updatedAt = time.Date(2013, time.November, 2, 0, 0, 0, 0, time.UTC)
 
 		model = &userprofile.UserProfile{
-			ID:                   10, // Not serialized.
-			UserID:               10, // Not serialized.
+			ID:                   9, // Not serialized.
+			UserID:               10,
 			MaxHosts:             15,
 			Advanced:             false,
 			GitHubUserName:       sql.NullString{"foo", true},
@@ -35,6 +35,7 @@ var _ = Describe("userprofile serializer", func() {
 			b, err := json.Marshal(p)
 			Expect(err).To(BeNil())
 			Expect(b).To(MatchJSON(`{
+				"user_id": 10,
 				"max_hosts": 15,
 				"advanced": false,
 				"authorized_github_user_name": "foo",
