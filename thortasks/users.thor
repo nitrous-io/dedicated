@@ -50,6 +50,25 @@ class Users < Thor
     end
   end
 
+  desc "to_cancel", "Lists users whose subscriptions are eligible to cancel"
+  def to_cancel
+    rs = DB[:users].distinct(:subscriptions__updated_at).
+      select_more(:billing_profiles__stripe_id___customer_id).
+      select_more(:subscriptions__stripe_id___sub_id).
+      join(:billing_profiles, user_id: :users__id).
+      join(:hosts, user_id: :users__id).
+      join(:subscriptions, id: :hosts__subscription_id).
+      where(subscriptions__state: 'unpaid').
+      where(hosts__terminated_at: nil).
+      order(:subscriptions__updated_at)
+    puts "Failed subscriptions:"
+    max_username = rs.map {|r| r[:username] }.max_by(&:size).size
+    max_email = rs.map {|r| r[:email] }.max_by(&:size).size
+    rs.each do |r|
+      printf "%-#{max_username}s | %-#{max_email}s | %14s | %14s\n", r[:username], r[:email], r[:customer_id], r[:sub_id]
+    end
+  end
+
   desc "flatiron_token IDENT", "Returns most recent token for flatiron user IDENT. Creates token if none present"
   def flatiron_token(ident)
     u = User.find(ident) {|ds| ds.where(users__deleted_at: nil) }
