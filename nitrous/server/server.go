@@ -19,7 +19,6 @@ import (
 	"time"
 
 	"github.com/Sirupsen/logrus"
-	"github.com/deferpanic/deferclient/deferstats"
 	"github.com/facebookgo/httpdown"
 	"github.com/gorilla/mux"
 	"github.com/nitrous-io/dedicated/nitrous/db"
@@ -71,10 +70,9 @@ type Server struct {
 
 	SubscriptionProvider subscriptions.Provider
 
-	router           *mux.Router
-	root             string
-	db               *db.Database
-	deferstatsClient *deferstats.Client
+	router *mux.Router
+	root   string
+	db     *db.Database
 }
 
 type RouteOpts struct {
@@ -82,7 +80,7 @@ type RouteOpts struct {
 	LogParams bool
 }
 
-func NewServer(root string, db *db.Database, conf *provisioner.Config, deferstatsClient *deferstats.Client) *Server {
+func NewServer(root string, db *db.Database, conf *provisioner.Config) *Server {
 	events := pubsub.New(128)
 	svr := &Server{
 		Events:               events,
@@ -95,7 +93,6 @@ func NewServer(root string, db *db.Database, conf *provisioner.Config, deferstat
 		root:                 root,
 		db:                   db,
 		router:               mux.NewRouter(),
-		deferstatsClient:     deferstatsClient,
 	}
 	svr.drawRoutes()
 	return svr
@@ -344,13 +341,6 @@ func (s *Server) RespondEncodeJSON(env *middleware.Env, w http.ResponseWriter, r
 // something wrong with the controller. We transform that error into a
 // httperror.Error and log it.
 func (s *Server) serverError(err error, uuid string) error {
-	// Send it to DeferPanic
-	if s.deferstatsClient != nil {
-		if _, ok := err.(*httperror.Error); !ok {
-			s.deferstatsClient.Wrap(err)
-		}
-	}
-
 	errMsg := err.Error()
 	errHash := fmt.Sprintf("%x", sha1.Sum([]byte(errMsg)))
 	e := httperror.New(http.StatusInternalServerError, "internal_server_error", "", errHash)
