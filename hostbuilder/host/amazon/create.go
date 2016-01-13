@@ -19,8 +19,7 @@ func (h *Host) CreateWithQueue(qp queue.Publisher, queueInfo *host.QueueInfo) (*
 	ctx, cancel = context.WithTimeout(context.Background(), h.createTimeout())
 	defer cancel()
 
-	// Check if we should use the instance pool.
-	var useInstancePool bool
+	var useInstancePool = true // will be set to false if no instances available in pool
 
 	ami, err := getImage(h.provider, h.Config.SourceAMI)
 	if err != nil {
@@ -30,25 +29,22 @@ func (h *Host) CreateWithQueue(qp queue.Publisher, queueInfo *host.QueueInfo) (*
 
 	// If the AMI specifies a block device mapping for a user device, we use the
 	// instance pool.
-	if containsUserDevice(ami.BlockDevices) {
-		// TODO with always-hotswap, this should error out if false
-		h.Printf("creating hotswap instance")
-		useInstancePool = true
+	if !containsUserDevice(ami.BlockDevices) {
+		return nil, fmt.Errorf("AMI %s does not contain a user device", h.Config.SourceAMI)
 	}
+
+	h.Printf("creating hotswap instance")
 
 	var steps []host.Step
 
 	var instanceFromPool *ec2.Instance
-	if useInstancePool {
-		h.Printf("attempting to acquire instance of type %q from pool", h.Config.InstanceType)
+	h.Printf("attempting to acquire instance of type %q from pool", h.Config.InstanceType)
 
-		var err error
-		instanceFromPool, err = h.acquireInstance(h.provider, h.Config.InstanceType)
-		if err != nil {
-			h.Printf("could not acquire instance from pool, err: %v", err)
+	instanceFromPool, err = h.acquireInstance(h.provider, h.Config.InstanceType)
+	if err != nil {
+		h.Printf("could not acquire instance from pool, err: %v", err)
 
-			useInstancePool = false
-		}
+		useInstancePool = false
 	}
 
 	if !useInstancePool {
