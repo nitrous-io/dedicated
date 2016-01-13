@@ -39,11 +39,11 @@ var _ = Describe("models/providertemplate", func() {
 		p2 = &plan.Plan{Slug: "1gb", Name: "small", MaxContainers: 3, Price: 1000}
 		Expect(p2.Insert(db)).To(BeNil())
 
-		_, err = db.Exec(`INSERT INTO provider_templates (region_id, plan_id, name, provider, config, hotswap)
-			values ($1, $2, $3, $4, $5, $6);`, r.ID, p1.ID, "do-512MB", "digitalocean", "", false)
+		_, err = db.Exec(`INSERT INTO provider_templates (region_id, plan_id, name, provider, config)
+			values ($1, $2, $3, $4, $5);`, r.ID, p1.ID, "do-512MB", "digitalocean", "")
 		Expect(err).To(BeNil())
-		_, err = db.Exec(`INSERT INTO provider_templates (region_id, plan_id, name, provider, config, hotswap, disabled)
-			values ($1, $2, $3, $4, $5, $6, $7);`, r.ID, p2.ID, "do-hotswap-1GB", "digitalocean", "", true, true)
+		_, err = db.Exec(`INSERT INTO provider_templates (region_id, plan_id, name, provider, config, disabled)
+			values ($1, $2, $3, $4, $5, $6);`, r.ID, p2.ID, "do-hotswap-1GB", "digitalocean", "", true)
 		Expect(err).To(BeNil())
 	})
 
@@ -161,14 +161,13 @@ var _ = Describe("models/providertemplate", func() {
 	})
 
 	Describe("RespecTemplate()", func() {
-		It("returns the first provider template for the given region / plan / provider / hotswap combination", func() {
+		It("returns the first provider template for the given region / plan / provider combination", func() {
 			pt := &providertemplate.ProviderTemplate{
 				RegionID: r.ID,
 				PlanID:   p1.ID,
 				Provider: "digitalocean",
 				Name:     "",
 				Disabled: false,
-				Hotswap:  true,
 			}
 
 			newPT, err := pt.RespecTemplate(db, p2)
@@ -188,7 +187,6 @@ var _ = Describe("models/providertemplate", func() {
 				Provider: "digitalocean",
 				Name:     "",
 				Disabled: true,
-				Hotswap:  true,
 			}
 
 			newPT, err := pt.RespecTemplate(db, p2)
@@ -212,7 +210,6 @@ var _ = Describe("models/providertemplate", func() {
 				Provider: "digitalocean",
 				Name:     "",
 				Disabled: false,
-				Hotswap:  false,
 			}
 
 			newPT, err := pt.RespecTemplate(db, p2)
@@ -233,7 +230,6 @@ var _ = Describe("models/providertemplate", func() {
 				Provider:        "ec2",
 				PreprovisionMax: 2,
 				Disabled:        false,
-				Hotswap:         true,
 			}
 			err = pt.Insert(db)
 			Expect(err).To(BeNil())
@@ -250,7 +246,6 @@ var _ = Describe("models/providertemplate", func() {
 			Expect(pt.Provider).To(Equal("ec2"))
 			Expect(pt.PreprovisionMax).To(Equal(2))
 			Expect(pt.Disabled).To(BeFalse())
-			Expect(pt.Hotswap).To(BeTrue())
 		})
 
 		It("fills up ID and other fields in original struct", func() {
