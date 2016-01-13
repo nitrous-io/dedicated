@@ -37,7 +37,7 @@ var _ = Describe("controllers/dockerregistry", func() {
 		var err error
 		db, err = test.TestDatabase("nitrous_test")
 		Expect(err).To(BeNil())
-		svr = server.NewServer("", db, nil, nil)
+		svr = test.NewTestServer("", db, nil)
 
 		u := &user.User{
 			Username: "tokenuser",

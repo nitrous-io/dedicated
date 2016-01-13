@@ -1761,7 +1761,7 @@ var _ = Describe("models/host", func() {
 					"volume_id":  "vol-abcde",
 					"region_id":  "us-west-2",
 					"ip_address": "10.0.0.1",
-					"hotswap":    false,
+					"hotswap":    true,
 				},
 				&host.Host{
 					ID:                        42,
@@ -1828,7 +1828,7 @@ var _ = Describe("models/host", func() {
 					"volume_id":    "",
 					"region_id":    "",
 					"ip_address":   "",
-					"hotswap":      false,
+					"hotswap":      true,
 					"name":         "userhost-{{env}}-42",
 					"disable_eip":  false,
 					"source_ami":   "ami-deadface",

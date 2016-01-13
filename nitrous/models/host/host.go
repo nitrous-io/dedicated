@@ -606,7 +606,7 @@ func (h *Host) MachineConfig() hostbuilderclient.Config {
 		"volume_id":  h.ProviderStorageIdentifier.String,
 		"region_id":  h.RegionIdentifier.String,
 		"ip_address": h.IPAddress.String,
-		"hotswap":    h.Hotswap,
+		"hotswap":    true,
 	}
 
 	if pt := h.ProviderTemplate; pt != nil {

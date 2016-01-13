@@ -88,7 +88,7 @@ var _ = Describe("HostQueueHandler", func() {
 		_, err = db.Exec(`UPDATE plans SET stripe_plan_id = 'plan-id' WHERE id = $1;`, hs.P.ID)
 		Expect(err).To(BeNil())
 
-		svr = server.NewServer("", db, nil, nil)
+		svr = test.NewTestServer("", db, nil)
 		handler = svr.HostQueueHandler()
 	})
 

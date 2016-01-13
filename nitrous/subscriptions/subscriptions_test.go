@@ -1456,7 +1456,7 @@ var _ = Describe("subscriptions", func() {
 				PlanID:   pl2.ID,
 				RegionID: hs.PT.RegionID,
 				Provider: hs.PT.Provider,
-				Hotswap:  hs.PT.Hotswap,
+				Hotswap:  true,
 			}
 			Expect(pt2.Insert(db)).To(BeNil())
 
