@@ -1107,14 +1107,12 @@ var _ = Describe("controllers/hosts", func() {
 				ID        string `json:"id"`
 				IPAddress string `json:"ip_address"`
 				Region    string `json:"region_id"`
-				Hotswap   bool   `json:"hotswap"`
 			}{}
 			json.Unmarshal([]byte(rt.Requests[0].FormValue("config")), payload)
 
 			Expect(payload.ID).To(Equal(hs.H.ProviderIdentifier.String))
 			Expect(payload.IPAddress).To(Equal(hs.H.IPAddress.String))
 			Expect(payload.Region).To(Equal("us-east-1"))
-			Expect(payload.Hotswap).To(Equal(true))
 		})
 
 		It("publishes a host destroying event with the host that's being destroyed", func() {
@@ -1427,14 +1425,12 @@ var _ = Describe("controllers/hosts", func() {
 				ID        string `json:"id"`
 				IPAddress string `json:"ip_address"`
 				Region    string `json:"region_id"`
-				Hotswap   bool   `json:"hotswap"`
 			}{}
 			json.Unmarshal([]byte(rt.Requests[0].FormValue("config")), payload)
 
 			Expect(payload.ID).To(Equal(hs.H.ProviderIdentifier.String), "invalid id")
 			Expect(payload.IPAddress).To(Equal(hs.H.IPAddress.String), "invalid ip_address")
 			Expect(payload.Region).To(Equal("us-east-1"), "invalid region")
-			Expect(payload.Hotswap).To(Equal(true))
 		})
 
 		Context("when host is not in the stopped state", func() {
@@ -1718,14 +1714,12 @@ var _ = Describe("controllers/hosts", func() {
 				ID        string `json:"id"`
 				IPAddress string `json:"ip_address"`
 				Region    string `json:"region_id"`
-				Hotswap   bool   `json:"hotswap"`
 			}{}
 			json.Unmarshal([]byte(rt.Requests[0].FormValue("config")), payload)
 
 			Expect(payload.ID).To(Equal(hs.H.ProviderIdentifier.String))
 			Expect(payload.IPAddress).To(Equal(hs.H.IPAddress.String))
 			Expect(payload.Region).To(Equal("us-east-1"))
-			Expect(payload.Hotswap).To(Equal(true))
 		})
 
 		Context("when host is already stopped", func() {
@@ -1972,14 +1966,12 @@ var _ = Describe("controllers/hosts", func() {
 				ID        string `json:"id"`
 				IPAddress string `json:"ip_address"`
 				Region    string `json:"region_id"`
-				Hotswap   bool   `json:"hotswap"`
 			}{}
 			json.Unmarshal([]byte(rt.Requests[0].FormValue("config")), payload)
 
 			Expect(payload.ID).To(Equal(hs.H.ProviderIdentifier.String))
 			Expect(payload.IPAddress).To(Equal(hs.H.IPAddress.String))
 			Expect(payload.Region).To(Equal("us-east-1"))
-			Expect(payload.Hotswap).To(Equal(true))
 		})
 
 		Context("when host is not in the running state", func() {
@@ -2538,14 +2530,12 @@ var _ = Describe("controllers/hosts", func() {
 				ID        string `json:"id"`
 				IPAddress string `json:"ip_address"`
 				Region    string `json:"region_id"`
-				Hotswap   bool   `json:"hotswap"`
 			}{}
 			json.Unmarshal([]byte(rt.Requests[0].FormValue("config")), payload)
 
 			Expect(payload.ID).To(Equal(hs.H.ProviderIdentifier.String))
 			Expect(payload.IPAddress).To(Equal(hs.H.IPAddress.String))
 			Expect(payload.Region).To(Equal("us-east-1"))
-			Expect(payload.Hotswap).To(Equal(true))
 		})
 
 		Context("when host is not in the running state", func() {
@@ -2831,7 +2821,6 @@ var _ = Describe("controllers/hosts", func() {
 			Expect(config["volume_id"]).To(Equal(hs.H.ProviderStorageIdentifier.String))
 			Expect(config["region_id"]).To(Equal(hs.H.RegionIdentifier.String))
 			Expect(config["ip_address"]).To(Equal(hs.H.IPAddress.String))
-			Expect(config["hotswap"]).To(Equal(true))
 
 			// Provider template config.
 			Expect(config["instance_type"]).To(Equal("t2.micro"))

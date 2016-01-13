@@ -28,9 +28,7 @@ func (h *Host) Info() (*host.Info, error) {
 	if err == nil {
 		info.VolumeID = userVolume.VolumeId
 	} else {
-		if h.Config.Hotswap {
-			h.Printf("WARNING: Failed to find user volume in hotswap instance: %v", err)
-		}
+		h.Printf("WARNING: Failed to find user volume in hotswap instance: %v", err)
 	}
 
 	// Return root volume ID if we don't have a user volume.

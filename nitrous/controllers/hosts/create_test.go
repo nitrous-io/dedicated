@@ -626,16 +626,6 @@ var _ = Describe("POST /api/v0/hosts", func() {
 			Expect(crt.ServerKey).To(ContainSubstring("BEGIN RSA PRIVATE KEY"))
 		})
 
-		It("sends whether the provider template supports hotswap to hostbuilder", func() {
-			doRequest(params)
-
-			req := rt.Requests[0]
-			var config hostbuilderclient.Config
-			err := json.Unmarshal([]byte(req.FormValue("config")), &config)
-			Expect(err).To(BeNil())
-			Expect(config["hotswap"]).To(BeTrue())
-		})
-
 		It("responds with the progress data and created host", func() {
 			res := doRequest(params)
 			Expect(res.Code).To(Equal(http.StatusOK))
