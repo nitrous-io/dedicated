@@ -848,7 +848,6 @@ var _ = Describe("controllers/hosts", func() {
 					ProviderIdentifier: sql.NullString{"001", true},
 					IPAddress:          sql.NullString{"10.0.0.1", true},
 					RegionIdentifier:   sql.NullString{"us-east-1", true},
-					Hotswap:            true,
 				},
 				U: u,
 			})
@@ -1392,7 +1391,6 @@ var _ = Describe("controllers/hosts", func() {
 					State:            host.StateStopped,
 					IPAddress:        sql.NullString{"10.0.0.1", true},
 					RegionIdentifier: sql.NullString{"us-east-1", true},
-					Hotswap:          true,
 				},
 				U: u,
 			})
@@ -1683,7 +1681,6 @@ var _ = Describe("controllers/hosts", func() {
 					IPAddress:        sql.NullString{"127.0.0.1", true},
 					FreighterdPort:   sql.NullInt64{65333, true},
 					RegionIdentifier: sql.NullString{"us-east-1", true},
-					Hotswap:          true,
 				},
 				U: u,
 			})
@@ -1939,7 +1936,6 @@ var _ = Describe("controllers/hosts", func() {
 					State:            host.StateRunning,
 					IPAddress:        sql.NullString{"127.0.0.1", true},
 					RegionIdentifier: sql.NullString{"us-east-1", true},
-					Hotswap:          true,
 				},
 				U: u,
 			})
@@ -2521,7 +2517,6 @@ var _ = Describe("controllers/hosts", func() {
 					State:            host.StateRunning,
 					IPAddress:        sql.NullString{"127.0.0.1", true},
 					RegionIdentifier: sql.NullString{"us-east-1", true},
-					Hotswap:          true,
 				},
 				U: u,
 			})

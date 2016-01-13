@@ -1439,7 +1439,7 @@ var _ = Describe("subscriptions", func() {
 			Expect(rs.ProviderTemplateID).To(Equal(pt2.ID))
 		})
 
-		It("creates a respec to a provider template for the same region that satisfies the required plan and has the same hotswap value, even if it is disabled", func() {
+		It("creates a respec to a provider template for the same region that satisfies the required plan even if it is disabled", func() {
 			pl2 := &plan.Plan{
 				Slug:          "newStripePlan",
 				Name:          "newStripePlan",
@@ -1456,7 +1456,6 @@ var _ = Describe("subscriptions", func() {
 				PlanID:   pl2.ID,
 				RegionID: hs.PT.RegionID,
 				Provider: hs.PT.Provider,
-				Hotswap:  true,
 			}
 			Expect(pt2.Insert(db)).To(BeNil())
 

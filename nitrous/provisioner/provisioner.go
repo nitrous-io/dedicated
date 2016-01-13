@@ -253,7 +253,6 @@ func (p *Provisioner) prepare(opts ProvisionOptions) (*preparedHost, error) {
 		Name:               sql.NullString{opts.Name, true},
 		MaxContainers:      sql.NullInt64{opts.Plan.MaxContainers, true},
 		AutoShutdown:       opts.Plan.AutoShutdown,
-		Hotswap:            true, // TODO remove this field once hostbuilder no longer reads it
 		Size:               sql.NullString{opts.Plan.Slug, true},
 		State:              host.StateBorn,
 		OrgID:              opts.OrgID(),
