@@ -6,34 +6,14 @@ import (
 	mh "github.com/nitrous-io/dedicated/pkg/metricshelper"
 )
 
-// Destroy will either:
-// 1. for hosts prior to pre-EBS hotswapping, we release the EIP and terminate
-//    the instance, or
-// 2. for hosts that support EBS hotswapping, we delete the user volume. If the
-//    volume is attached to an instance, we terminate the instance as well.
+// Destroy will delete the user volume. If the volume is attached to an
+// instance, we terminate the instance as well.
 func (h *Host) Destroy() error {
 	label := h.MetricsLabel("destroy")
 	defer mh.UpdateSince(label, time.Now())
 
-	h.Printf("destroy - checking if instance %s / vol %s supports EBS hotswapping", h.Config.ID, h.Config.VolumeID)
-
-	// [Feature flag] - requires EBS hotswapping.
-	if h.Config.Hotswap {
-		h.Printf("destroying hotswap instance")
-		return h.destroyWithPool()
-	}
-
-	h.Printf("destroying pre-EBS hotswapping instance normally")
-
-	if err := h.reloadInstance(h.Config.ID); err != nil {
-		return mh.Error(err, label)
-	}
-
-	if err := h.terminateInstance(); err != nil {
-		return mh.Error(err, label)
-	}
-
-	return nil
+	h.Printf("destroying hotswap instance")
+	return h.destroyWithPool()
 }
 
 // destroyWithPool deletes the user volume. If the volume is attached to an

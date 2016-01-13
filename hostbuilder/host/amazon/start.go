@@ -16,23 +16,8 @@ func (h *Host) Start() (*host.Info, error) {
 	label := h.MetricsLabel("start")
 	defer mh.UpdateSince(label, time.Now())
 
-	// [Feature flag] - requires EBS hotswapping.
-	if h.Config.Hotswap {
-		h.Printf("starting hotswap instance")
-		return h.startWithPool()
-	}
-
-	h.Printf("starting pre-EBS hotswapping instance normally")
-
-	if err := h.reloadInstance(h.Config.ID); err != nil {
-		return nil, mh.Error(err, label)
-	}
-
-	if err := h.startInstance(); err != nil {
-		return nil, mh.Error(err, label)
-	}
-
-	return h.Info()
+	h.Printf("starting hotswap instance")
+	return h.startWithPool()
 }
 
 func (h *Host) startWithPool() (*host.Info, error) {
