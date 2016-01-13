@@ -1746,7 +1746,7 @@ var _ = Describe("models/host", func() {
 	Describe(".MachineConfig", func() {
 		It("returns configuration for the actual machine", func() {
 			testCases := map[*host.Host]hostbuilderclient.Config{
-				&host.Host{
+				&host.Host{ // test base amazon provider fields
 					ID:                        42,
 					ProviderIdentifier:        sql.NullString{"i-123456", true},
 					ProviderStorageIdentifier: sql.NullString{"vol-abcde", true},
@@ -1758,9 +1758,8 @@ var _ = Describe("models/host", func() {
 					"volume_id":  "vol-abcde",
 					"region_id":  "us-west-2",
 					"ip_address": "10.0.0.1",
-					"hotswap":    true,
 				},
-				&host.Host{
+				&host.Host{ // test null ProviderStorageIdentifier
 					ID:                        42,
 					ProviderIdentifier:        sql.NullString{"i-123456", true},
 					ProviderStorageIdentifier: sql.NullString{},
@@ -1773,9 +1772,8 @@ var _ = Describe("models/host", func() {
 					"volume_id":  "",
 					"region_id":  "us-west-2",
 					"ip_address": "10.0.0.1",
-					"hotswap":    true,
 				},
-				&host.Host{
+				&host.Host{ // test provider template config gets copied
 					ID:                        42,
 					ProviderIdentifier:        sql.NullString{"i-123456", true},
 					ProviderStorageIdentifier: sql.NullString{"vol-abcde", true},
@@ -1798,14 +1796,13 @@ var _ = Describe("models/host", func() {
 					"volume_id":     "vol-abcde",
 					"region_id":     "us-west-2",
 					"ip_address":    "10.0.0.1",
-					"hotswap":       true,
 					"name":          "userhost-{{env}}-42",
 					"disable_eip":   true,
 					"instance_type": "t2.micro",
 					"source_ami":    "ami-zxcv",
 					"storage_size":  10,
 				},
-				&host.Host{
+				&host.Host{ // test SourceAMI
 					ID:        42,
 					SourceAMI: sql.NullString{"ami-deadface", true},
 					ProviderTemplate: &providertemplate.ProviderTemplate{
@@ -1823,7 +1820,6 @@ var _ = Describe("models/host", func() {
 					"volume_id":    "",
 					"region_id":    "",
 					"ip_address":   "",
-					"hotswap":      true,
 					"name":         "userhost-{{env}}-42",
 					"disable_eip":  false,
 					"source_ami":   "ami-deadface",
