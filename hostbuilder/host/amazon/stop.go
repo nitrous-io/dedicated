@@ -24,12 +24,6 @@ func (h *Host) StopWithQueue(qp queue.Publisher, queueInfo *host.QueueInfo) (*ho
 	}
 
 	h.Printf("stopping hotswap instance")
-	return h.stopWithPool(qp, queueInfo)
-}
-
-func (h *Host) stopWithPool(qp queue.Publisher, queueInfo *host.QueueInfo) (*host.Info, error) {
-	label := h.MetricsLabel("stop_with_pool")
-	defer mh.UpdateSince(label, time.Now())
 
 	var (
 		ctx    context.Context

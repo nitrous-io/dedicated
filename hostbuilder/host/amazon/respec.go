@@ -62,15 +62,6 @@ func (h *Host) RespecWithQueue(qp queue.Publisher, queueInfo *host.QueueInfo) (*
 	}
 
 	h.Printf("respeccing hotswap instance")
-	return h.respecWithPool(qp, queueInfo)
-}
-
-// respecWithPool changes the specs of an existing host that supports EBS
-// hotswapping. "WithPool" is a misnomer (since we don't use the instance pool
-// atm) but keeping it as a greppable convention (see startWithPool, etc).
-func (h *Host) respecWithPool(qp queue.Publisher, queueInfo *host.QueueInfo) (*host.Info, error) {
-	label := h.MetricsLabel("respec_with_pool")
-	defer mh.UpdateSince(label, time.Now())
 
 	// If we don't have an ID (i.e. provider_identifier from nitrousd), the
 	// host is a hotswap host that's stopped.

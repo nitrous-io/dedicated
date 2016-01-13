@@ -17,10 +17,6 @@ func (h *Host) Start() (*host.Info, error) {
 	defer mh.UpdateSince(label, time.Now())
 
 	h.Printf("starting hotswap instance")
-	return h.startWithPool()
-}
-
-func (h *Host) startWithPool() (*host.Info, error) {
 	h.Printf("checking if volume is detached")
 	vol, err := h.getVolume(h.Config.VolumeID)
 	if err != nil {
@@ -48,8 +44,8 @@ func (h *Host) startWithPool() (*host.Info, error) {
 		return h.attachToNewInstance(h.Config.VolumeID)
 	}
 
-	label := h.MetricsLabel("start_with_pool")
-	defer mh.UpdateSince(label, time.Now())
+	plabel := h.MetricsLabel("start_with_pool")
+	defer mh.UpdateSince(plabel, time.Now())
 
 	h.instance = instance
 

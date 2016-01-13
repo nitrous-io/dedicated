@@ -13,14 +13,6 @@ func (h *Host) Destroy() error {
 	defer mh.UpdateSince(label, time.Now())
 
 	h.Printf("destroying hotswap instance")
-	return h.destroyWithPool()
-}
-
-// destroyWithPool deletes the user volume. If the volume is attached to an
-// instance, we terminate the instance and release any associated EIP.
-func (h *Host) destroyWithPool() error {
-	label := h.MetricsLabel("destroy_with_pool")
-	defer mh.UpdateSince(label, time.Now())
 
 	volumeID := h.Config.VolumeID
 
