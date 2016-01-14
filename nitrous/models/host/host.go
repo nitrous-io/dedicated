@@ -139,8 +139,6 @@ type Host struct {
 	// non-null if freighter cannot be reached
 	UnavailableAt pq.NullTime `db:"unavailable_at"`
 
-	Hotswap bool `db:"hotswap"`
-
 	PendingRespec bool
 
 	// Stroage Device ID ( VolumeID for amazon )
@@ -412,12 +410,12 @@ func (h *Host) Insert(d db.QueryReceiver) error {
 			user_id, org_id, region_id, plan_id, provider_template_id, slug, name, secret,
 			state, ip_address, static_ip, provider_identifier, max_containers, size, freighterd_port,
 			hourly_price, free, preprovisioned,
-			region_identifier, last_pinged_at, auto_shutdown, hotswap, subscription_id
+			region_identifier, last_pinged_at, auto_shutdown, subscription_id
 		) VALUES (
 			:user_id, :org_id, :region_id, :plan_id, :provider_template_id, :slug, :name, :secret,
 			:state, :ip_address, :static_ip, :provider_identifier, :max_containers, :size, :freighterd_port,
 			:hourly_price, :free, :preprovisioned,
-			:region_identifier, :last_pinged_at, :auto_shutdown, :hotswap, :subscription_id
+			:region_identifier, :last_pinged_at, :auto_shutdown, :subscription_id
 		)
 		RETURNING *;`)
 	if err != nil {
@@ -606,7 +604,6 @@ func (h *Host) MachineConfig() hostbuilderclient.Config {
 		"volume_id":  h.ProviderStorageIdentifier.String,
 		"region_id":  h.RegionIdentifier.String,
 		"ip_address": h.IPAddress.String,
-		"hotswap":    true,
 	}
 
 	if pt := h.ProviderTemplate; pt != nil {

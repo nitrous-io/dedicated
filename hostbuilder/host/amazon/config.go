@@ -71,8 +71,6 @@ type hostConfig struct {
 	HostID   int64  `json:"host_id"` // database id of the host
 	VolumeID string `json:"volume_id"`
 
-	Hotswap bool `json:"hotswap"`
-
 	Name            string `json:"name"`
 	SourceAMI       string `json:"source_ami"`
 	InstanceType    string `json:"instance_type"`

@@ -4,8 +4,6 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/Sirupsen/logrus"
-	"github.com/mitchellh/goamz/ec2"
 	"github.com/nitrous-io/dedicated/event"
 	"github.com/nitrous-io/dedicated/hostbuilder/host"
 	"github.com/nitrous-io/dedicated/hostbuilder/state"
@@ -25,43 +23,7 @@ func (h *Host) StopWithQueue(qp queue.Publisher, queueInfo *host.QueueInfo) (*ho
 		return nil, mh.Error(err, label)
 	}
 
-	// [Feature flag] - requires EBS hotswapping.
-	if h.Config.Hotswap {
-		h.Printf("stopping hotswap instance")
-		return h.stopWithPool(qp, queueInfo)
-	}
-
-	h.Printf("stopping pre-EBS hotswapping instance normally")
-
-	if _, err := h.provider.StopInstances(h.instance.InstanceId); err != nil {
-		h.publishHostError(qp, queueInfo, event.HostStopFailed, queue.Stop, err)
-		return nil, mh.Error(err, label)
-	}
-
-	state := StateChangeConf{
-		Pending: []string{"pending", "running", "stopping"},
-		Refresh: instanceStateRefreshFunc(h.provider, h.instance),
-		Target:  "stopped",
-	}
-	updatedInstance, err := WaitForState(&state)
-	if err != nil {
-		h.publishHostError(qp, queueInfo, event.HostStopFailed, queue.Stop, err)
-		return nil, mh.Error(err, label)
-	}
-	h.instance = updatedInstance.(*ec2.Instance)
-	info, err := h.Info()
-	if err == nil {
-		host.PublishHost(qp, event.HostStopped, h.requestID, queueInfo, info, queue.Stop, "")
-	} else {
-		logrus.Debugf("[ERROR] uuid=%s amazon: failed to send a message due to failure on getting host info: %v", h.requestID, err)
-	}
-
-	return info, err
-}
-
-func (h *Host) stopWithPool(qp queue.Publisher, queueInfo *host.QueueInfo) (*host.Info, error) {
-	label := h.MetricsLabel("stop_with_pool")
-	defer mh.UpdateSince(label, time.Now())
+	h.Printf("stopping hotswap instance")
 
 	var (
 		ctx    context.Context

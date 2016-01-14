@@ -31,9 +31,9 @@ func (h *Host) RespecWithQueue(qp queue.Publisher, queueInfo *host.QueueInfo) (*
 
 	// If we don't have an ID (i.e. provider_identifier from nitrousd), the
 	// host is a hotswap host that's stopped.
-	hotswapHostStopped := (h.Config.ID == "")
+	hostStopped := (h.Config.ID == "")
 
-	if !hotswapHostStopped {
+	if !hostStopped {
 		if err := h.reloadInstance(h.Config.ID); err != nil {
 			return nil, mh.Error(err, label)
 		}
@@ -61,103 +61,7 @@ func (h *Host) RespecWithQueue(qp queue.Publisher, queueInfo *host.QueueInfo) (*
 		}
 	}
 
-	// [Feature flag] - requires EBS hotswapping.
-	if h.Config.Hotswap {
-		h.Printf("respeccing hotswap instance")
-		return h.respecWithPool(qp, queueInfo)
-	}
-
-	h.Printf("respeccing pre-EBS hotswapping instance normally, instance: %+v", h.instance)
-
-	var changeInstanceType, changeStorageSize bool
-
-	if h.Config.InstanceType != "" && h.Config.InstanceType != h.instance.InstanceType {
-		changeInstanceType = true
-	}
-
-	var (
-		rootVolume     *ec2.Volume
-		configuredSize int64
-	)
-
-	// If StorageSize is 0, no change required.
-	if h.Config.StorageSize != 0 {
-		var err error
-		rootVolume, err = h.getVolumeByDeviceName(rootDeviceName)
-		if err != nil {
-			return nil, mh.Error(err, label)
-		}
-
-		currentSize, err := strconv.ParseInt(rootVolume.Size, 10, 64)
-		if err != nil {
-			h.publishHostError(qp, queueInfo, event.HostRespecFailed, queue.Respec, err)
-			return nil, mh.Error(fmt.Errorf("amazon: cannot parse size from volume: %+v, err: %v", rootVolume, err), label)
-		}
-
-		configuredSize = computeSize(h.Config.StorageSize)
-		if currentSize < configuredSize {
-			changeStorageSize = true
-			h.Printf("respec: volume resize required (%d to %d)", currentSize, configuredSize)
-		}
-	}
-
-	// If no further changes required, we're done.
-	if !changeInstanceType && !changeStorageSize {
-		info, err := h.Info()
-		if err == nil {
-			host.PublishHost(qp, event.HostRespecced, h.requestID, queueInfo, info, queue.Respec, "")
-		} else {
-			logrus.WithField("uuid", h.requestID).Errorf("amazon: failed to send a message due to failure on getting host info: %v", err)
-		}
-
-		return info, err
-	}
-
-	// Otherwise, we stop the instance since any further changes now require
-	// it to be stopped.
-	if getState(h.instance) == state.Running {
-		if err := h.stopInstance(); err != nil {
-			h.publishHostError(qp, queueInfo, event.HostRespecFailed, queue.Respec, err)
-			return nil, mh.Error(fmt.Errorf("amazon: failed to stop instance for respeccing, err: %v", err), label)
-		}
-	}
-
-	if changeInstanceType {
-		h.Printf("Changing instance type of instance %s from %s to %s", h.instance.InstanceId, h.instance.InstanceType, h.Config.InstanceType)
-		if err := modifyInstanceType(h.provider, h, h.Config.InstanceType); err != nil {
-			h.publishHostError(qp, queueInfo, event.HostRespecFailed, queue.Respec, err)
-			return nil, mh.Error(fmt.Errorf("amazon: failed to change instance type, err: %v"), label)
-		}
-	}
-
-	if changeStorageSize {
-		if err := h.resizeRootVolume(rootVolume, configuredSize); err != nil {
-			h.publishHostError(qp, queueInfo, event.HostRespecFailed, queue.Respec, err)
-			return nil, mh.Error(fmt.Errorf("amazon: failed to resize root volume, err: %v", err), label)
-		}
-	}
-
-	if err := h.startInstance(); err != nil {
-		h.publishHostError(qp, queueInfo, event.HostRespecFailed, queue.Respec, err)
-		return nil, mh.Error(fmt.Errorf("amazon: failed to start instance for respeccing, err: %v", err), label)
-	}
-
-	info, err := h.Info()
-	if err == nil {
-		host.PublishHost(qp, event.HostRespecced, h.requestID, queueInfo, info, queue.Respec, "")
-	} else {
-		logrus.WithField("uuid", h.requestID).Errorf("amazon: failed to send a message due to failure on getting host info: %v", err)
-	}
-
-	return info, err
-}
-
-// respecWithPool changes the specs of an existing host that supports EBS
-// hotswapping. "WithPool" is a misnomer (since we don't use the instance pool
-// atm) but keeping it as a greppable convention (see startWithPool, etc).
-func (h *Host) respecWithPool(qp queue.Publisher, queueInfo *host.QueueInfo) (*host.Info, error) {
-	label := h.MetricsLabel("respec_with_pool")
-	defer mh.UpdateSince(label, time.Now())
+	h.Printf("respeccing hotswap instance")
 
 	// If we don't have an ID (i.e. provider_identifier from nitrousd), the
 	// host is a hotswap host that's stopped.

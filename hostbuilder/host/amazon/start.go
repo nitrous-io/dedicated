@@ -16,26 +16,7 @@ func (h *Host) Start() (*host.Info, error) {
 	label := h.MetricsLabel("start")
 	defer mh.UpdateSince(label, time.Now())
 
-	// [Feature flag] - requires EBS hotswapping.
-	if h.Config.Hotswap {
-		h.Printf("starting hotswap instance")
-		return h.startWithPool()
-	}
-
-	h.Printf("starting pre-EBS hotswapping instance normally")
-
-	if err := h.reloadInstance(h.Config.ID); err != nil {
-		return nil, mh.Error(err, label)
-	}
-
-	if err := h.startInstance(); err != nil {
-		return nil, mh.Error(err, label)
-	}
-
-	return h.Info()
-}
-
-func (h *Host) startWithPool() (*host.Info, error) {
+	h.Printf("starting hotswap instance")
 	h.Printf("checking if volume is detached")
 	vol, err := h.getVolume(h.Config.VolumeID)
 	if err != nil {
@@ -63,8 +44,8 @@ func (h *Host) startWithPool() (*host.Info, error) {
 		return h.attachToNewInstance(h.Config.VolumeID)
 	}
 
-	label := h.MetricsLabel("start_with_pool")
-	defer mh.UpdateSince(label, time.Now())
+	plabel := h.MetricsLabel("start_with_pool")
+	defer mh.UpdateSince(plabel, time.Now())
 
 	h.instance = instance
 
