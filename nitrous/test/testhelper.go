@@ -1,6 +1,7 @@
 package test
 
 import (
+	"bufio"
 	"bytes"
 	"encoding/json"
 	"fmt"
@@ -19,6 +20,8 @@ import (
 
 	"github.com/Sirupsen/logrus"
 	"github.com/jmoiron/sqlx"
+	stripe "github.com/stripe/stripe-go"
+
 	"github.com/nitrous-io/dedicated/nitrous/controllers"
 	"github.com/nitrous-io/dedicated/nitrous/db"
 	"github.com/nitrous-io/dedicated/nitrous/envvars"
@@ -33,15 +36,25 @@ import (
 	bc "golang.org/x/crypto/bcrypt"
 )
 
+var (
+	tables             []string // retrieve list of tables once and store here
+	nitrousPathReplace = regexp.MustCompile("dedicated/nitrous/.*$")
+
+	StripeInvoiceFixtures = map[string]*stripe.Invoice{}
+)
+
 func init() {
 	bcrypt.DefaultCost = bc.MinCost
 	logrus.SetLevel(logrus.PanicLevel)
-}
 
-var (
-	tables             []string // retrieve list of tables once and store here
-	nitrousPathReplace = regexp.MustCompile("dedicated/nitrous/.*")
-)
+	var err error
+	fixturePath := nitrousPathReplace.ReplaceAllString(envvars.RootDir,
+		"dedicated/nitrous/test/stripe-invoices.cjson")
+	StripeInvoiceFixtures, err = parseInvoiceFixtures(fixturePath)
+	if err != nil {
+		panic(err)
+	}
+}
 
 func TestDatabase(dbname string) (*db.Database, error) {
 	d, err := ConnectToTestDatabase(dbname)
@@ -319,4 +332,45 @@ func WaitForEvent(msgCh chan pubsub.Message, name controllers.EventName, timeout
 		Expect(evt.Name).To(Equal(name))
 		return evt, nil
 	}
+}
+
+var invoiceIDToKey = map[string]string{
+	"in_16JckrD2OOBduWpzD4jRuR5B": "july01",
+	"in_17L56DD2OOBduWpz7PwZ7BNf": "freetrial",
+	"in_17OGrhD2OOBduWpzsNYZKqrK": "success-sub",
+	"in_168gMyD2OOBduWpzJlqG8C9J": "success-usage",
+	"in_17Q9pMD2OOBduWpzu7hqP1rX": "failed-closed",
+	"in_17SI46D2OOBduWpzgi38TLz5": "failed-due", // see note in cjson file
+	"in_16QsLUD2OOBduWpzs5RpLvKx": "credited-sub-full",
+	"in_16QszVD2OOBduWpzbrn3YbyR": "credited-sub-partial",
+	"in_15RBORD2OOBduWpze7Gef6b0": "credited-usage-partial",
+}
+
+// parses a 'cjson' format file: json with lines that start with '//' treated
+// as comments
+func parseInvoiceFixtures(filepath string) (map[string]*stripe.Invoice, error) {
+	m := map[string]*stripe.Invoice{}
+	f, err := os.Open(filepath)
+	if err != nil {
+		return nil, err
+	}
+	defer f.Close()
+	s := bufio.NewScanner(f)
+	lines := []string{}
+	for s.Scan() {
+		t := s.Text()
+		if strings.HasPrefix(t, "//") {
+			continue
+		}
+		lines = append(lines, t)
+	}
+	jsonStr := strings.Join(lines, "")
+	invoices := []*stripe.Invoice{}
+	if err := json.Unmarshal([]byte(jsonStr), &invoices); err != nil {
+		return nil, err
+	}
+	for _, inv := range invoices {
+		m[invoiceIDToKey[inv.ID]] = inv
+	}
+	return m, nil
 }
