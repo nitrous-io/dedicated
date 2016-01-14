@@ -1,0 +1,25 @@
+---
+- hosts: userhosts
+  gather_facts: no
+  sudo: yes
+  serial: 20
+  tasks:
+
+
+  # This playbook gets the docker and freighter version from all hosts on the inventory file.
+  # The output is located on /tmp/versions.csv (for better parsing)
+  - name: Get docker version
+    shell: dpkg-query -W -f='${Version}\n' lxc-docker*nitrous1
+    register: docker_version_cmd
+
+  - name: Get freighterd version
+    shell: dpkg-query -W -f='${Version}\n' freighterd
+    register: freighterd_version_cmd
+
+  - set_fact: docker_version="{{docker_version_cmd.stdout_lines[0]}}"
+  - set_fact: freighterd_version="{{freighterd_version_cmd.stdout_lines[0]}}"
+
+  - debug: msg="Host={{inventory_hostname}}, Docker={{docker_version}}, Freighterd={{freighterd_version}}"
+  - name: Write results
+    shell: echo "Host={{inventory_hostname}}, Docker={{docker_version}}, Freighterd={{freighterd_version}}\n" >> /tmp/versions.csv
+    delegate_to: 127.0.0.1
