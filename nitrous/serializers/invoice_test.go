@@ -1,9 +1,15 @@
 package serializers_test
 
 import (
+	"bufio"
 	"database/sql"
 	"encoding/json"
+	"os"
+	"path/filepath"
+	"strings"
 	"time"
+
+	stripe "github.com/stripe/stripe-go"
 
 	"github.com/nitrous-io/dedicated/nitrous/models/invoice"
 	"github.com/nitrous-io/dedicated/nitrous/models/stripememo"
@@ -13,6 +19,15 @@ import (
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
 )
+
+var stripeInvoices = map[string]*stripe.Invoice{}
+
+var _ = BeforeSuite(func() {
+	p, err := filepath.Abs("./stripe-invoices.cjson")
+	Expect(err).To(BeNil())
+	stripeInvoices, err = parseInvoiceFixtures(p)
+	Expect(err).To(BeNil())
+})
 
 var _ = Describe("invoice serializer", func() {
 	Describe("SerializeStripeInvoice", func() {
@@ -175,3 +190,44 @@ var _ = Describe("invoice serializer", func() {
 		})
 	})
 })
+
+var invoiceIDToKey = map[string]string{
+	"in_16JckrD2OOBduWpzD4jRuR5B": "july01",
+	"in_17L56DD2OOBduWpz7PwZ7BNf": "freetrial",
+	"in_17OGrhD2OOBduWpzsNYZKqrK": "success-sub",
+	"in_168gMyD2OOBduWpzJlqG8C9J": "success-usage",
+	"in_17Q9pMD2OOBduWpzu7hqP1rX": "failed-closed",
+	"in_17SI46D2OOBduWpzgi38TLz5": "failed-due", // see note in cjson file
+	"in_16QsLUD2OOBduWpzs5RpLvKx": "credited-sub-full",
+	"in_16QszVD2OOBduWpzbrn3YbyR": "credited-sub-partial",
+	"in_15RBORD2OOBduWpze7Gef6b0": "credited-usage-partial",
+}
+
+// parses a 'cjson' format file: json with lines that start with '//' treated
+// as comments
+func parseInvoiceFixtures(filepath string) (map[string]*stripe.Invoice, error) {
+	m := map[string]*stripe.Invoice{}
+	f, err := os.Open(filepath)
+	if err != nil {
+		return nil, err
+	}
+	defer f.Close()
+	s := bufio.NewScanner(f)
+	lines := []string{}
+	for s.Scan() {
+		t := s.Text()
+		if strings.HasPrefix(t, "//") {
+			continue
+		}
+		lines = append(lines, t)
+	}
+	jsonStr := strings.Join(lines, "")
+	invoices := []*stripe.Invoice{}
+	if err := json.Unmarshal([]byte(jsonStr), &invoices); err != nil {
+		return nil, err
+	}
+	for _, inv := range invoices {
+		m[invoiceIDToKey[inv.ID]] = inv
+	}
+	return m, nil
+}
