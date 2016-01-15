@@ -44,6 +44,8 @@ const (
 	userDeviceName = "/dev/sdu"
 	// userDeviceOSName is the name of the user device/volume within the OS.
 	userDeviceOSName = "/dev/xvdu"
+	// userMountPoint is the mount path of userDeviceName
+	userMountPoint = "/mnt/userdata"
 
 	updateTimeout            = 30 * time.Second
 	resizeVolumeTimeout      = 30 * time.Minute
@@ -680,6 +682,13 @@ func mountUserVolume(ctx *host.HostContext) error {
 		return fmt.Errorf("failed to mount %s, err: %v, output: %s", userDeviceOSName, err, out)
 	}
 
+	// Store information about the host on the userVolume
+	// In that way we are able to attach host information into system logs.
+	// /etc/nitrous-metadata is linked to the userVolume
+	if out, err := conn.CombinedOutput(fmt.Sprintf(`echo -e "%s" | sudo tee %s/metadata`, getMetadata(h), userMountPoint)); err != nil {
+		h.Printf("failed to write host information, err: %v, output: %s", err, out)
+	}
+
 	if out, err := conn.CombinedOutput(`sudo service docker start`); err != nil {
 		return fmt.Errorf("failed to start docker, err: %v, output: %s", err, out)
 	}
@@ -800,4 +809,23 @@ func containsUserDevice(bdm []ec2.BlockDeviceMapping) bool {
 	}
 
 	return false
+}
+
+func getMetadata(h *Host) string {
+	if h == nil {
+		return ""
+	}
+
+	metadata := []string {
+		fmt.Sprintf("instance_id=%s", h.instance.InstanceId),
+		fmt.Sprintf("host_id=%d", h.Config.HostID),
+		fmt.Sprintf("environment=%s", h.Env),
+		fmt.Sprintf("region=%s", h.Config.RegionID), // ex: ap-southeast-1
+		fmt.Sprintf("volume_id=%s", h.Config.VolumeID),
+		fmt.Sprintf("ip=%s", h.Config.IPAddress),
+		fmt.Sprintf("timestamp=%d", time.Now().Unix()),
+	}
+
+	return strings.Join(metadata, "\n")
+
 }
