@@ -5,6 +5,8 @@ import (
 	"time"
 
 	stripe "github.com/stripe/stripe-go"
+
+	"github.com/nitrous-io/dedicated/nitrous/models/invoice"
 )
 
 // NitrousInvoice is a wrapper struct for us to have methods on Stripe invoices
@@ -52,6 +54,17 @@ func (n NitrousInvoice) HasCreditLineItem() bool {
 	}
 	// note that a partially credited subscription invoice has no credit line item
 	return false
+}
+
+func (n NitrousInvoice) State() string {
+	if n.Paid {
+		return invoice.StatePaid
+	} else {
+		if n.NextAttempt == 0 {
+			return invoice.StateFailed
+		}
+		return invoice.StateUnpaid
+	}
 }
 
 func (n NitrousInvoice) Type() string {

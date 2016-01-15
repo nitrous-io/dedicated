@@ -3,6 +3,7 @@ package stripememo_test
 import (
 	"fmt"
 
+	"github.com/nitrous-io/dedicated/nitrous/models/invoice"
 	"github.com/nitrous-io/dedicated/nitrous/models/stripememo"
 
 	"github.com/nitrous-io/dedicated/nitrous/test"
@@ -15,6 +16,27 @@ func NewNinvoice(k string) *stripememo.NitrousInvoice {
 }
 
 var _ = Describe("models/stripememo/ninvoice", func() {
+	Context("State()", func() {
+		var testcases = map[string]string{
+			"july01":                 invoice.StatePaid,
+			"freetrial":              invoice.StatePaid,
+			"success-sub":            invoice.StatePaid,
+			"success-usage":          invoice.StatePaid,
+			"failed-closed":          invoice.StateFailed,
+			"failed-due":             invoice.StateUnpaid,
+			"credited-sub-full":      invoice.StatePaid,
+			"credited-sub-partial":   invoice.StatePaid,
+			"credited-usage-partial": invoice.StatePaid,
+		}
+		for k0, expected0 := range testcases {
+			k, expected := k0, expected0
+			It(fmt.Sprintf("is state '%s' for %s", expected, k), func() {
+				ninvoice := NewNinvoice(k)
+				Expect(ninvoice.State()).To(Equal(expected))
+			})
+		}
+	})
+
 	Context("Type()", func() {
 		var testcases = []string{
 			"july01",
