@@ -1,6 +1,7 @@
 package stripememo
 
 import (
+	"fmt"
 	"strings"
 	"time"
 
@@ -14,6 +15,33 @@ type NitrousInvoice struct {
 	stripe.Invoice
 
 	Description string
+}
+
+type InvoiceSerialized struct {
+	ID          int64                    `json:"id"`
+	UserID      int64                    `json:"user_id"`
+	Amount      int64                    `json:"amount"`
+	PeriodStart *time.Time               `json:"period_start"`
+	State       string                   `json:"state"`
+	Items       []*InvoiceItemSerialized `json:"items"`
+
+	// this is used to provide a unique id for frontend
+	StripeID string `json:"sid,omitempty"`
+
+	// TODO remove deprecated fields once frontend is updated:
+	TotalCharge int64      `json:"total_charge"`
+	PeriodEnd   *time.Time `json:"period_end"`
+}
+
+type InvoiceItemSerialized struct {
+	Amount      int64  `json:"amount"`
+	Description string `json:"description"`
+
+	// this is used to provide a unique id for frontend
+	StripeID string `json:"sid,omitempty"`
+
+	// TODO remove deprecated fields once frontend is updated:
+	TotalCharge int64 `json:"total_charge"`
 }
 
 // types of invoices
@@ -37,6 +65,50 @@ const (
 	NinvoiceCreditedUsagePartial = "credited-usage-partial"
 )
 
+func (n NitrousInvoice) Serialize() *InvoiceSerialized {
+	// Note: the UserID field will have to be added later since there is no db
+	// access at this point
+
+	pstart := time.Unix(n.Start, 0)
+	inv := &InvoiceSerialized{
+		StripeID:    n.ID,
+		Amount:      n.Amount,
+		State:       n.State(),
+		PeriodStart: &pstart,
+
+		// TODO: remove deprecated fields below once frontend is updated
+		TotalCharge: n.Amount,
+		PeriodEnd:   &pstart,
+	}
+	inv.Items = n.SerializeItems()
+	return inv
+}
+
+func (n NitrousInvoice) SerializeItems() []*InvoiceItemSerialized {
+	if n.Type() == NinvoiceJuly1 {
+		return []*InvoiceItemSerialized{
+			{
+				StripeID:    fmt.Sprintf("%s-line1", n.ID),
+				Description: "Complimentary subscription for month of July 2015",
+				Amount:      0,
+			},
+		}
+	}
+
+	items := []*InvoiceItemSerialized{}
+	for i, line := range n.Lines.Values {
+		items = append(items, &InvoiceItemSerialized{
+			StripeID:    fmt.Sprintf("%s-line%d", n.ID, i),
+			Description: "foo",
+			Amount:      line.Amount,
+
+			// TODO: remove deprecated fields below once frontend is updated
+			TotalCharge: line.Amount,
+		})
+	}
+	return items
+}
+
 func (n NitrousInvoice) IsSubscription() bool {
 	for _, line := range n.Lines.Values {
 		if line.Type == "subscription" {
@@ -54,6 +126,12 @@ func (n NitrousInvoice) HasCreditLineItem() bool {
 	}
 	// note that a partially credited subscription invoice has no credit line item
 	return false
+}
+
+// ShowInHistory returns true if a user should see that invoice in their billing history
+func (n NitrousInvoice) ShowInHistory() bool {
+	return n.Attempted &&
+		n.Type() != NinvoiceCreditedSubFull
 }
 
 func (n NitrousInvoice) State() string {
@@ -91,7 +169,7 @@ func (n NitrousInvoice) Type() string {
 	}
 
 	// n.Amount == 0 is shared by NinvoiceCreditedSubFull, but that case is handled above
-	if n.Amount == 0 {
+	if n.Amount == 0 && n.IsSubscription() {
 		if t := time.Unix(n.Date, 0); t.Format("2006-01-02") == "2015-07-01" {
 			return NinvoiceJuly1
 		}

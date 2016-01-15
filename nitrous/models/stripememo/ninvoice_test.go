@@ -1,6 +1,7 @@
 package stripememo_test
 
 import (
+	"encoding/json"
 	"fmt"
 
 	"github.com/nitrous-io/dedicated/nitrous/models/invoice"
@@ -15,7 +16,38 @@ func NewNinvoice(k string) *stripememo.NitrousInvoice {
 	return &stripememo.NitrousInvoice{Invoice: *test.StripeInvoiceFixtures[k]}
 }
 
+func jsonize(inv *stripememo.NitrousInvoice) (string, error) {
+	ser := inv.Serialize()
+	bs, err := json.Marshal(ser)
+	if err != nil {
+		return "", err
+	}
+	return string(bs), nil
+}
+
 var _ = Describe("models/stripememo/ninvoice", func() {
+	It("serializes July 1 2015 invoice", func() {
+		inv := NewNinvoice(stripememo.NinvoiceJuly1)
+		j, err := jsonize(inv)
+		Expect(err).To(BeNil())
+		Expect(j).To(MatchJSON(`{
+			"id": 0,
+			"user_id": 0,
+			"amount": 0,
+			"period_start": "2015-07-01T04:23:25Z",
+			"state": "paid",
+			"items":[{
+				"amount": 0,
+				"description": "Complimentary subscription for month of July 2015",
+				"sid": "in_16JckrD2OOBduWpzD4jRuR5B-line1",
+				"total_charge": 0
+			}],
+			"sid": "in_16JckrD2OOBduWpzD4jRuR5B",
+			"total_charge": 0,
+			"period_end": "2015-07-01T04:23:25Z"
+		}`))
+	})
+
 	Context("State()", func() {
 		var testcases = map[string]string{
 			"july01":                 invoice.StatePaid,
