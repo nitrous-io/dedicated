@@ -16,18 +16,10 @@ import (
 	"github.com/nitrous-io/dedicated/nitrous/models/user"
 	"github.com/nitrous-io/dedicated/nitrous/serializers"
 
-	. "github.com/nitrous-io/dedicated/nitrous/test"
+	"github.com/nitrous-io/dedicated/nitrous/test"
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
 )
-
-func mapPlansToSlugs(plans []*serializers.Plan) []string {
-	slugs := make([]string, len(plans))
-	for i, plan := range plans {
-		slugs[i] = plan.Slug
-	}
-	return slugs
-}
 
 func Test(t *testing.T) {
 	RegisterFailHandler(Fail)
@@ -38,35 +30,64 @@ var _ = Describe("controllers/plans", func() {
 	var (
 		db      *db.Database
 		u       *user.User
-		res     *httptest.ResponseRecorder
 		handler *mux.Router
 	)
 
 	BeforeEach(func() {
 		var err error
-		db, err = TestDatabase("nitrous_test")
+		db, err = test.TestDatabase("nitrous_test")
 		Expect(err).To(BeNil())
 
-		svr := NewTestServer("", db, NewFakeTracker())
-
+		svr := test.NewTestServer("", db, test.NewFakeTracker())
 		handler = svr.Router()
-		res = httptest.NewRecorder()
 
 		u = &user.User{
 			Username: "tokenuser",
 			Password: "123456",
 			Email:    "tokenuser@example.com",
 		}
-		err = WrapInTransaction(db, u.Insert)
-		Expect(err).To(BeNil())
-		Expect(u.ID).NotTo(BeZero())
+		Expect(test.WrapInTransaction(db, u.Insert)).To(BeNil())
 
 		t := &token.Token{
 			UserID: u.ID,
 			Token:  "secret",
 		}
-		err = t.Insert(db)
-		Expect(err).To(BeNil())
+		Expect(t.Insert(db)).To(BeNil())
+
+		plans := []*plan.Plan{
+			{Slug: "free", Price: 0},
+			{Slug: "start", Price: 500},
+			{Slug: "shift", Price: 1000},
+			{Slug: "turbo", Price: 1500},
+			{Slug: "obsolete", Price: 2000, Disabled: true},
+			{Slug: "shift-always-on", Price: 1200, Hidden: true},
+		}
+
+		r := region.Region{
+			Slug: "sfo",
+			Name: "US West",
+		}
+		Expect(r.Insert(db)).To(BeNil())
+
+		for _, pl := range plans {
+			Expect(pl.Insert(db)).To(BeNil())
+			pt := providertemplate.ProviderTemplate{
+				PlanID:   pl.ID,
+				RegionID: r.ID,
+				Provider: envvars.DefaultProvider,
+			}
+			Expect(pt.Insert(db)).To(BeNil())
+		}
+
+		// Add a plan belonging to another provider - it should not be returned.
+		pl := plan.Plan{Slug: "start-windows-azure", Price: 3000}
+		Expect(pl.Insert(db)).To(BeNil())
+		pt := providertemplate.ProviderTemplate{
+			PlanID:   pl.ID,
+			RegionID: r.ID,
+			Provider: "windows-azure",
+		}
+		Expect(pt.Insert(db)).To(BeNil())
 	})
 
 	AfterEach(func() {
@@ -76,19 +97,105 @@ var _ = Describe("controllers/plans", func() {
 	})
 
 	Describe("GET /api/v0/plans", func() {
-		doRequest := func(url string, auth bool) {
-			req, err := NewRequest("GET", url, nil)
+		doRequest := func() *httptest.ResponseRecorder {
+			req, err := test.NewRequest("GET", "/api/v0/plans", nil)
 			Expect(err).To(BeNil())
-
-			if auth {
-				req.Header.Set("Authorization", "Bearer secret")
-			}
-
+			req.Header.Set("Authorization", "Bearer secret")
+			res := httptest.NewRecorder()
 			handler.ServeHTTP(res, req)
+			return res
 		}
 
-		fetchPlans := func(url string, auth bool) []string {
-			doRequest("/api/v0/plans?eligible=true", auth)
+		Context("when user is paid user", func() {
+			BeforeEach(func() {
+				_, err := db.Exec(`UPDATE billing_profiles SET state='paid' WHERE user_id=$1;`, u.ID)
+				Expect(err).To(BeNil())
+			})
+
+			It("returns non-hidden, non-disabled, paid plans of the default provider", func() {
+				res := doRequest()
+				Expect(res.Code).To(Equal(http.StatusOK))
+
+				j := struct {
+					Plans []*serializers.Plan `json:"plans"`
+				}{}
+				err := json.NewDecoder(res.Body).Decode(&j)
+				Expect(err).To(BeNil())
+
+				slugs := []string{}
+				for _, p := range j.Plans {
+					slugs = append(slugs, p.Slug)
+				}
+				Expect(slugs).To(ConsistOf([]string{"start", "shift", "turbo"}))
+			})
+		})
+
+		Context("when user is in free tier", func() {
+			BeforeEach(func() {
+				_, err := db.Exec(`UPDATE billing_profiles SET state='free' WHERE user_id=$1;`, u.ID)
+				Expect(err).To(BeNil())
+
+				_, err = db.Exec(`UPDATE users SET phone_authed = true WHERE id = $1;`, u.ID)
+				Expect(err).To(BeNil())
+			})
+
+			It("returns both free and paid plans (non-hidden, non-disabled) of the default provider", func() {
+				res := doRequest()
+				Expect(res.Code).To(Equal(http.StatusOK))
+
+				j := struct {
+					Plans []*serializers.Plan `json:"plans"`
+				}{}
+				err := json.NewDecoder(res.Body).Decode(&j)
+				Expect(err).To(BeNil())
+
+				slugs := []string{}
+				for _, p := range j.Plans {
+					slugs = append(slugs, p.Slug)
+				}
+				Expect(slugs).To(ConsistOf([]string{"free", "start", "shift", "turbo"}))
+			})
+
+			Context("When user has created a free-tier host", func() {
+				BeforeEach(func() {
+					_, err := test.CreateHostStack(db, &test.HostStack{
+						U: u,
+						P: &plan.Plan{Slug: "freeplan", Price: 0},
+					})
+					Expect(err).To(BeNil())
+				})
+
+				It("returns only non-hidden, non-disabled, paid plans", func() {
+					res := doRequest()
+					Expect(res.Code).To(Equal(http.StatusOK))
+
+					j := struct {
+						Plans []*serializers.Plan `json:"plans"`
+					}{}
+					err := json.NewDecoder(res.Body).Decode(&j)
+					Expect(err).To(BeNil())
+
+					slugs := []string{}
+					for _, p := range j.Plans {
+						slugs = append(slugs, p.Slug)
+					}
+					Expect(slugs).To(ConsistOf([]string{"start", "shift", "turbo"}))
+				})
+			})
+		})
+	})
+
+	Describe("GET /api/v0/plans/all", func() {
+		doRequest := func() *httptest.ResponseRecorder {
+			req, err := test.NewRequest("GET", "/api/v0/plans/all", nil)
+			Expect(err).To(BeNil())
+			res := httptest.NewRecorder()
+			handler.ServeHTTP(res, req)
+			return res
+		}
+
+		It("should show all plans as long as they're not disabled or hidden", func() {
+			res := doRequest()
 			Expect(res.Code).To(Equal(http.StatusOK))
 
 			j := struct {
@@ -97,127 +204,11 @@ var _ = Describe("controllers/plans", func() {
 			err := json.NewDecoder(res.Body).Decode(&j)
 			Expect(err).To(BeNil())
 
-			return mapPlansToSlugs(j.Plans)
-		}
-
-		Context("when plans exist", func() {
-			plans := []*plan.Plan{
-				{Slug: "free", Price: 0},
-				{Slug: "start", Price: 500},
-				{Slug: "shift", Price: 1000},
-				{Slug: "turbo", Price: 1500},
-				{Slug: "obsolete", Price: 2000, Disabled: true},
+			slugs := []string{}
+			for _, p := range j.Plans {
+				slugs = append(slugs, p.Slug)
 			}
-
-			BeforeEach(func() {
-				r := region.Region{
-					Slug: "sfo",
-					Name: "US West",
-				}
-				Expect(r.Insert(db)).To(BeNil())
-
-				for _, pl := range plans {
-					Expect(pl.Insert(db)).To(BeNil())
-					pt := providertemplate.ProviderTemplate{
-						PlanID:   pl.ID,
-						RegionID: r.ID,
-						Provider: envvars.DefaultProvider,
-					}
-					Expect(pt.Insert(db)).To(BeNil())
-				}
-
-				// Add a hidden plan.
-				pl := plan.Plan{
-					Slug:   "shift-always-on",
-					Price:  2500,
-					Hidden: true,
-				}
-				Expect(pl.Insert(db)).To(BeNil())
-				pt := providertemplate.ProviderTemplate{
-					PlanID:   pl.ID,
-					RegionID: r.ID,
-					Provider: envvars.DefaultProvider,
-				}
-				Expect(pt.Insert(db)).To(BeNil())
-
-				// Add a plan belonging to another provider - it should not be returned.
-				pl = plan.Plan{Slug: "start-windows-azure", Price: 3000}
-				Expect(pl.Insert(db)).To(BeNil())
-				pt = providertemplate.ProviderTemplate{
-					PlanID:   pl.ID,
-					RegionID: r.ID,
-					Provider: "windows-azure",
-				}
-				Expect(pt.Insert(db)).To(BeNil())
-			})
-
-			Context("When user is not logged in", func() {
-				It("should show all plans", func() {
-					plans := fetchPlans("/api/v0/plans?eligible=true", false)
-					Expect(plans).To(ConsistOf([]string{"free", "start", "shift", "turbo"}))
-				})
-			})
-
-			Context("when user is paid user", func() {
-				BeforeEach(func() {
-					_, err := db.Exec(`UPDATE billing_profiles SET state='paid' WHERE user_id=$1;`, u.ID)
-					Expect(err).To(BeNil())
-				})
-
-				It("should return paid non-hidden non-disabled plans of the default provider", func() {
-					plans := fetchPlans("/api/v0/plans?eligible=true", true)
-					Expect(plans).To(ConsistOf([]string{"start", "shift", "turbo"}))
-				})
-
-				It("should return all non-hidden non-disabled plans if no query parameter is provided", func() {
-					plans := fetchPlans("/api/v0/plans", true)
-					Expect(plans).To(ConsistOf([]string{"start", "shift", "turbo"}))
-				})
-			})
-
-			Context("when user is in free tier", func() {
-				BeforeEach(func() {
-					_, err := db.Exec(`UPDATE billing_profiles SET state='free' WHERE user_id=$1;`, u.ID)
-					Expect(err).To(BeNil())
-
-					_, err = db.Exec(`UPDATE users SET phone_authed = true WHERE id = $1;`, u.ID)
-					Expect(err).To(BeNil())
-				})
-
-				It("should return free plans of the default provider", func() {
-					plans := fetchPlans("/api/v0/plans?eligible=true", true)
-					Expect(plans).To(ConsistOf([]string{"free", "start", "shift", "turbo"}))
-				})
-
-				Context("When user has created a free-tier host", func() {
-					BeforeEach(func() {
-						_, err := CreateHostStack(db, &HostStack{
-							U: u,
-							// first plan fixture is free plan,
-							// but it doesn't really matter for this test
-							P: plans[0],
-						})
-						Expect(err).To(BeNil())
-					})
-
-					It("should return only non-hidden non-disabled paid plans", func() {
-						plans := fetchPlans("/api/v0/plans?eligible=true", true)
-						Expect(plans).To(ConsistOf([]string{"start", "shift", "turbo"}))
-					})
-				})
-			})
-		})
-
-		It("returns empty plans array when no plans exist", func() {
-			doRequest("/api/v0/plans?eligible=true", true)
-			Expect(res.Code).To(Equal(http.StatusOK))
-
-			j := struct {
-				Plans []serializers.Plan `json:"plans"`
-			}{}
-			err := json.NewDecoder(res.Body).Decode(&j)
-			Expect(err).To(BeNil())
-			Expect(j.Plans).To(HaveLen(0))
+			Expect(slugs).To(ConsistOf([]string{"free", "start", "shift", "turbo"}))
 		})
 	})
 })
