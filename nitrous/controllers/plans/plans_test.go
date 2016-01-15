@@ -1,7 +1,6 @@
 package plans_test
 
 import (
-	"database/sql"
 	"encoding/json"
 	"net/http"
 	"net/http/httptest"
@@ -127,14 +126,11 @@ var _ = Describe("controllers/plans", func() {
 					Expect(pt.Insert(db)).To(BeNil())
 				}
 
-				// Add a plan that uses another plan as its base plan.
-				shiftPlan, err := plan.FindBySlug(db, "shift")
-				Expect(err).To(BeNil())
+				// Add a hidden plan.
 				pl := plan.Plan{
-					BasePlanID: sql.NullInt64{shiftPlan.ID, true},
-					Slug:       "shift-always-on",
-					Price:      2500,
-					Hidden:     true,
+					Slug:   "shift-always-on",
+					Price:  2500,
+					Hidden: true,
 				}
 				Expect(pl.Insert(db)).To(BeNil())
 				pt := providertemplate.ProviderTemplate{

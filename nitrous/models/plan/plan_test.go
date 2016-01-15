@@ -2,8 +2,9 @@ package plan_test
 
 import (
 	"database/sql"
-	"github.com/jmoiron/sqlx"
 	"testing"
+
+	"github.com/jmoiron/sqlx"
 
 	ndb "github.com/nitrous-io/dedicated/nitrous/db"
 	"github.com/nitrous-io/dedicated/nitrous/models/billingprofile"
@@ -545,8 +546,6 @@ var _ = Describe("models/plan", func() {
 			Expect(err).To(BeNil())
 			Expect(p2).NotTo(BeNil())
 			Expect(p2.ID).NotTo(BeZero())
-			Expect(p2.BasePlanID.Valid).To(BeFalse())
-			Expect(p2.PaidPlanID.Valid).To(BeFalse())
 			Expect(p2.Slug).To(Equal("512mb"))
 			Expect(p2.Name).To(Equal("Nano"))
 			Expect(p2.MaxContainers).To(Equal(int64(2)))

@@ -1,7 +1,6 @@
 package hostscan
 
 import (
-	"database/sql"
 	"testing"
 	"time"
 
@@ -45,7 +44,6 @@ var _ = Describe("models/hostscan", func() {
 			Slug:          "free plan",
 			Price:         0,
 			MaxContainers: 1,
-			PaidPlanID:    sql.NullInt64{Valid: true, Int64: paidPlan.ID},
 		}
 		Expect(freePlan.Insert(db)).To(BeNil())
 
