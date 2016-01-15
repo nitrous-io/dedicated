@@ -194,7 +194,7 @@ func Create(env *middleware.Env, w http.ResponseWriter, r *http.Request) error {
 		}
 	}
 
-	err = freetier.CreateHostWithPlanAllowed(db, u, bp, pl)
+	err = freetier.CreateHostWithPlanAllowed(db, u, bp, pl, reg)
 	if err != nil {
 		switch err {
 		case freetier.ErrFreePlanNotAllowed:

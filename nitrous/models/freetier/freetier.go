@@ -2,11 +2,14 @@ package freetier
 
 import (
 	"errors"
+	"strconv"
 
 	"github.com/nitrous-io/dedicated/nitrous/db"
+	"github.com/nitrous-io/dedicated/nitrous/envvars"
 	"github.com/nitrous-io/dedicated/nitrous/models/billingprofile"
 	"github.com/nitrous-io/dedicated/nitrous/models/host"
 	"github.com/nitrous-io/dedicated/nitrous/models/plan"
+	"github.com/nitrous-io/dedicated/nitrous/models/region"
 	"github.com/nitrous-io/dedicated/nitrous/models/user"
 )
 
@@ -16,8 +19,9 @@ var (
 	ErrMaxFreeHostReached = errors.New("free tier user already has existing free host")
 	ErrPhoneAuthRequired  = errors.New("phone authentication required")
 
-	ErrFreeTimeLimitExceeded = errors.New("free tier user has exceeded daily usage quota")
-	ErrLastRunningAtInvalid  = errors.New("last_running_at is invalid")
+	ErrFreeTimeLimitExceeded      = errors.New("free tier user has exceeded daily usage quota")
+	ErrFreeDailyHostLimitExceeded = errors.New("free tier workstation has exceeded daily quota in this region")
+	ErrLastRunningAtInvalid       = errors.New("last_running_at is invalid")
 )
 
 func EligiblePlansForUser(d *db.Database, u *user.User, provider string) ([]*plan.Plan, error) {
@@ -31,7 +35,7 @@ func EligiblePlansForUser(d *db.Database, u *user.User, provider string) ([]*pla
 	}
 
 	if bp.IsFreeTier() {
-		err := createFreeTierHostAllowed(d, u)
+		err := createFreeTierHostAllowed(d, u, nil, nil)
 		switch err {
 		case nil, ErrPhoneAuthRequired:
 			return plan.AllPlansForProvider(d, provider)
@@ -45,15 +49,14 @@ func EligiblePlansForUser(d *db.Database, u *user.User, provider string) ([]*pla
 	return plan.PaidPlansForProvider(d, provider)
 }
 
-// Checks whether a free/paid user can create a host of given plan.
-func CreateHostWithPlanAllowed(d *db.Database, u *user.User, bp *billingprofile.BillingProfile, p *plan.Plan) error {
+func CreateHostWithPlanAllowed(d *db.Database, u *user.User, bp *billingprofile.BillingProfile, p *plan.Plan, reg *region.Region) error {
 	if bp.IsFreeTier() && !bp.OrgID.Valid {
 		if !p.IsFree() {
 			// Free-tier user must upgrade their billing profile first before creating paid plan
 			return ErrPaidPlanNotAllowed
 		}
 
-		if err := createFreeTierHostAllowed(d, u); err != nil {
+		if err := createFreeTierHostAllowed(d, u, p, reg); err != nil {
 			return err
 		}
 		return nil
@@ -70,7 +73,7 @@ func CreateHostWithPlanAllowed(d *db.Database, u *user.User, bp *billingprofile.
 
 // Checks whether a user of given billing profile can create new free tier host.
 // It returns ErrFreePlanNotAllowed if user is not in free tier or if free user has created a host
-func createFreeTierHostAllowed(d *db.Database, u *user.User) error {
+func createFreeTierHostAllowed(d *db.Database, u *user.User, p *plan.Plan, reg *region.Region) error {
 	bp, err := u.BillingProfile(d)
 	if err != nil {
 		return err
@@ -100,6 +103,23 @@ func createFreeTierHostAllowed(d *db.Database, u *user.User) error {
 
 	if count > 0 {
 		return ErrMaxFreeHostReached
+	}
+
+	err = d.QueryRow(`
+		SELECT count(*) FROM hosts
+		WHERE region_id = $1
+		AND plan_id = $2
+		AND created_at > NOW() - '1 day'::INTERVAL
+	`, reg.ID, p.ID).Scan(&count)
+	if err != nil {
+		return err
+	}
+
+	if p != nil && reg != nil {
+		freeHostQuota, _ := strconv.Atoi(envvars.FreeHostQuota)
+		if count > freeHostQuota {
+			return ErrFreeDailyHostLimitExceeded
+		}
 	}
 
 	return nil

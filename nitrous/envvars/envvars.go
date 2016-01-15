@@ -109,6 +109,8 @@ var (
 	MailChimpAPIKey          = os.Getenv("MAILCHIMP_API_KEY")
 	MailChimpIDNewsletter    = os.Getenv("MAILCHIMP_ID_NEWSLETTER")
 	MailChimpIDAnnouncements = os.Getenv("MAILCHIMP_ID_ANNOUNCEMENTS")
+
+	FreeHostQuota = os.Getenv("FREE_HOST_QUOTA")
 )
 
 func init() {
