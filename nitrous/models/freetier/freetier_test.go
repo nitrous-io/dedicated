@@ -104,7 +104,11 @@ var _ = Describe("models/freetier", func() {
 			Expect(freePlan.Insert(db)).To(BeNil())
 		})
 
-		Context("When user is in free tier and phone authenticated", func() {
+		Context("When free tier and phone authenticated user create a host", func() {
+			var (
+				h1 *host.Host
+			)
+
 			BeforeEach(func() {
 				bp1.State = billingprofile.StateFree
 				bp1.MaxHours = sql.NullInt64{10, true}
@@ -125,22 +129,12 @@ var _ = Describe("models/freetier", func() {
 
 				err = u2.UpdatePhoneAuthed(db, true)
 				Expect(err).To(BeNil())
-			})
 
-			It("should be allowed to create free-tier host", func() {
-				err := freetier.CreateHostWithPlanAllowed(db, u1, bp1, freePlan, asiaRegion)
-				Expect(err).To(BeNil())
-			})
-
-			It("should not be allowed to create host with paid plan", func() {
-				err := freetier.CreateHostWithPlanAllowed(db, u1, bp1, paidPlan, asiaRegion)
-				Expect(err).To(Equal(freetier.ErrPaidPlanNotAllowed))
-			})
-
-			It("should not be allowed to create host when daily quota of free host in a region is exceeded", func() {
 				h1 := &host.Host{
-					Slug:  "my-host-1",
-					State: host.StateRunning,
+					Slug:        "my-host-1",
+					State:       host.StateRunning,
+					HourlyPrice: 0,
+					Free:        true,
 				}
 				_, err := test.CreateHostStack(db, &test.HostStack{
 					H: h1,
@@ -149,7 +143,19 @@ var _ = Describe("models/freetier", func() {
 					P: freePlan,
 				})
 				Expect(err).To(BeNil())
+			})
 
+			It("returns no error", func() {
+				err := freetier.CreateHostWithPlanAllowed(db, u1, bp1, freePlan, asiaRegion)
+				Expect(err).To(BeNil())
+			})
+
+			It("returns an error when user choose paid plan", func() {
+				err := freetier.CreateHostWithPlanAllowed(db, u1, bp1, paidPlan, asiaRegion)
+				Expect(err).To(Equal(freetier.ErrPaidPlanNotAllowed))
+			})
+
+			It("returns an error when selected region has exceeded daily quota", func() {
 				h2 := &host.Host{
 					Slug:               "my-host-2",
 					State:              host.StateRunning,
@@ -184,60 +190,24 @@ var _ = Describe("models/freetier", func() {
 				Expect(err).To(Equal(freetier.ErrFreeDailyHostLimitExceeded))
 			})
 
-			Context("When there is host created", func() {
-				var (
-					h1 *host.Host
-				)
-				BeforeEach(func() {
-					h1 = &host.Host{
-						Slug:        "my-free-host",
-						HourlyPrice: 0,
-						Free:        true,
-					}
+			It("returns an when user already has a free host", func() {
+				hosts, err := host.FindAllByUser(db, u1.ID)
+				Expect(err).To(BeNil())
+				Expect(len(hosts)).To(Equal(1))
 
-					_, err := test.CreateHostStack(db, &test.HostStack{
-						H: h1,
-						U: u1,
-						P: freePlan,
-					})
-					Expect(err).To(BeNil())
-				})
+				err = freetier.CreateHostWithPlanAllowed(db, u1, bp1, freePlan, asiaRegion)
+				Expect(err).To(Equal(freetier.ErrMaxFreeHostReached))
+			})
 
-				Context("when host is running", func() {
-					It("free-tier user should only be allowed to create one free host", func() {
-						hosts, err := host.FindAllByUser(db, u1.ID)
-						Expect(err).To(BeNil())
-						Expect(len(hosts)).To(Equal(1))
+			It("returns no error when user has an orphaned terminated host", func() {
+				err = h1.Delete(db)
+				Expect(err).To(BeNil())
+				Expect(h1.TerminatedAt).ToNot(BeNil())
 
-						err = freetier.CreateHostWithPlanAllowed(db, u1, bp1, freePlan, asiaRegion)
-						Expect(err).To(Equal(freetier.ErrMaxFreeHostReached))
-					})
-				})
-
-				Context("when host is terminated", func() {
-					BeforeEach(func() {
-						err := h1.Delete(db)
-						Expect(err).To(BeNil())
-						Expect(h1.TerminatedAt).ToNot(BeNil())
-					})
-
-					It("should be allowed to create new free host", func() {
-						err := freetier.CreateHostWithPlanAllowed(db, u1, bp1, freePlan, asiaRegion)
-						Expect(err).To(BeNil())
-					})
-
-					It("should not be allowed to create host with paid plan", func() {
-						err := freetier.CreateHostWithPlanAllowed(db, u1, bp1, paidPlan, asiaRegion)
-						Expect(err).To(Equal(freetier.ErrPaidPlanNotAllowed))
-					})
-
-					It("Should be allowed to create host in queue if terminated host is orphan", func() {
-						_, err := db.Exec(`UPDATE hosts SET state = $1 WHERE id = $2`, host.StateOrphan, h1.ID)
-						Expect(err).To(BeNil())
-						err = freetier.CreateHostWithPlanAllowed(db, u1, bp1, freePlan, asiaRegion)
-						Expect(err).To(BeNil())
-					})
-				})
+				_, err := db.Exec(`UPDATE hosts SET state = $1 WHERE id = $2`, host.StateOrphan, h1.ID)
+				Expect(err).To(BeNil())
+				err = freetier.CreateHostWithPlanAllowed(db, u1, bp1, freePlan, asiaRegion)
+				Expect(err).To(BeNil())
 			})
 		})
 
