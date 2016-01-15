@@ -36,6 +36,7 @@ var _ = Describe("models/stripememo/ninvoice", func() {
 			"amount": 0,
 			"period_start": "2015-07-01T04:23:25Z",
 			"state": "paid",
+			"description": "Complimentary subscription for month of July 2015",
 			"items":[{
 				"amount": 0,
 				"description": "Complimentary subscription for month of July 2015",
@@ -45,6 +46,138 @@ var _ = Describe("models/stripememo/ninvoice", func() {
 			"sid": "in_16JckrD2OOBduWpzD4jRuR5B",
 			"total_charge": 0,
 			"period_end": "2015-07-01T04:23:25Z"
+		}`))
+	})
+
+	It("serializes free trial invoice", func() {
+		inv := NewNinvoice(stripememo.NinvoiceFreeTrial)
+		j, err := jsonize(inv)
+		Expect(err).To(BeNil())
+		Expect(j).To(MatchJSON(`{
+			"id": 0,
+			"user_id": 0,
+			"amount": 0,
+			"period_start": "2015-12-23T05:23:45Z",
+			"state": "paid",
+			"description": "Free trial (14 days)",
+			"items":[{
+				"amount": 0,
+				"description": "Free trial (14 days)",
+				"sid": "in_17L56DD2OOBduWpz7PwZ7BNf-line1",
+				"total_charge": 0
+			}],
+			"sid": "in_17L56DD2OOBduWpz7PwZ7BNf",
+			"total_charge": 0,
+			"period_end": "2015-12-23T05:23:45Z"
+		}`))
+	})
+
+	It("serializes successful subscription invoice", func() {
+		inv := NewNinvoice(stripememo.NinvoiceSuccessSub)
+		j, err := jsonize(inv)
+		Expect(err).To(BeNil())
+		Expect(j).To(MatchJSON(`{
+			"id": 0,
+			"user_id": 0,
+			"amount": 2900,
+			"period_start": "2015-11-30T23:59:59Z",
+			"state": "paid",
+			"description": "Subscription to Standard (Early-2015): $29/month",
+			"items":[{
+				"amount": 2900,
+				"description": "Subscription to Standard (Early-2015): $29/month",
+				"sid": "in_17OGrhD2OOBduWpzsNYZKqrK-line1",
+				"total_charge": 2900
+			}],
+			"sid": "in_17OGrhD2OOBduWpzsNYZKqrK",
+			"total_charge": 2900,
+			"period_end": "2015-11-30T23:59:59Z"
+		}`))
+	})
+
+	It("serializes successful usage-based invoice", func() {
+		inv := NewNinvoice(stripememo.NinvoiceSuccessUsage)
+		j, err := jsonize(inv)
+		Expect(err).To(BeNil())
+		Expect(j).To(MatchJSON(`{
+			"id": 0,
+			"user_id": 0,
+			"amount": 3696,
+			"period_start": "2015-06-01T00:01:32Z",
+			"state": "paid",
+			"description": "Usage for Jun 2015",
+			"items":[{
+ 				"amount":600,
+				"description":"'ronoaldop-1734' base (50 GB storage) - 672 hours at 0.893c/hour",
+				"sid":"in_168gMyD2OOBduWpzJlqG8C9J-line1",
+				"total_charge":600
+			}, {
+				"amount":2399,
+				"description":"'ronoaldop-1734' compute (2 GB memory) - 672 hours at 3.57c/hour",
+				"sid":"in_168gMyD2OOBduWpzJlqG8C9J-line2",
+				"total_charge":2399
+			},{
+				"amount":140,
+				"description":"'sulamerica-2868' base (50 GB storage) - 156 hours at 0.893c/hour (terminated)",
+				"sid":"in_168gMyD2OOBduWpzJlqG8C9J-line3",
+				"total_charge":140},{
+					"amount":557,
+					"description":"'sulamerica-2868' compute (2 GB memory) - 156 hours at 3.57c/hour (terminated)",
+					"sid":"in_168gMyD2OOBduWpzJlqG8C9J-line4",
+					"total_charge":557
+				}
+			],
+			"sid": "in_168gMyD2OOBduWpzJlqG8C9J",
+			"total_charge": 3696,
+			"period_end": "2015-06-01T00:01:32Z"
+		}`))
+	})
+
+	It("serializes failed and closed invoice", func() {
+		inv := NewNinvoice(stripememo.NinvoiceFailedClosed)
+		j, err := jsonize(inv)
+		Expect(err).To(BeNil())
+		// json under test: ensure state is 'failed'
+		Expect(j).To(MatchJSON(`{
+			"id": 0,
+			"user_id": 0,
+			"amount": 3900,
+			"period_start": "2015-12-23T05:23:45Z",
+			"state": "failed",
+			"description": "Subscription to Standard: $39/month",
+			"items":[{
+				"amount": 3900,
+				"description": "Subscription to Standard: $39/month",
+				"sid": "in_17Q9pMD2OOBduWpzu7hqP1rX-line1",
+				"total_charge": 3900
+			}],
+			"sid": "in_17Q9pMD2OOBduWpzu7hqP1rX",
+			"total_charge": 3900,
+			"period_end": "2015-12-23T05:23:45Z"
+		}`))
+	})
+
+	It("serializes failed and due invoice", func() {
+		inv := NewNinvoice(stripememo.NinvoiceFailedDue)
+		j, err := jsonize(inv)
+		Expect(err).To(BeNil())
+		// json under test: ensure state is 'unpaid'
+		Expect(j).To(MatchJSON(`{
+			"id": 0,
+			"user_id": 0,
+			"amount": 1900,
+			"period_start": "2015-12-13T02:36:11Z",
+			"state": "unpaid",
+			"description": "Subscription to Basic: $19/month",
+			"items":[{
+				"amount": 1900,
+				"description": "Subscription to Basic: $19/month",
+				"sid": "in_17SI46D2OOBduWpzgi38TLz5-line1",
+				"total_charge": 1900
+			}],
+			"sid": "in_17SI46D2OOBduWpzgi38TLz5",
+			"total_charge": 1900,
+			"period_end": "2015-12-13T02:36:11Z"
 		}`))
 	})
 

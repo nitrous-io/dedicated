@@ -13,8 +13,6 @@ import (
 // NitrousInvoice is a wrapper struct for us to have methods on Stripe invoices
 type NitrousInvoice struct {
 	stripe.Invoice
-
-	Description string
 }
 
 type InvoiceSerialized struct {
@@ -24,6 +22,7 @@ type InvoiceSerialized struct {
 	PeriodStart *time.Time               `json:"period_start"`
 	State       string                   `json:"state"`
 	Items       []*InvoiceItemSerialized `json:"items"`
+	Description string                   `json:"description"`
 
 	// this is used to provide a unique id for frontend
 	StripeID string `json:"sid,omitempty"`
@@ -75,6 +74,7 @@ func (n NitrousInvoice) Serialize() *InvoiceSerialized {
 		Amount:      n.Amount,
 		State:       n.State(),
 		PeriodStart: &pstart,
+		Description: n.Description(),
 
 		// TODO: remove deprecated fields below once frontend is updated
 		TotalCharge: n.Amount,
@@ -85,11 +85,20 @@ func (n NitrousInvoice) Serialize() *InvoiceSerialized {
 }
 
 func (n NitrousInvoice) SerializeItems() []*InvoiceItemSerialized {
-	if n.Type() == NinvoiceJuly1 {
+	switch n.Type() {
+	case NinvoiceJuly1:
 		return []*InvoiceItemSerialized{
 			{
 				StripeID:    fmt.Sprintf("%s-line1", n.ID),
-				Description: "Complimentary subscription for month of July 2015",
+				Description: n.Description(),
+				Amount:      0,
+			},
+		}
+	case NinvoiceFreeTrial:
+		return []*InvoiceItemSerialized{
+			{
+				StripeID:    fmt.Sprintf("%s-line1", n.ID),
+				Description: n.Description(),
 				Amount:      0,
 			},
 		}
@@ -97,9 +106,13 @@ func (n NitrousInvoice) SerializeItems() []*InvoiceItemSerialized {
 
 	items := []*InvoiceItemSerialized{}
 	for i, line := range n.Lines.Values {
+		desc := line.Desc
+		if len(n.Lines.Values) == 1 && line.Desc == "" {
+			desc = n.Description()
+		}
 		items = append(items, &InvoiceItemSerialized{
-			StripeID:    fmt.Sprintf("%s-line%d", n.ID, i),
-			Description: "foo",
+			StripeID:    fmt.Sprintf("%s-line%d", n.ID, i+1),
+			Description: desc,
 			Amount:      line.Amount,
 
 			// TODO: remove deprecated fields below once frontend is updated
@@ -109,29 +122,28 @@ func (n NitrousInvoice) SerializeItems() []*InvoiceItemSerialized {
 	return items
 }
 
-func (n NitrousInvoice) IsSubscription() bool {
-	for _, line := range n.Lines.Values {
-		if line.Type == "subscription" {
-			return true
-		}
+func (n NitrousInvoice) Description() string {
+	t, plan, isSub := n.Type(), n.plan(), n.IsSubscription()
+	switch {
+	case t == NinvoiceJuly1:
+		return "Complimentary subscription for month of July 2015"
+	case t == NinvoiceFreeTrial:
+		pstart, pend := time.Unix(n.Lines.Values[0].Period.Start, 0), time.Unix(n.Lines.Values[0].Period.End, 0)
+		dur := pend.Sub(pstart)
+		return fmt.Sprintf("Free trial (%.0f days)", dur.Hours()/24.0)
+	case isSub && plan != nil:
+		return fmt.Sprintf("Subscription to %s: $%.0f/%s", plan.Name, float64(plan.Amount)/100.00, plan.Interval)
+	case !isSub:
+		pstart := time.Unix(n.Start, 0)
+		return fmt.Sprintf("Usage for %s", pstart.Format("Jan 2006"))
 	}
-	return false
-}
 
-func (n NitrousInvoice) HasCreditLineItem() bool {
-	for _, line := range n.Lines.Values {
-		if strings.HasPrefix(line.Desc, "Credit of") {
-			return true
-		}
-	}
-	// note that a partially credited subscription invoice has no credit line item
-	return false
-}
+	pstart, pend := time.Unix(n.Start, 0), time.Unix(n.End, 0)
+	pstartStr, pendStr := pstart.Format("Jan 2 2006"), pend.Format("Jan 2 2006")
 
-// ShowInHistory returns true if a user should see that invoice in their billing history
-func (n NitrousInvoice) ShowInHistory() bool {
-	return n.Attempted &&
-		n.Type() != NinvoiceCreditedSubFull
+	// Given the invoices we expect, this should not be reached.  But if we do get
+	// here, fallback to a generic description
+	return fmt.Sprintf("Invoice for %s to %s", pstartStr, pendStr)
 }
 
 func (n NitrousInvoice) State() string {
@@ -173,7 +185,9 @@ func (n NitrousInvoice) Type() string {
 		if t := time.Unix(n.Date, 0); t.Format("2006-01-02") == "2015-07-01" {
 			return NinvoiceJuly1
 		}
-		return NinvoiceFreeTrial
+		if len(n.Lines.Values) == 1 && n.Lines.Values[0].Period != nil {
+			return NinvoiceFreeTrial
+		}
 	}
 
 	// remaining possibilities are successful usage-based or successful sub
@@ -184,4 +198,38 @@ func (n NitrousInvoice) Type() string {
 	// Note: as this is the final condition, any invoice type that is
 	// unaccounted for will be marked as this type of invoice
 	return NinvoiceSuccessUsage
+}
+
+func (n NitrousInvoice) plan() *stripe.Plan {
+	for _, line := range n.Lines.Values {
+		if line.Plan != nil {
+			return line.Plan
+		}
+	}
+	return nil
+}
+
+func (n NitrousInvoice) IsSubscription() bool {
+	for _, line := range n.Lines.Values {
+		if line.Type == "subscription" {
+			return true
+		}
+	}
+	return false
+}
+
+func (n NitrousInvoice) HasCreditLineItem() bool {
+	for _, line := range n.Lines.Values {
+		if strings.HasPrefix(line.Desc, "Credit of") {
+			return true
+		}
+	}
+	// note that a partially credited subscription invoice has no credit line item
+	return false
+}
+
+// ShowInHistory returns true if a user should see that invoice in their billing history
+func (n NitrousInvoice) ShowInHistory() bool {
+	return n.Attempted &&
+		n.Type() != NinvoiceCreditedSubFull
 }
