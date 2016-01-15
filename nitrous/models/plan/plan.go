@@ -16,8 +16,6 @@ const (
 
 type Plan struct {
 	ID                int64         `db:"id"`
-	BasePlanID        sql.NullInt64 `db:"base_plan_id"`
-	PaidPlanID        sql.NullInt64 `db:"paid_plan_id"`
 	HostingModePlanID sql.NullInt64 `db:"hosting_mode_plan_id"`
 
 	Name         string         `db:"name"`
@@ -46,14 +44,9 @@ type Plan struct {
 	// Features of a plan below. As a rule, any boolean features should default
 	// to false (i.e. disabled), so choose names accordingly.
 
-	AutoShutdown    bool  `db:"auto_shutdown"`
-	MaxContainers   int64 `db:"max_containers"`
-	MaxSnapshots    int64 `db:"max_snapshots"`
-	CleanPreview    bool  `db:"clean_preview"`
-	DesktopApp      bool  `db:"desktop_app"`
-	SSH             bool  `db:"ssh"`
-	CustomDomain    bool  `db:"custom_domain"`
-	CustomTemplates bool  `db:"custom_templates"`
+	AutoShutdown  bool  `db:"auto_shutdown"`
+	MaxContainers int64 `db:"max_containers"`
+	MaxSnapshots  int64 `db:"max_snapshots"`
 
 	Org bool `db:"org"`
 	Edu bool `db:"edu"`
@@ -234,8 +227,8 @@ func PlansForMultiHostOrgs(d db.QueryReceiver, orgIds []int64) (map[int64]*Plan,
 
 func (p *Plan) Insert(d db.QueryReceiver) error {
 	nstmt, err := d.PrepareNamed(`INSERT INTO plans
-		(slug, name, max_containers, price, base_price, cpu, memory, storage, disabled, hidden, most_popular, base_plan_id, paid_plan_id, stripe_plan_id, auto_shutdown, org, max_hosts, max_collaborators)
-		VALUES (:slug, :name, :max_containers, :price, :base_price, :cpu, :memory, :storage, :disabled, :hidden, :most_popular, :base_plan_id, :paid_plan_id, :stripe_plan_id, :auto_shutdown, :org, :max_hosts, :max_collaborators)
+		(slug, name, max_containers, price, base_price, cpu, memory, storage, disabled, hidden, most_popular, stripe_plan_id, auto_shutdown, org, max_hosts, max_collaborators)
+		VALUES (:slug, :name, :max_containers, :price, :base_price, :cpu, :memory, :storage, :disabled, :hidden, :most_popular, :stripe_plan_id, :auto_shutdown, :org, :max_hosts, :max_collaborators)
 		RETURNING *;`)
 	if err != nil {
 		return err

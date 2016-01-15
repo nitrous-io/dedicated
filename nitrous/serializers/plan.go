@@ -4,7 +4,6 @@ import "github.com/nitrous-io/dedicated/nitrous/models/plan"
 
 type Plan struct {
 	ID                int64 `json:"id"`
-	BasePlanID        int64 `json:"base_plan_id,omitempty"`
 	HostingModePlanID int64 `json:"hosting_mode_plan_id,omitempty"`
 
 	Slug         string `json:"slug"`
@@ -29,13 +28,8 @@ type Plan struct {
 	MaxSnapshots     int64 `json:"max_snapshots"`
 	MaxHosts         int64 `json:"max_hosts,omitempty"`
 	MaxCollaborators int64 `json:"max_collaborators,omitempty"`
-	CleanPreview     bool  `json:"clean_preview"`
-	DesktopApp       bool  `json:"desktop_app"`
-	SSH              bool  `json:"ssh"`
-	CustomDomain     bool  `json:"custom_domain"`
-	CustomTemplates  bool  `json:"custom_templates"`
 
-	Org              bool  `json:"org"`
+	Org bool `json:"org"`
 	Edu bool `json:"edu"`
 }
 
@@ -64,16 +58,8 @@ func SerializePlan(p *plan.Plan) *Plan {
 		MaxSnapshots:     p.MaxSnapshots,
 		MaxHosts:         p.MaxHosts.Int64,
 		MaxCollaborators: p.MaxCollaborators.Int64,
-		CleanPreview:     p.CleanPreview,
-		DesktopApp:       p.DesktopApp,
-		SSH:              p.SSH,
-		CustomDomain:     p.CustomDomain,
-		CustomTemplates:  p.CustomTemplates,
 		Org:              p.Org,
-		Edu: p.Edu,
-	}
-	if p.BasePlanID.Valid {
-		serialized.BasePlanID = p.BasePlanID.Int64
+		Edu:              p.Edu,
 	}
 	if p.HostingModePlanID.Valid {
 		serialized.HostingModePlanID = p.HostingModePlanID.Int64
