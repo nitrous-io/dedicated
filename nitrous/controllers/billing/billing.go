@@ -137,8 +137,17 @@ func StripeInvoices(env *middleware.Env, w http.ResponseWriter, r *http.Request)
 	if err != nil {
 		return err
 	}
-	serInvs := []*serializers.Invoice{}
+	serInvs := []*stripememo.InvoiceSerialized{}
 	for _, inv := range invoices {
+		si, err := inv.StripeInvoice()
+		if err != nil {
+			logrus.Warnf("billing.StripeInvoices: error with invoice bpid %d (invoiced at %v): %s", inv.BillingProfileID, inv.InvoicedAt, err)
+			continue
+		}
+		ni := stripememo.NitrousInvoice{*si}
+		if !ni.ShowInHistory() {
+			continue
+		}
 		sInv := serializers.SerializeStripeInvoice(inv)
 		serInvs = append(serInvs, sInv)
 	}

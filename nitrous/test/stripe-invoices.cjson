@@ -1,0 +1,754 @@
+// vim:ft=javascript
+// Commented json file.  Any line starting with '//' is a comment and will be ignored while parsing
+//
+// Table of possible invoice types, with the username (for checking via switch
+// user) and invoice id (for checking on Stripe)
+//
+// | Special July 1 invoice (comped for one month) | ronoaldo  | in_16JckrD2OOBduWpzD4jRuR5B |
+// | Free trial invoice of $0.00                   | navya     | in_17L56DD2OOBduWpz7PwZ7BNf |
+// | Successful subscription invoice               | ronoaldo  | in_17OGrhD2OOBduWpzsNYZKqrK |
+// | Successful usage-based invoice                | ronoaldo  | in_168gMyD2OOBduWpzJlqG8C9J |
+// | Failed invoice (closed)                       | navya     | in_17Q9pMD2OOBduWpzu7hqP1rX |
+// | Failed invoice (due)                          | magnoodle | in_17SI46D2OOBduWpzgi38TLz5 |
+// | Fully credited (subscription)                 | msnoval   | in_16QsLUD2OOBduWpzs5RpLvKx |
+// | Partially credited (subscription)             | msnoval   | in_16QszVD2OOBduWpzbrn3YbyR |
+// | Partial credited (usage-based)                | bitomule  | in_15RBORD2OOBduWpze7Gef6b0 |
+[
+// Invoice: July 01
+{
+  "id": "in_16JckrD2OOBduWpzD4jRuR5B",
+  "object": "invoice",
+  "amount_due": 0,
+  "application_fee": null,
+  "attempt_count": 0,
+  "attempted": true,
+  "charge": null,
+  "closed": true,
+  "currency": "usd",
+  "customer": "cus_5fSQ2HyvvuCyE9",
+  "date": 1435724605,
+  "description": null,
+  "discount": null,
+  "ending_balance": 0,
+  "forgiven": false,
+  "lines": {
+    "object": "list",
+    "data": [
+      {
+        "id": "sub_6Wg7SS9Apazjvh",
+        "object": "line_item",
+        "amount": 0,
+        "currency": "usd",
+        "description": null,
+        "discountable": true,
+        "livemode": true,
+        "metadata": {},
+        "period": {
+          "start": 1435724605,
+          "end": 1438387199
+        },
+        "plan": {
+          "id": "standard-legacy",
+          "object": "plan",
+          "amount": 2900,
+          "created": 1435705727,
+          "currency": "usd",
+          "interval": "month",
+          "interval_count": 1,
+          "livemode": true,
+          "metadata": {},
+          "name": "Standard (Early-2015)",
+          "statement_descriptor": null,
+          "trial_period_days": null
+        },
+        "proration": false,
+        "quantity": 1,
+        "subscription": null,
+        "type": "subscription"
+      }
+    ],
+    "has_more": false,
+    "total_count": 1,
+    "url": "/v1/invoices/in_16JckrD2OOBduWpzD4jRuR5B/lines"
+  },
+  "livemode": true,
+  "metadata": {},
+  "next_payment_attempt": null,
+  "paid": true,
+  "period_end": 1435724605,
+  "period_start": 1435724605,
+  "receipt_number": null,
+  "starting_balance": 0,
+  "statement_descriptor": null,
+  "subscription": "sub_6Wg7SS9Apazjvh",
+  "subtotal": 0,
+  "tax": null,
+  "tax_percent": null,
+  "total": 0,
+  "webhooks_delivered_at": 1435724610,
+  "payment": null
+},
+// Invoice: free trial invoice for $0.00
+{
+  "id": "in_17L56DD2OOBduWpz7PwZ7BNf",
+  "object": "invoice",
+  "amount_due": 0,
+  "application_fee": null,
+  "attempt_count": 0,
+  "attempted": true,
+  "charge": null,
+  "closed": true,
+  "currency": "usd",
+  "customer": "cus_7aFaDJm1V6dhd7",
+  "date": 1450848225,
+  "description": null,
+  "discount": null,
+  "ending_balance": 0,
+  "forgiven": false,
+  "lines": {
+    "object": "list",
+    "data": [
+      {
+        "id": "sub_7aFbZ2MzCBsMfq",
+        "object": "line_item",
+        "amount": 0,
+        "currency": "usd",
+        "description": null,
+        "discountable": true,
+        "livemode": true,
+        "metadata": {},
+        "period": {
+          "start": 1450848225,
+          "end": 1452057825
+        },
+        "plan": {
+          "id": "20151125-standard",
+          "object": "plan",
+          "amount": 3900,
+          "created": 1448480617,
+          "currency": "usd",
+          "interval": "month",
+          "interval_count": 1,
+          "livemode": true,
+          "metadata": {},
+          "name": "Standard",
+          "statement_descriptor": null,
+          "trial_period_days": null
+        },
+        "proration": false,
+        "quantity": 1,
+        "subscription": null,
+        "type": "subscription"
+      }
+    ],
+    "has_more": false,
+    "total_count": 1,
+    "url": "/v1/invoices/in_17L56DD2OOBduWpz7PwZ7BNf/lines"
+  },
+  "livemode": true,
+  "metadata": {},
+  "next_payment_attempt": null,
+  "paid": true,
+  "period_end": 1450848225,
+  "period_start": 1450848225,
+  "receipt_number": null,
+  "starting_balance": 0,
+  "statement_descriptor": null,
+  "subscription": "sub_7aFbZ2MzCBsMfq",
+  "subtotal": 0,
+  "tax": null,
+  "tax_percent": null,
+  "total": 0,
+  "webhooks_delivered_at": 1450848237,
+  "payment": null
+},
+// Invoice: successful subscription
+{
+  "id": "in_17OGrhD2OOBduWpzsNYZKqrK",
+  "object": "invoice",
+  "amount_due": 2900,
+  "application_fee": null,
+  "attempt_count": 1,
+  "attempted": true,
+  "charge": "ch_17OI10D2OOBduWpzpMMQW4Pg",
+  "closed": true,
+  "currency": "usd",
+  "customer": "cus_5fSQ2HyvvuCyE9",
+  "date": 1451608437,
+  "description": null,
+  "discount": null,
+  "ending_balance": 0,
+  "forgiven": false,
+  "lines": {
+    "object": "list",
+    "data": [
+      {
+        "id": "sub_6Wg7SS9Apazjvh",
+        "object": "line_item",
+        "amount": 2900,
+        "currency": "usd",
+        "description": null,
+        "discountable": true,
+        "livemode": true,
+        "metadata": {},
+        "period": {
+          "start": 1451606399,
+          "end": 1454284799
+        },
+        "plan": {
+          "id": "standard-legacy",
+          "object": "plan",
+          "amount": 2900,
+          "created": 1435705727,
+          "currency": "usd",
+          "interval": "month",
+          "interval_count": 1,
+          "livemode": true,
+          "metadata": {},
+          "name": "Standard (Early-2015)",
+          "statement_descriptor": null,
+          "trial_period_days": null
+        },
+        "proration": false,
+        "quantity": 1,
+        "subscription": null,
+        "type": "subscription"
+      }
+    ],
+    "has_more": false,
+    "total_count": 1,
+    "url": "/v1/invoices/in_17OGrhD2OOBduWpzsNYZKqrK/lines"
+  },
+  "livemode": true,
+  "metadata": {},
+  "next_payment_attempt": null,
+  "paid": true,
+  "period_end": 1451606399,
+  "period_start": 1448927999,
+  "receipt_number": "2986-7026",
+  "starting_balance": 0,
+  "statement_descriptor": null,
+  "subscription": "sub_6Wg7SS9Apazjvh",
+  "subtotal": 2900,
+  "tax": null,
+  "tax_percent": null,
+  "total": 2900,
+  "webhooks_delivered_at": 1451608535,
+  "payment": "ch_17OI10D2OOBduWpzpMMQW4Pg"
+},
+// Invoice: successful usage-based
+{
+  "id": "in_168gMyD2OOBduWpzJlqG8C9J",
+  "object": "invoice",
+  "amount_due": 3696,
+  "application_fee": null,
+  "attempt_count": 2,
+  "attempted": true,
+  "charge": "ch_169jUjD2OOBduWpztlxDYYRH",
+  "closed": true,
+  "currency": "usd",
+  "customer": "cus_5fSQ2HyvvuCyE9",
+  "date": 1433116892,
+  "description": null,
+  "discount": null,
+  "ending_balance": 0,
+  "forgiven": false,
+  "lines": {
+    "object": "list",
+    "data": [
+      {
+        "id": "ii_168gMxD2OOBduWpzshiDHacc",
+        "object": "line_item",
+        "amount": 600,
+        "currency": "usd",
+        "description": "'ronoaldop-1734' base (50 GB storage) - 672 hours at 0.893c/hour",
+        "discountable": true,
+        "livemode": true,
+        "metadata": {},
+        "period": {
+          "start": 1433116891,
+          "end": 1433116891
+        },
+        "plan": null,
+        "proration": false,
+        "quantity": null,
+        "subscription": null,
+        "type": "invoiceitem"
+      },
+      {
+        "id": "ii_168gMxD2OOBduWpzVYmahra6",
+        "object": "line_item",
+        "amount": 2399,
+        "currency": "usd",
+        "description": "'ronoaldop-1734' compute (2 GB memory) - 672 hours at 3.57c/hour",
+        "discountable": true,
+        "livemode": true,
+        "metadata": {},
+        "period": {
+          "start": 1433116891,
+          "end": 1433116891
+        },
+        "plan": null,
+        "proration": false,
+        "quantity": null,
+        "subscription": null,
+        "type": "invoiceitem"
+      },
+      {
+        "id": "ii_168gMxD2OOBduWpzISXQEV83",
+        "object": "line_item",
+        "amount": 140,
+        "currency": "usd",
+        "description": "'sulamerica-2868' base (50 GB storage) - 156 hours at 0.893c/hour (terminated)",
+        "discountable": true,
+        "livemode": true,
+        "metadata": {},
+        "period": {
+          "start": 1433116891,
+          "end": 1433116891
+        },
+        "plan": null,
+        "proration": false,
+        "quantity": null,
+        "subscription": null,
+        "type": "invoiceitem"
+      },
+      {
+        "id": "ii_168gMxD2OOBduWpz8sIHFARL",
+        "object": "line_item",
+        "amount": 557,
+        "currency": "usd",
+        "description": "'sulamerica-2868' compute (2 GB memory) - 156 hours at 3.57c/hour (terminated)",
+        "discountable": true,
+        "livemode": true,
+        "metadata": {},
+        "period": {
+          "start": 1433116891,
+          "end": 1433116891
+        },
+        "plan": null,
+        "proration": false,
+        "quantity": null,
+        "subscription": null,
+        "type": "invoiceitem"
+      }
+    ],
+    "has_more": false,
+    "total_count": 4,
+    "url": "/v1/invoices/in_168gMyD2OOBduWpzJlqG8C9J/lines"
+  },
+  "livemode": true,
+  "metadata": {},
+  "next_payment_attempt": null,
+  "paid": true,
+  "period_end": 1433116892,
+  "period_start": 1433116892,
+  "receipt_number": "2316-0998",
+  "starting_balance": 0,
+  "statement_descriptor": null,
+  "subscription": null,
+  "subtotal": 3696,
+  "tax": null,
+  "tax_percent": null,
+  "total": 3696,
+  "webhooks_delivered_at": 1433116899,
+  "payment": "ch_169jUjD2OOBduWpztlxDYYRH"
+},
+// Invoice: Failed (closed, i.e. all payment attempts failed)
+{
+  "id": "in_17Q9pMD2OOBduWpzu7hqP1rX",
+  "object": "invoice",
+  "amount_due": 3900,
+  "application_fee": null,
+  "attempt_count": 4,
+  "attempted": true,
+  "charge": "ch_17RzNuD2OOBduWpzgP4EvhjS",
+  "closed": true,
+  "currency": "usd",
+  "customer": "cus_7aFaDJm1V6dhd7",
+  "date": 1452058040,
+  "description": null,
+  "discount": null,
+  "ending_balance": 0,
+  "forgiven": false,
+  "lines": {
+    "object": "list",
+    "data": [
+      {
+        "id": "sub_7aFbZ2MzCBsMfq",
+        "object": "line_item",
+        "amount": 3900,
+        "currency": "usd",
+        "description": null,
+        "discountable": true,
+        "livemode": true,
+        "metadata": {},
+        "period": {
+          "start": 1452057825,
+          "end": 1454736225
+        },
+        "plan": {
+          "id": "20151125-standard",
+          "object": "plan",
+          "amount": 3900,
+          "created": 1448480617,
+          "currency": "usd",
+          "interval": "month",
+          "interval_count": 1,
+          "livemode": true,
+          "metadata": {},
+          "name": "Standard",
+          "statement_descriptor": null,
+          "trial_period_days": null
+        },
+        "proration": false,
+        "quantity": 1,
+        "subscription": null,
+        "type": "subscription"
+      }
+    ],
+    "has_more": false,
+    "total_count": 1,
+    "url": "/v1/invoices/in_17Q9pMD2OOBduWpzu7hqP1rX/lines"
+  },
+  "livemode": true,
+  "metadata": {},
+  "next_payment_attempt": null,
+  "paid": false,
+  "period_end": 1452057825,
+  "period_start": 1450848225,
+  "receipt_number": null,
+  "starting_balance": 0,
+  "statement_descriptor": null,
+  "subscription": "sub_7aFbZ2MzCBsMfq",
+  "subtotal": 3900,
+  "tax": null,
+  "tax_percent": null,
+  "total": 3900,
+  "webhooks_delivered_at": 1452058050,
+  "payment": "ch_17RzNuD2OOBduWpzgP4EvhjS"
+},
+// Invoice: failed (due)
+// Note that this invoice will be changed once retrieved in the future, since
+// after more payment attempts it will become closed.
+{
+  "id": "in_17SI46D2OOBduWpzgi38TLz5",
+  "object": "invoice",
+  "amount_due": 1900,
+  "application_fee": null,
+  "attempt_count": 3,
+  "attempted": true,
+  "charge": "ch_17T29vD2OOBduWpzSLHUWrbx",
+  "closed": false,
+  "currency": "usd",
+  "customer": "cus_7WSdPMFKGbROqd",
+  "date": 1452566362,
+  "description": null,
+  "discount": null,
+  "ending_balance": 0,
+  "forgiven": false,
+  "lines": {
+    "object": "list",
+    "data": [
+      {
+        "id": "sub_7WSdkyuFZzqnKE",
+        "object": "line_item",
+        "amount": 1900,
+        "currency": "usd",
+        "description": null,
+        "discountable": true,
+        "livemode": true,
+        "metadata": {},
+        "period": {
+          "start": 1452566170,
+          "end": 1455244570
+        },
+        "plan": {
+          "id": "20151125-basic",
+          "object": "plan",
+          "amount": 1900,
+          "created": 1448480558,
+          "currency": "usd",
+          "interval": "month",
+          "interval_count": 1,
+          "livemode": true,
+          "metadata": {},
+          "name": "Basic",
+          "statement_descriptor": null,
+          "trial_period_days": null
+        },
+        "proration": false,
+        "quantity": 1,
+        "subscription": null,
+        "type": "subscription"
+      }
+    ],
+    "has_more": false,
+    "total_count": 1,
+    "url": "/v1/invoices/in_17SI46D2OOBduWpzgi38TLz5/lines"
+  },
+  "livemode": true,
+  "metadata": {},
+  "next_payment_attempt": 1453002747,
+  "paid": false,
+  "period_end": 1452566170,
+  "period_start": 1449974171,
+  "receipt_number": null,
+  "starting_balance": 0,
+  "statement_descriptor": null,
+  "subscription": "sub_7WSdkyuFZzqnKE",
+  "subtotal": 1900,
+  "tax": null,
+  "tax_percent": null,
+  "total": 1900,
+  "webhooks_delivered_at": 1452566386,
+  "payment": "ch_17T29vD2OOBduWpzSLHUWrbx"
+},
+// Invoice: fully credited subscription
+{
+  "id": "in_16QsLUD2OOBduWpzs5RpLvKx",
+  "object": "invoice",
+  "amount_due": 0,
+  "application_fee": null,
+  "attempt_count": 0,
+  "attempted": true,
+  "charge": null,
+  "closed": true,
+  "currency": "usd",
+  "customer": "cus_6Lnqs2MbT8YCty",
+  "date": 1437452832,
+  "description": null,
+  "discount": null,
+  "ending_balance": -900,
+  "forgiven": false,
+  "lines": {
+    "object": "list",
+    "data": [
+      {
+        "id": "ii_16QsLTD2OOBduWpzBZD0bqEu",
+        "object": "line_item",
+        "amount": -900,
+        "currency": "usd",
+        "description": "Credit of $9.00",
+        "discountable": true,
+        "livemode": true,
+        "metadata": {},
+        "period": {
+          "start": 1437452831,
+          "end": 1437452831
+        },
+        "plan": null,
+        "proration": false,
+        "quantity": null,
+        "subscription": null,
+        "type": "invoiceitem"
+      },
+      {
+        "id": "sub_6eAgkhjymA9wUg",
+        "object": "line_item",
+        "amount": 0,
+        "currency": "usd",
+        "description": null,
+        "discountable": true,
+        "livemode": true,
+        "metadata": {},
+        "period": {
+          "start": 1437452832,
+          "end": 1438387199
+        },
+        "plan": {
+          "id": "basic-legacy",
+          "object": "plan",
+          "amount": 900,
+          "created": 1435705625,
+          "currency": "usd",
+          "interval": "month",
+          "interval_count": 1,
+          "livemode": true,
+          "metadata": {},
+          "name": "Basic (Early-2015)",
+          "statement_descriptor": null,
+          "trial_period_days": null
+        },
+        "proration": false,
+        "quantity": 1,
+        "subscription": null,
+        "type": "subscription"
+      }
+    ],
+    "has_more": false,
+    "total_count": 2,
+    "url": "/v1/invoices/in_16QsLUD2OOBduWpzs5RpLvKx/lines"
+  },
+  "livemode": true,
+  "metadata": {},
+  "next_payment_attempt": null,
+  "paid": true,
+  "period_end": 1437452832,
+  "period_start": 1437452832,
+  "receipt_number": null,
+  "starting_balance": 0,
+  "statement_descriptor": null,
+  "subscription": "sub_6eAgkhjymA9wUg",
+  "subtotal": -900,
+  "tax": null,
+  "tax_percent": null,
+  "total": -900,
+  "webhooks_delivered_at": 1437452838,
+  "payment": null
+},
+// Invoice: partially credited subscription
+{
+  "id": "in_16QszVD2OOBduWpzbrn3YbyR",
+  "object": "invoice",
+  "amount_due": 1900,
+  "application_fee": null,
+  "attempt_count": 1,
+  "attempted": true,
+  "charge": "ch_16QszVD2OOBduWpzALyRwWt8",
+  "closed": true,
+  "currency": "usd",
+  "customer": "cus_6Lnqs2MbT8YCty",
+  "date": 1437455313,
+  "description": null,
+  "discount": null,
+  "ending_balance": 0,
+  "forgiven": false,
+  "lines": {
+    "object": "list",
+    "data": [
+      {
+        "id": "sub_6eAgkhjymA9wUg",
+        "object": "line_item",
+        "amount": 2900,
+        "currency": "usd",
+        "description": null,
+        "discountable": true,
+        "livemode": true,
+        "metadata": {},
+        "period": {
+          "start": 1437455313,
+          "end": 1440133713
+        },
+        "plan": {
+          "id": "standard",
+          "object": "plan",
+          "amount": 2900,
+          "created": 1435705689,
+          "currency": "usd",
+          "interval": "month",
+          "interval_count": 1,
+          "livemode": true,
+          "metadata": {},
+          "name": "Standard (Mid-2015)",
+          "statement_descriptor": null,
+          "trial_period_days": null
+        },
+        "proration": false,
+        "quantity": 1,
+        "subscription": null,
+        "type": "subscription"
+      }
+    ],
+    "has_more": false,
+    "total_count": 1,
+    "url": "/v1/invoices/in_16QszVD2OOBduWpzbrn3YbyR/lines"
+  },
+  "livemode": true,
+  "metadata": {},
+  "next_payment_attempt": null,
+  "paid": true,
+  "period_end": 1437455313,
+  "period_start": 1437455313,
+  "receipt_number": "2869-4512",
+  "starting_balance": -1000,
+  "statement_descriptor": null,
+  "subscription": "sub_6eAgkhjymA9wUg",
+  "subtotal": 2900,
+  "tax": null,
+  "tax_percent": null,
+  "total": 2900,
+  "webhooks_delivered_at": 1437455324,
+  "payment": "ch_16QszVD2OOBduWpzALyRwWt8"
+},
+// Invoice: partially credited usage-based
+{
+  "id": "in_15RBORD2OOBduWpze7Gef6b0",
+  "object": "invoice",
+  "amount_due": 248,
+  "application_fee": null,
+  "attempt_count": 1,
+  "attempted": true,
+  "charge": "ch_15RDaZD2OOBduWpzX5HZoZOv",
+  "closed": true,
+  "currency": "usd",
+  "customer": "cus_5b3MbpCI8F5WKb",
+  "date": 1422749715,
+  "description": null,
+  "discount": null,
+  "ending_balance": 0,
+  "forgiven": false,
+  "lines": {
+    "object": "list",
+    "data": [
+      {
+        "id": "ii_15RBORD2OOBduWpzv1vzSJs3",
+        "object": "line_item",
+        "amount": -80,
+        "currency": "usd",
+        "description": "Credit of $0.80",
+        "discountable": true,
+        "livemode": true,
+        "metadata": {},
+        "period": {
+          "start": 1422749715,
+          "end": 1422749715
+        },
+        "plan": null,
+        "proration": false,
+        "quantity": null,
+        "subscription": null,
+        "type": "invoiceitem"
+      },
+      {
+        "id": "ii_15RBORD2OOBduWpzTUx3b83L",
+        "object": "line_item",
+        "amount": 328,
+        "currency": "usd",
+        "description": "Application 'bitomule-7892' 88 hours at 3.721c/hour",
+        "discountable": true,
+        "livemode": true,
+        "metadata": {},
+        "period": {
+          "start": 1422749715,
+          "end": 1422749715
+        },
+        "plan": null,
+        "proration": false,
+        "quantity": null,
+        "subscription": null,
+        "type": "invoiceitem"
+      }
+    ],
+    "has_more": false,
+    "total_count": 2,
+    "url": "/v1/invoices/in_15RBORD2OOBduWpze7Gef6b0/lines"
+  },
+  "livemode": true,
+  "metadata": {},
+  "next_payment_attempt": null,
+  "paid": true,
+  "period_end": 1422749715,
+  "period_start": 1422749715,
+  "receipt_number": "2535-8935",
+  "starting_balance": 0,
+  "statement_descriptor": null,
+  "subscription": null,
+  "subtotal": 248,
+  "tax": null,
+  "tax_percent": null,
+  "total": 248,
+  "webhooks_delivered_at": 1422749720,
+  "payment": "ch_15RDaZD2OOBduWpzX5HZoZOv"
+}
+]
