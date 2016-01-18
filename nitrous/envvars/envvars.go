@@ -111,7 +111,8 @@ var (
 	MailChimpIDAnnouncements = os.Getenv("MAILCHIMP_ID_ANNOUNCEMENTS")
 
 	// Google ReCaptcha
-	CaptchaSecret = os.Getenv("CAPTCHA_SECRET")
+	CaptchaPublicKey = os.Getenv("GOOGLE_RECAPTCHA_PUBLIC_KEY")
+	CaptchaSecretKey = os.Getenv("GOOGLE_RECAPTCHA_SECRET_KEY")
 )
 
 func init() {
@@ -236,4 +237,8 @@ func CheckRedis() {
 	if RedisPort == "" {
 		logrus.Fatalf("nitrousd: REDIS_PORT is not set")
 	}
+}
+
+func IsCaptchaAvailable() bool {
+	return CaptchaPublicKey != "" && CaptchaSecretKey != ""
 }
