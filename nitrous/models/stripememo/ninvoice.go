@@ -119,6 +119,21 @@ func (n NitrousInvoice) SerializeItems() []*InvoiceItemSerialized {
 			TotalCharge: line.Amount,
 		})
 	}
+
+	// for partially-credited subscription invoice we need to add in the line
+	// item showing the credit
+	if n.Type() == NinvoiceCreditedSubPartial {
+		creditVal := n.Total - n.Amount
+		items = append(items, &InvoiceItemSerialized{
+			StripeID:    fmt.Sprintf("%s-line%d", n.ID, len(n.Lines.Values)+1),
+			Description: fmt.Sprintf("Credit of $%.2f", float64(creditVal)/100.0),
+			Amount:      -creditVal,
+
+			// TODO: remove deprecated fields below once frontend is updated
+			TotalCharge: -creditVal,
+		})
+	}
+
 	return items
 }
 

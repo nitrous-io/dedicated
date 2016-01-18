@@ -181,6 +181,63 @@ var _ = Describe("models/stripememo/ninvoice", func() {
 		}`))
 	})
 
+	It("serializes partially credited subscription invoice", func() {
+		inv := NewNinvoice(stripememo.NinvoiceCreditedSubPartial)
+		j, err := jsonize(inv)
+		Expect(err).To(BeNil())
+		Expect(j).To(MatchJSON(`{
+			"id": 0,
+			"user_id": 0,
+			"amount": 1900,
+			"period_start": "2015-07-21T05:08:33Z",
+			"state": "paid",
+			"description": "Subscription to Standard (Mid-2015): $29/month",
+			"items":[{
+				"amount": 2900,
+				"description": "Subscription to Standard (Mid-2015): $29/month",
+				"sid": "in_16QszVD2OOBduWpzbrn3YbyR-line1",
+				"total_charge": 2900
+			},{
+				"amount": -1000,
+				"description": "Credit of $10.00",
+				"sid": "in_16QszVD2OOBduWpzbrn3YbyR-line2",
+				"total_charge": -1000
+			}],
+			"sid": "in_16QszVD2OOBduWpzbrn3YbyR",
+			"total_charge": 1900,
+			"period_end": "2015-07-21T05:08:33Z"
+		}`))
+	})
+
+	It("serializes partially credited usage invoice", func() {
+		inv := NewNinvoice(stripememo.NinvoiceCreditedUsagePartial)
+		j, err := jsonize(inv)
+		Expect(err).To(BeNil())
+		// json under test: ensure state is 'unpaid'
+		Expect(j).To(MatchJSON(`{
+			"id": 0,
+			"user_id": 0,
+			"amount": 248,
+			"period_start": "2015-02-01T00:15:15Z",
+			"state": "paid",
+			"description": "Usage for Feb 2015",
+			"items":[{
+				"amount": -80,
+				"description": "Credit of $0.80",
+				"sid": "in_15RBORD2OOBduWpze7Gef6b0-line1",
+				"total_charge": -80
+			},{
+				"amount": 328,
+				"description": "Application 'bitomule-7892' 88 hours at 3.721c/hour",
+				"sid": "in_15RBORD2OOBduWpze7Gef6b0-line2",
+				"total_charge": 328
+			}],
+			"sid": "in_15RBORD2OOBduWpze7Gef6b0",
+			"total_charge": 248,
+			"period_end": "2015-02-01T00:15:15Z"
+		}`))
+	})
+
 	Context("State()", func() {
 		var testcases = map[string]string{
 			"july01":                 invoice.StatePaid,
