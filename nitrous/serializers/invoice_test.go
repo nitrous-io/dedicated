@@ -29,67 +29,30 @@ var _ = Describe("invoice serializer", func() {
 		})
 
 		It("serializes to JSON with description when invoice item is a subscription", func() {
+			// the core of this is handled in nitrous/stripememo/ninvoice_test;
+			// this is just to ensure that the serializer code path is
+			// exercised as intended
 			r := serializers.SerializeStripeInvoice(model)
 			b, err := json.Marshal(r)
 			Expect(err).To(BeNil())
-			// this also tests invoiceitem serialization
 			Expect(b).To(MatchJSON(`{
 				"id": 0,
-				"sid": "in_17AYBv2eZvKYlo2C8sW8Cs4R",
-				"user_id": 456,
-				"total_charge": 3000,
-				"state": "unpaid",
+				"user_id": 0,
+				"amount": 3000,
+				"description": "Subscription to New plan name: $20/month",
 				"period_start": "2015-11-23T04:12:51Z",
-				"period_end": "2015-11-24T04:12:51Z",
-				"attempted": false,
-				"total_credit": 0,
-				"available_credit": 0,
-				"subscription": true,
+				"sid": "in_17AYBv2eZvKYlo2C8sW8Cs4R",
+				"state": "unpaid",
 				"items": [
 					{
-						"id": 0,
-						"sid": "sub_7PNezyXAgzNnkn",
-						"description": "Subscription to New plan name ($20/month)",
-						"total_charge": 2000,
-						"usage": null
+						"sid": "in_17AYBv2eZvKYlo2C8sW8Cs4R-line1",
+						"description": "Subscription to New plan name: $20/month",
+						"amount": 2000,
+						"total_charge": 2000
 					}
-				]
-			}`))
-		})
-
-		It("serializes to JSON with given invoice item description if present", func() {
-			si, err := model.StripeInvoice()
-			Expect(err).To(BeNil())
-			si.Lines.Values[0].Desc = "Credit of $9.00"
-			b, err := json.Marshal(si)
-			Expect(err).To(BeNil())
-			model.InvoiceJSON = string(b)
-
-			r := serializers.SerializeStripeInvoice(model)
-			b, err = json.Marshal(r)
-			Expect(err).To(BeNil())
-			// this also tests invoiceitem serialization
-			Expect(b).To(MatchJSON(`{
-				"id": 0,
-				"sid": "in_17AYBv2eZvKYlo2C8sW8Cs4R",
-				"user_id": 456,
+				],
 				"total_charge": 3000,
-				"state": "unpaid",
-				"period_start": "2015-11-23T04:12:51Z",
-				"period_end": "2015-11-24T04:12:51Z",
-				"attempted": false,
-				"total_credit": 0,
-				"available_credit": 0,
-				"subscription": true,
-				"items": [
-					{
-						"id": 0,
-						"sid": "sub_7PNezyXAgzNnkn",
-						"description": "Credit of $9.00",
-						"total_charge": 2000,
-						"usage": null
-					}
-				]
+				"period_end": "2015-11-23T04:12:51Z"
 			}`))
 		})
 	})

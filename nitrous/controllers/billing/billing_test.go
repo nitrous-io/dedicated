@@ -8,6 +8,7 @@ import (
 	"net/http/httptest"
 	"net/url"
 	"strconv"
+	"strings"
 	"testing"
 	"time"
 
@@ -214,28 +215,45 @@ var _ = Describe("controllers/billing", func() {
 			var err error
 			bp, err = u.BillingProfile(db)
 			Expect(err).To(BeNil())
-
-			_, err = db.Exec(`INSERT INTO stripe_invoices
-			(billing_profile_id, invoice_json, invoiced_at) VALUES
-			($1, $2, now())
-			`, bp.ID, StripeInvoiceResponse)
-			Expect(err).To(BeNil())
 		})
 
-		It("serializes stripe invoices", func() {
+		It("serializes attempted stripe invoices", func() {
+			attempted := strings.Replace(StripeInvoiceResponse,
+				`"attempted": false`, `"attempted": true`, 1)
+			_, err := db.Exec(`INSERT INTO stripe_invoices
+			(billing_profile_id, invoice_json, invoiced_at) VALUES
+			($1, $2, now())
+			`, bp.ID, attempted)
+			Expect(err).To(BeNil())
+
 			var j map[string][]serializers.Invoice
 			res := doRequest(false)
 			Expect(res.Code).To(Equal(http.StatusOK))
-			err := json.NewDecoder(res.Body).Decode(&j)
+			err = json.NewDecoder(res.Body).Decode(&j)
 			Expect(err).To(BeNil())
 
 			invoices := j["invoices"]
 
 			Expect(invoices).To(HaveLen(1))
-			Expect(invoices[0].UserID).To(Equal(bp.UserID))
-			Expect(invoices[0].State).To(Equal(invoice.StateUnpaid))
-			Expect(invoices[0].Items).To(HaveLen(1))
-			Expect(invoices[0].Items[0].TotalCharge).To(Equal(int64(2000)))
+		})
+
+		It("skips unattempted stripe invoices", func() {
+			// unattempted invoices are ones where the user has not been
+			// charged yet; we leave them out
+			_, err := db.Exec(`INSERT INTO stripe_invoices
+			(billing_profile_id, invoice_json, invoiced_at) VALUES
+			($1, $2, now())
+			`, bp.ID, StripeInvoiceResponse)
+			Expect(err).To(BeNil())
+
+			res := doRequest(false)
+			Expect(res.Code).To(Equal(http.StatusOK))
+
+			var j map[string][]serializers.Invoice
+			err = json.NewDecoder(res.Body).Decode(&j)
+			Expect(err).To(BeNil())
+
+			Expect(j["invoices"]).To(HaveLen(0))
 		})
 	})
 
