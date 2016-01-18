@@ -134,7 +134,6 @@ var _ = Describe("controllers/users", func() {
 			Expect(err).To(BeNil())
 			Expect(count).To(Equal(1))
 		})
-
 	})
 
 	Describe("POST /api/v0/users", func() {
@@ -152,6 +151,11 @@ var _ = Describe("controllers/users", func() {
 			params.Set("password", "123456")
 			params.Set("name", "Foo Bar")
 			params.Set("promo_code", "")
+			params.Set("captcha_token", "catpcha-token")
+
+			users.VerifyCaptchaToken = func(captchaSecret, captchaToken string) error {
+				return nil
+			}
 		})
 
 		Context("when valid params are received", func() {
@@ -750,6 +754,24 @@ var _ = Describe("controllers/users", func() {
 					_, err := user.FindByUsername(db, "foo")
 					Expect(err).To(Equal(sql.ErrNoRows))
 				})
+			})
+		})
+
+		Context("captcha token is invalid", func() {
+			BeforeEach(func() {
+				users.VerifyCaptchaToken = func(captchaSecret, captchaToken string) error {
+					return fmt.Errorf("token is invalid")
+				}
+			})
+
+			It("responds with 400 bad request", func() {
+				doRequest()
+				Expect(res.Code).To(Equal(http.StatusBadRequest))
+				j := map[string]string{}
+				err := json.Unmarshal(res.Body.Bytes(), &j)
+				Expect(err).To(BeNil())
+				Expect(j["error"]).To(Equal("invalid_captcha_token"))
+				Expect(j["error_description"]).To(Equal("failed to verify captcha token"))
 			})
 		})
 	})

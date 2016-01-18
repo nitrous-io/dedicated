@@ -1,14 +1,20 @@
 package users
 
 import (
+	"bytes"
 	"database/sql"
+	"encoding/json"
+	"fmt"
 	"net/http"
+	"net/url"
+	"strconv"
 	"strings"
 
 	"github.com/Sirupsen/logrus"
 	"github.com/jmoiron/sqlx"
 	"github.com/lib/pq"
 	"github.com/nitrous-io/dedicated/nitrous/controllers/github"
+	"github.com/nitrous-io/dedicated/nitrous/envvars"
 	"github.com/nitrous-io/dedicated/nitrous/middleware"
 	"github.com/nitrous-io/dedicated/nitrous/models/containercollab"
 	"github.com/nitrous-io/dedicated/nitrous/models/oauthclient"
@@ -19,6 +25,8 @@ import (
 	"github.com/nitrous-io/dedicated/nitrous/pkg/httperror"
 	"github.com/nitrous-io/dedicated/nitrous/serializers"
 )
+
+const captchaVerifyUrl = "https://www.google.com/recaptcha/api/siteverify"
 
 var (
 	errInvalidOrgSlug       = httperror.New(http.StatusBadRequest, "invalid_org_slug", "org_slug is not allowed")
@@ -32,6 +40,42 @@ var (
 	bannedPhone        = httperror.New(http.StatusBadRequest, "phone_banned", "this phone number is banned")
 
 	phoneAlreadyAuthed = httperror.New(http.StatusBadRequest, "phone_authed", "phone number has already been verified")
+
+	invalidCaptchaToken = httperror.New(http.StatusBadRequest, "invalid_captcha_token", "failed to verify captcha token")
+
+	VerifyCaptchaToken = func(captchaSecret, captchaToken string) error {
+		data := url.Values{}
+
+		data.Set("secret", captchaSecret)
+		data.Set("response", captchaToken)
+
+		req, err := http.NewRequest("POST", captchaVerifyUrl, bytes.NewBufferString(data.Encode()))
+		if err != nil {
+			return err
+		}
+
+		req.Header.Add("Content-Type", "application/x-www-form-urlencoded")
+		req.Header.Add("Content-Length", strconv.Itoa(len(data.Encode())))
+
+		res, err := http.DefaultClient.Do(req)
+		if err != nil {
+			return err
+		}
+		defer res.Body.Close()
+
+		j := map[string]interface{}{}
+		json.NewDecoder(res.Body).Decode(&j)
+
+		if res.StatusCode != http.StatusOK {
+			return fmt.Errorf("Verifying captcha error: %+v", j)
+		}
+
+		if !j["success"].(bool) {
+			return fmt.Errorf("Verifying captcha error codes: %+v", j["error-codes"])
+		}
+
+		return nil
+	}
 )
 
 func Create(env *middleware.Env, w http.ResponseWriter, r *http.Request) error {
@@ -45,12 +89,21 @@ func Create(env *middleware.Env, w http.ResponseWriter, r *http.Request) error {
 	invitecode := r.FormValue("invite_code")
 	distinctID := r.FormValue("distinct_id")
 	gitHubUserName := r.FormValue("github_username")
+	captchaToken := r.FormValue("captcha_token")
 
 	u := &user.User{
 		Email:    email,
 		Username: username,
 		Name:     name,
 		Password: password,
+	}
+
+	// It only varifies captcha token when CaptchaSecret is specified
+	if envvars.CaptchaSecret != "" {
+		if err := VerifyCaptchaToken(envvars.CaptchaSecret, captchaToken); err != nil {
+			logrus.Errorf("Error verifying captcha token for user %+v, err: %+v", u, err)
+			return invalidCaptchaToken
+		}
 	}
 
 	err := u.Validate()
