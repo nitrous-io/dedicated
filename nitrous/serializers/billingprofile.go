@@ -38,7 +38,7 @@ func SerializeBillingProfile(b *billingprofile.BillingProfile) *BillingProfile {
 		TrialEligible:    b.TrialEligible,
 		CreatedAt:        b.CreatedAt,
 		UpdatedAt:        b.UpdatedAt,
-		CardRequired:     b.IsCardRequired(),
+		CardRequired:     b.IsNoCard(),
 		HasBillingIssues: b.HasBillingIssues(),
 	}
 	if b.OrgID.Valid {

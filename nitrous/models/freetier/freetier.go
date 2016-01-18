@@ -26,7 +26,7 @@ func EligiblePlansForUser(d *db.Database, u *user.User, provider string) ([]*pla
 		return nil, err
 	}
 
-	if bp.IsCardRequired() && !u.PhoneAuthed {
+	if bp.IsNoCard() && !u.PhoneAuthed {
 		return plan.AllPlansForProvider(d, provider)
 	}
 
@@ -119,7 +119,7 @@ func IdleFreeHosts(d *db.Database) ([]*host.Host, error) {
 				last_pinged_at IS NULL
 			)
 			-- if host has been running for less than 2700 seconds = 45 minutes; not idle
-			AND 
+			AND
 			  (last_running_at IS NULL OR MOD(CAST(EXTRACT(EPOCH FROM now() - last_running_at) as numeric), 3600) > 2700)
 			AND terminated_at IS NULL
 		ORDER BY last_pinged_at ASC
@@ -144,7 +144,7 @@ func IsIdle(d *db.Database, h *host.Host) (bool, error) {
 				last_pinged_at IS NULL
 			)
 			-- if host has been running for less than 2700 seconds = 45 minutes; not idle
-			AND 
+			AND
 			  (last_running_at IS NULL OR MOD(CAST(EXTRACT(EPOCH FROM now() - last_running_at) as numeric), 3600) > 2700)
 			AND terminated_at IS NULL
 		`, h.ID, true, host.StateRunning).Scan(&count)
