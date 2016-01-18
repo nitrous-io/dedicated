@@ -65,6 +65,10 @@ var _ = Describe("controllers/appsettings", func() {
 			envvars.StripePublicKey = "st-001"
 			defer func() { envvars.StripePublicKey = oldSK }()
 
+			oldCK := envvars.CaptchaPublicKey
+			envvars.CaptchaPublicKey = "6Lb-000"
+			defer func() { envvars.CaptchaPublicKey = oldCK }()
+
 			res := doRequest()
 			Expect(res.Code).To(Equal(http.StatusOK))
 
@@ -73,6 +77,7 @@ var _ = Describe("controllers/appsettings", func() {
 			Expect(err).To(BeNil())
 			Expect(j["mixpanel_token"]).To(Equal("Track Me"))
 			Expect(j["stripe_key"]).To(Equal("st-001"))
+			Expect(j["captcha_key"]).To(Equal("6Lb-000"))
 		})
 	})
 })

@@ -12,6 +12,7 @@ func Index(env *middleware.Env, w http.ResponseWriter, r *http.Request) error {
 	env.Data = map[string]interface{}{
 		"mixpanel_token": envvars.MixpanelToken,
 		"stripe_key":     envvars.StripePublicKey,
+		"captcha_key":    envvars.CaptchaPublicKey,
 	}
 
 	return nil
