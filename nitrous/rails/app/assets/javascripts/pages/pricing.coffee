@@ -24,7 +24,7 @@ pages.Pricing =
 
       $('.plan-list').css(opacity: 1)
 
-    $.getJSON('/api/v0/plans').then (data) ->
+    $.getJSON('/api/v0/plans/all').then (data) ->
       return unless data.plans
       pl = data.plans.sort (a, b) ->
         aPrice = a.price + a.base_price
