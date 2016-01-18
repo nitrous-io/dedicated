@@ -99,8 +99,8 @@ func Create(env *middleware.Env, w http.ResponseWriter, r *http.Request) error {
 	}
 
 	// It only varifies captcha token when CaptchaSecret is specified
-	if envvars.CaptchaSecret != "" {
-		if err := VerifyCaptchaToken(envvars.CaptchaSecret, captchaToken); err != nil {
+	if envvars.IsCaptchaAvailable() {
+		if err := VerifyCaptchaToken(envvars.CaptchaSecretKey, captchaToken); err != nil {
 			logrus.Errorf("Error verifying captcha token for user %+v, err: %+v", u, err)
 			return invalidCaptchaToken
 		}
