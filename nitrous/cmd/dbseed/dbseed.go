@@ -125,16 +125,15 @@ func plans(d db.QueryReceiver) error {
 	}
 
 	free := &plan.Plan{Slug: "free", Name: "Starter", StripePlanID: sql.NullString{"free", true}, Type: plan.TypePrepaid, MaxContainers: 1, Price: 0, CPU: "1", Memory: "1 GB", Storage: "5GB"}
-	free.PaidPlanID = sql.NullInt64{basic.ID, true}
 	if err := free.Insert(d); err != nil {
 		return err
 	}
 
 	plans := []*plan.Plan{
-		{Slug: "standard", Name: "Standard", StripePlanID: sql.NullString{"standard", true}, Type: plan.TypePrepaid, MaxContainers: 3, Price: 2900, CPU: "1", Memory: "2 GB", Storage: "25 GB", MostPopular: true, CleanPreview: true, SSH: true, DesktopApp: true},
-		{Slug: "plus", Name: "Plus", StripePlanID: sql.NullString{"plus", true}, Type: plan.TypePrepaid, MaxContainers: 10, Price: 7900, CPU: "2", Memory: "4 GB", Storage: "50 GB", CleanPreview: true, SSH: true, DesktopApp: true, CustomTemplates: true},
-		{Slug: "org-plus", Name: "Plus", StripePlanID: sql.NullString{"org-plus", true}, Type: plan.TypePrepaid, MaxContainers: 20, Price: 11900, CPU: "2", Memory: "4 GB", Storage: "80 GB", CleanPreview: true, SSH: true, DesktopApp: true, CustomTemplates: true, Org: true},
-		{Slug: "org-pro", Name: "Pro", StripePlanID: sql.NullString{"org-pro", true}, Type: plan.TypePrepaid, MaxContainers: 50, Price: 24900, CPU: "2", Memory: "8 GB", Storage: "200 GB", CleanPreview: true, SSH: true, DesktopApp: true, CustomTemplates: true, Org: true},
+		{Slug: "standard", Name: "Standard", StripePlanID: sql.NullString{"standard", true}, Type: plan.TypePrepaid, MaxContainers: 3, Price: 2900, CPU: "1", Memory: "2 GB", Storage: "25 GB", MostPopular: true},
+		{Slug: "plus", Name: "Plus", StripePlanID: sql.NullString{"plus", true}, Type: plan.TypePrepaid, MaxContainers: 10, Price: 7900, CPU: "2", Memory: "4 GB", Storage: "50 GB"},
+		{Slug: "org-plus", Name: "Plus", StripePlanID: sql.NullString{"org-plus", true}, Type: plan.TypePrepaid, MaxContainers: 20, Price: 11900, CPU: "2", Memory: "4 GB", Storage: "80 GB", Org: true},
+		{Slug: "org-pro", Name: "Pro", StripePlanID: sql.NullString{"org-pro", true}, Type: plan.TypePrepaid, MaxContainers: 50, Price: 24900, CPU: "2", Memory: "8 GB", Storage: "200 GB", Org: true},
 	}
 	for _, p := range plans {
 		if err := p.Insert(d); err != nil {

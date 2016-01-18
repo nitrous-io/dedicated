@@ -3,7 +3,6 @@ attr = SM.attr
 
 App.Plan = klass = App.Model.extend
   id: attr('number', serialize: false)
-  basePlanId: attr('number', as: 'base_plan_id', serialize: false)
   hostingModePlanId: attr('number', as: 'hosting_mode_plan_id', serialize: false)
 
   slug: attr()
@@ -24,21 +23,11 @@ App.Plan = klass = App.Model.extend
 
   maxContainers: attr('number', as: 'max_containers')
   maxSnapshots: attr('number', as: 'max_snapshots')
-  cleanPreview: attr('boolean', as: 'clean_preview')
-  desktopApp: attr('boolean', as: 'desktop_app')
-  ssh: attr('boolean')
-  customDomain: attr('boolean', as: 'custom_domain')
-  customTemplates: attr('boolean', as: 'custom_templates')
 
   inputId: (->
     if slug = @get 'slug'
       "plan-#{slug}"
   ).property 'slug'
-
-  basePlan: (->
-    if basePlanId = @get('basePlanId')
-      App.get('plans').findBy('id', basePlanId)
-  ).property 'basePlanId', 'App.plans.@each'
 
   hostingModePlan: (->
     if hostingModePlanId = @get('hostingModePlanId')

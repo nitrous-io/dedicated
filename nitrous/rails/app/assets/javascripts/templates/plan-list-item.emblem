@@ -53,27 +53,10 @@
           span = storage
           '
           | Storage
-      /tr
-        /if maxSnapshots
-          /td
-            /' Up to
-            /span = maxSnapshots
-            /'
-            /= plural maxSnapshots 'Snapshot' 'Snapshots'
-        /else
-          /td No Snapshots
-      if ssh
-        tr
-          td SSH Access
-      if desktopApp
-        tr
-          td Desktop App
-      if customDomains
-        tr
-          td Custom Domains
-      if customTemplates
-        tr
-          td Custom Templates
+      tr
+        td SSH Access
+      tr
+        td Desktop App
 
   if plan.trialAvailable
     .ribbon

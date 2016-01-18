@@ -82,7 +82,6 @@ var _ = Describe("models/freetier", func() {
 				Slug:          "free plan",
 				Price:         0,
 				MaxContainers: 1,
-				PaidPlanID:    sql.NullInt64{Valid: true, Int64: paidPlan.ID},
 				AutoShutdown:  true,
 			}
 			Expect(freePlan.Insert(db)).To(BeNil())
