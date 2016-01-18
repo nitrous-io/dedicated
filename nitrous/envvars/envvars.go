@@ -109,6 +109,9 @@ var (
 	MailChimpAPIKey          = os.Getenv("MAILCHIMP_API_KEY")
 	MailChimpIDNewsletter    = os.Getenv("MAILCHIMP_ID_NEWSLETTER")
 	MailChimpIDAnnouncements = os.Getenv("MAILCHIMP_ID_ANNOUNCEMENTS")
+
+	// Google ReCaptcha
+	CaptchaSecret = os.Getenv("CAPTCHA_SECRET")
 )
 
 func init() {
