@@ -79,6 +79,10 @@ func (bp *BillingProfile) IsExempt() bool {
 	return bp.State == StateExempt
 }
 
+func (p *BillingProfile) IsNoCard() bool {
+	return p.State == StateNoCard
+}
+
 func (bp *BillingProfile) MaxMinutes() int64 {
 	return bp.MaxHours.Int64 * 60
 }
@@ -266,16 +270,12 @@ func (b *BillingProfile) UpdateEmail(d db.QueryReceiver, email string) error {
 	return nil
 }
 
-func (p *BillingProfile) IsCardRequired() bool {
-	return p.State == StateNoCard
-}
-
 func (p *BillingProfile) HasBillingIssues() bool {
 	return p.State == StateDelinquent
 }
 
 func (p *BillingProfile) IsFreeOrCardRequired() bool {
-	return p.IsFreeTier() || p.IsCardRequired()
+	return p.IsFreeTier() || p.IsNoCard()
 }
 
 func (p *BillingProfile) MaxAttemptsReached() bool {
