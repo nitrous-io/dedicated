@@ -84,9 +84,10 @@ var _ = Describe("POST /api/v0/hosts", func() {
 			Password: "123456",
 			Email:    "foo@example.com",
 		}
-		err = test.WrapInTransaction(db, u.Insert)
+		Expect(test.WrapInTransaction(db, u.Insert)).To(BeNil())
+
+		_, err = db.Exec(`UPDATE users SET confirmed_at = now() WHERE id = $1;`, u.ID)
 		Expect(err).To(BeNil())
-		Expect(u.ID).NotTo(BeZero())
 
 		_, err = db.Exec(`UPDATE billing_profiles SET state = 'paid' WHERE user_id = $1;`, u.ID)
 		Expect(err).To(BeNil())
@@ -95,8 +96,7 @@ var _ = Describe("POST /api/v0/hosts", func() {
 			UserID: u.ID,
 			Token:  "valid-token",
 		}
-		err = t.Insert(db)
-		Expect(err).To(BeNil())
+		Expect(t.Insert(db)).To(BeNil())
 
 		// Replace global hostbuilderclient to make tests consistent
 		// this client is shared between hosts and provisioner
@@ -162,6 +162,18 @@ var _ = Describe("POST /api/v0/hosts", func() {
 		handler.ServeHTTP(res, req)
 		return res
 	}
+
+	It("responds with HTTP 403 Forbidden when user has not confirmed their email address", func() {
+		_, err := db.Exec(`UPDATE users SET confirmed_at = NULL WHERE id = $1;`, u.ID)
+		Expect(err).To(BeNil())
+
+		res := doRequest(params)
+		Expect(res.Code).To(Equal(http.StatusForbidden))
+
+		errType, errDesc := test.ErrorSlug(res.Body)
+		Expect(errType).To(Equal("request_not_allowed"))
+		Expect(errDesc).To(Equal("please confirm your email address before proceeding"))
+	})
 
 	It("should block if the user has billing issues", func() {
 		test.MarkDelinquentUser(db, u)
