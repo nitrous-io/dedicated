@@ -7,13 +7,10 @@ import (
 
 	"github.com/lib/pq"
 	"github.com/nitrous-io/dedicated/nitrous/db"
-	"github.com/nitrous-io/dedicated/nitrous/envvars"
 	"github.com/nitrous-io/dedicated/nitrous/models/billingprofile"
 	"github.com/nitrous-io/dedicated/nitrous/models/freetier"
 	"github.com/nitrous-io/dedicated/nitrous/models/host"
 	"github.com/nitrous-io/dedicated/nitrous/models/plan"
-	"github.com/nitrous-io/dedicated/nitrous/models/providertemplate"
-	"github.com/nitrous-io/dedicated/nitrous/models/region"
 	"github.com/nitrous-io/dedicated/nitrous/models/user"
 	"github.com/nitrous-io/dedicated/nitrous/test"
 	. "github.com/onsi/ginkgo"
@@ -214,121 +211,6 @@ var _ = Describe("models/freetier", func() {
 			})
 		})
 
-	})
-
-	Describe("EligiblePlansForUser()", func() {
-		plans := []*plan.Plan{
-			{Slug: "free", Price: 0},
-			{Slug: "start", Price: 500},
-			{Slug: "shift", Price: 1000},
-			{Slug: "turbo", Price: 1500},
-			{Slug: "hidden", Price: 2000, Disabled: true},
-		}
-
-		BeforeEach(func() {
-			r := region.Region{
-				Slug: "sfo",
-				Name: "US West",
-			}
-			Expect(r.Insert(db)).To(BeNil())
-
-			for _, pl := range plans {
-				Expect(pl.Insert(db)).To(BeNil())
-				pt := providertemplate.ProviderTemplate{
-					PlanID:   pl.ID,
-					RegionID: r.ID,
-					Provider: envvars.DefaultProvider,
-				}
-				Expect(pt.Insert(db)).To(BeNil())
-			}
-
-			pl := plan.Plan{Slug: "start-windows-azure", Price: 3000}
-			Expect(pl.Insert(db)).To(BeNil())
-			pt := providertemplate.ProviderTemplate{
-				PlanID:   pl.ID,
-				RegionID: r.ID,
-				Provider: "windows-azure",
-			}
-			Expect(pt.Insert(db)).To(BeNil())
-		})
-
-		It("should return all plans if the user has no card and hasn't been authed", func() {
-			bp.State = billingprofile.StateNoCard
-			Expect(bp.Update(db)).To(BeNil())
-
-			u.PhoneAuthed = false
-
-			pls, err := freetier.EligiblePlansForUser(db, u, envvars.DefaultProvider)
-			Expect(err).To(BeNil())
-			Expect(pls).To(ConsistOf([]*plan.Plan{plans[0], plans[1], plans[2], plans[3]}))
-		})
-
-		It("should hide plans if disabled", func() {
-			bp.State = billingprofile.StateNoCard
-			Expect(bp.Update(db)).To(BeNil())
-
-			_, err := db.Exec(`UPDATE plans SET disabled=TRUE WHERE id=$1;`, plans[0].ID)
-			Expect(err).To(BeNil())
-
-			u.PhoneAuthed = false
-
-			pls, err := freetier.EligiblePlansForUser(db, u, envvars.DefaultProvider)
-			Expect(err).To(BeNil())
-			Expect(pls).To(ConsistOf([]*plan.Plan{plans[1], plans[2], plans[3]}))
-		})
-
-		It("should return only paid plans if the user has no card and has been authed", func() {
-			_, err := db.Exec(`UPDATE billing_profiles SET state=$1 WHERE user_id=$2;`, billingprofile.StateNoCard, u.ID)
-			Expect(err).To(BeNil())
-
-			u.PhoneAuthed = true
-
-			pls, err := freetier.EligiblePlansForUser(db, u, envvars.DefaultProvider)
-			Expect(err).To(BeNil())
-			Expect(pls).To(ConsistOf([]*plan.Plan{plans[1], plans[2], plans[3]}))
-		})
-
-		It("should return free and paid plans if the user is in free card state", func() {
-			_, err := db.Exec(`UPDATE billing_profiles SET state=$1 WHERE user_id=$2;`, billingprofile.StateFree, u.ID)
-			Expect(err).To(BeNil())
-
-			pls, err := freetier.EligiblePlansForUser(db, u, envvars.DefaultProvider)
-			Expect(err).To(BeNil())
-			Expect(pls).To(ConsistOf([]*plan.Plan{plans[0], plans[1], plans[2], plans[3]}))
-		})
-
-		It("should return only paid plans if the user is paid", func() {
-			bp.State = billingprofile.StatePaid
-			Expect(bp.Update(db)).To(BeNil())
-
-			pls, err := freetier.EligiblePlansForUser(db, u, envvars.DefaultProvider)
-			Expect(err).To(BeNil())
-			Expect(pls).To(ConsistOf([]*plan.Plan{plans[1], plans[2], plans[3]}))
-		})
-
-		It("should only return paid plans if the user has free host", func() {
-			_, err := db.Exec(`UPDATE billing_profiles SET state=$1 WHERE user_id=$2;`, billingprofile.StateFree, u.ID)
-			Expect(err).To(BeNil())
-
-			u.PhoneAuthed = true
-
-			h1 := &host.Host{
-				Slug:        "my-host-1",
-				HourlyPrice: 3000,
-				State:       host.StateRunning,
-			}
-
-			_, err = test.CreateHostStack(db, &test.HostStack{
-				H: h1,
-				U: u,
-				P: plans[1],
-			})
-			Expect(err).To(BeNil())
-
-			pls, err := freetier.EligiblePlansForUser(db, u, envvars.DefaultProvider)
-			Expect(err).To(BeNil())
-			Expect(pls).To(ConsistOf([]*plan.Plan{plans[1], plans[2], plans[3]}))
-		})
 	})
 
 	Describe("IdleFreeHosts()", func() {

@@ -9,6 +9,7 @@ import (
 	"github.com/gorilla/mux"
 	"github.com/nitrous-io/dedicated/nitrous/db"
 	"github.com/nitrous-io/dedicated/nitrous/envvars"
+	"github.com/nitrous-io/dedicated/nitrous/models/host"
 	"github.com/nitrous-io/dedicated/nitrous/models/plan"
 	"github.com/nitrous-io/dedicated/nitrous/models/providertemplate"
 	"github.com/nitrous-io/dedicated/nitrous/models/region"
@@ -130,16 +131,37 @@ var _ = Describe("controllers/plans", func() {
 			})
 		})
 
+		Context("when user has no card in billing profile", func() {
+			BeforeEach(func() {
+				_, err := db.Exec(`UPDATE billing_profiles SET state='no_card' WHERE user_id=$1;`, u.ID)
+				Expect(err).To(BeNil())
+			})
+
+			It("returns both free and paid plans (non-hidden, non-disabled)", func() {
+				res := doRequest()
+				Expect(res.Code).To(Equal(http.StatusOK))
+
+				j := struct {
+					Plans []*serializers.Plan `json:"plans"`
+				}{}
+				err := json.NewDecoder(res.Body).Decode(&j)
+				Expect(err).To(BeNil())
+
+				slugs := []string{}
+				for _, p := range j.Plans {
+					slugs = append(slugs, p.Slug)
+				}
+				Expect(slugs).To(ConsistOf([]string{"free", "start", "shift", "turbo"}))
+			})
+		})
+
 		Context("when user is in free tier", func() {
 			BeforeEach(func() {
 				_, err := db.Exec(`UPDATE billing_profiles SET state='free' WHERE user_id=$1;`, u.ID)
 				Expect(err).To(BeNil())
-
-				_, err = db.Exec(`UPDATE users SET phone_authed = true WHERE id = $1;`, u.ID)
-				Expect(err).To(BeNil())
 			})
 
-			It("returns both free and paid plans (non-hidden, non-disabled) of the default provider", func() {
+			It("returns both free and paid plans (non-hidden, non-disabled)", func() {
 				res := doRequest()
 				Expect(res.Code).To(Equal(http.StatusOK))
 
@@ -156,31 +178,58 @@ var _ = Describe("controllers/plans", func() {
 				Expect(slugs).To(ConsistOf([]string{"free", "start", "shift", "turbo"}))
 			})
 
-			Context("When user has created a free-tier host", func() {
-				BeforeEach(func() {
-					_, err := test.CreateHostStack(db, &test.HostStack{
-						U: u,
-						P: &plan.Plan{Slug: "freeplan", Price: 0},
-					})
-					Expect(err).To(BeNil())
+			It("returns both free and paid plans (non-hidden, non-disabled) when user has orphaned, non-terminated host", func() {
+				p, err := plan.FindBySlug(db, "free")
+				Expect(err).To(BeNil())
+
+				hs, err := test.CreateHostStack(db, &test.HostStack{
+					U: u,
+					P: p,
 				})
+				Expect(err).To(BeNil())
 
-				It("returns only non-hidden, non-disabled, paid plans", func() {
-					res := doRequest()
-					Expect(res.Code).To(Equal(http.StatusOK))
+				Expect(hs.H.TerminatedAt).To(BeNil())
 
-					j := struct {
-						Plans []*serializers.Plan `json:"plans"`
-					}{}
-					err := json.NewDecoder(res.Body).Decode(&j)
-					Expect(err).To(BeNil())
+				_, err = db.Exec(`UPDATE hosts SET state = $1 WHERE id = $2`, host.StateOrphan, hs.H.ID)
+				Expect(err).To(BeNil())
 
-					slugs := []string{}
-					for _, p := range j.Plans {
-						slugs = append(slugs, p.Slug)
-					}
-					Expect(slugs).To(ConsistOf([]string{"start", "shift", "turbo"}))
+				res := doRequest()
+				Expect(res.Code).To(Equal(http.StatusOK))
+
+				j := struct {
+					Plans []*serializers.Plan `json:"plans"`
+				}{}
+				err = json.NewDecoder(res.Body).Decode(&j)
+				Expect(err).To(BeNil())
+
+				slugs := []string{}
+				for _, p := range j.Plans {
+					slugs = append(slugs, p.Slug)
+				}
+				Expect(slugs).To(ConsistOf([]string{"free", "start", "shift", "turbo"}))
+			})
+
+			It("returns only non-hidden, non-disabled, paid plans when user has created a free-tier-host", func() {
+				_, err := test.CreateHostStack(db, &test.HostStack{
+					U: u,
+					P: &plan.Plan{Slug: "freeplan", Price: 0},
 				})
+				Expect(err).To(BeNil())
+
+				res := doRequest()
+				Expect(res.Code).To(Equal(http.StatusOK))
+
+				j := struct {
+					Plans []*serializers.Plan `json:"plans"`
+				}{}
+				err = json.NewDecoder(res.Body).Decode(&j)
+				Expect(err).To(BeNil())
+
+				slugs := []string{}
+				for _, p := range j.Plans {
+					slugs = append(slugs, p.Slug)
+				}
+				Expect(slugs).To(ConsistOf([]string{"start", "shift", "turbo"}))
 			})
 		})
 	})

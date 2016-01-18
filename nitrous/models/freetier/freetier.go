@@ -20,31 +20,6 @@ var (
 	ErrLastRunningAtInvalid  = errors.New("last_running_at is invalid")
 )
 
-func EligiblePlansForUser(d *db.Database, u *user.User, provider string) ([]*plan.Plan, error) {
-	bp, err := u.BillingProfile(d)
-	if err != nil {
-		return nil, err
-	}
-
-	if bp.IsNoCard() && !u.PhoneAuthed {
-		return plan.AllPlansForProvider(d, provider)
-	}
-
-	if bp.IsFreeTier() {
-		err := createFreeTierHostAllowed(d, u)
-		switch err {
-		case nil, ErrPhoneAuthRequired:
-			return plan.AllPlansForProvider(d, provider)
-		case ErrFreePlanNotAllowed, ErrMaxFreeHostReached:
-			return plan.PaidPlansForProvider(d, provider)
-		default:
-			return nil, err
-		}
-	}
-
-	return plan.PaidPlansForProvider(d, provider)
-}
-
 // Checks whether a free/paid user can create a host of given plan.
 func CreateHostWithPlanAllowed(d *db.Database, u *user.User, bp *billingprofile.BillingProfile, p *plan.Plan) error {
 	if bp.IsFreeTier() && !bp.OrgID.Valid {
