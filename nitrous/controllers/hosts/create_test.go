@@ -117,6 +117,7 @@ var _ = Describe("POST /api/v0/hosts", func() {
 
 	BeforeEach(func() {
 		var err error
+
 		hs, err = test.CreateHostStack(db, &test.HostStack{
 			R: &region.Region{Slug: "use"},
 			P: &plan.Plan{Name: "Large", Slug: "large", Price: 500},
@@ -939,8 +940,6 @@ var _ = Describe("POST /api/v0/hosts", func() {
 					_, err := db.Exec(`UPDATE billing_profiles SET state=$1, max_hours=10 WHERE user_id=$2;`,
 						billingprofile.StateFree, u.ID)
 					Expect(err).To(BeNil())
-					_, err = db.Exec(`UPDATE users SET phone_authed = true WHERE id = $1;`, u.ID)
-					Expect(err).To(BeNil())
 				})
 
 				It("creates the host", func() {
@@ -974,6 +973,70 @@ var _ = Describe("POST /api/v0/hosts", func() {
 
 					errType, _ := test.ErrorSlug(res.Body)
 					Expect(errType).To(Equal("max_free_host_reached"))
+				})
+
+				It("responds with no error if user has orphaned terminated host", func() {
+					_, err := db.Exec(`UPDATE plans SET price=0;`)
+					Expect(err).To(BeNil())
+
+					hs, err := test.CreateHostStack(db, &test.HostStack{U: u})
+					Expect(err).To(BeNil())
+
+					err = hs.H.Delete(db)
+					Expect(err).To(BeNil())
+					Expect(hs.H.TerminatedAt).ToNot(BeNil())
+
+					_, err = db.Exec(`UPDATE hosts SET state = $1 WHERE id = $2`, host.StateOrphan, hs.H.ID)
+					Expect(err).To(BeNil())
+
+					res := doRequest(params)
+					Expect(res.Code).To(Equal(http.StatusAccepted))
+				})
+
+				It("responds with HTTP 403 Forbidden when selected region has exceeded daily quota", func() {
+					origQuota := envvars.FreeHostQuota
+					envvars.FreeHostQuota = "2"
+					defer func() { envvars.FreeHostQuota = origQuota }()
+
+					_, err := db.Exec(`UPDATE plans SET price=0;`)
+					Expect(err).To(BeNil())
+
+					freePlan := &plan.Plan{
+						Slug:  "free-plan",
+						Price: 0,
+					}
+					Expect(freePlan.Insert(db)).To(BeNil())
+
+					hs1, err := test.CreateHostStack(db, &test.HostStack{P: freePlan})
+					Expect(err).To(BeNil())
+
+					h2 := &host.Host{
+						Slug:               "my-host-2",
+						State:              host.StateRunning,
+						UserID:             hs1.U.ID,
+						PlanID:             freePlan.ID,
+						RegionID:           hs1.R.ID,
+						ProviderTemplateID: hs1.PT.ID,
+					}
+					Expect(h2.Insert(db)).To(BeNil())
+
+					h3 := &host.Host{
+						Slug:               "my-host-3",
+						State:              host.StateRunning,
+						UserID:             hs1.U.ID,
+						PlanID:             freePlan.ID,
+						RegionID:           hs1.R.ID,
+						ProviderTemplateID: hs1.PT.ID,
+					}
+					Expect(h3.Insert(db)).To(BeNil())
+
+					params.Set("region", hs1.R.Slug)
+					params.Set("size", freePlan.Slug)
+					res := doRequest(params)
+					Expect(res.Code).To(Equal(http.StatusForbidden))
+
+					errType, _ := test.ErrorSlug(res.Body)
+					Expect(errType).To(Equal("max_region_free_hosts_reached"))
 				})
 			})
 		})
@@ -1073,7 +1136,6 @@ var _ = Describe("POST /api/v0/hosts", func() {
 
 				params.Set("async", "true")
 				res := doRequest(params)
-
 				Expect(res.Code).To(Equal(http.StatusAccepted))
 			}
 		})

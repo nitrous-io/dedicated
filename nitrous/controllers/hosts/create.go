@@ -18,7 +18,6 @@ import (
 	"github.com/nitrous-io/dedicated/nitrous/middleware"
 	"github.com/nitrous-io/dedicated/nitrous/models/billingprofile"
 	"github.com/nitrous-io/dedicated/nitrous/models/cert"
-	"github.com/nitrous-io/dedicated/nitrous/models/freetier"
 	"github.com/nitrous-io/dedicated/nitrous/models/host"
 	"github.com/nitrous-io/dedicated/nitrous/models/org"
 	"github.com/nitrous-io/dedicated/nitrous/models/plan"
@@ -58,6 +57,8 @@ var (
 	errNotOrgPlan                = httperror.New(http.StatusBadRequest, "invalid_request", "Not an org plan")
 
 	errPlanMaxHostsReached = httperror.New(http.StatusForbidden, "max_hosts_reached", "You have exceeded the number of hosts for this plan, please upgrade")
+
+	errFreeDailyHostLimitExceeded = httperror.New(http.StatusForbidden, "max_region_free_hosts_reached", "Free tier workstation has exceeded daily quota in this region")
 )
 
 // hostCreateRequest describes the JSON request used to create a host
@@ -194,21 +195,34 @@ func Create(env *middleware.Env, w http.ResponseWriter, r *http.Request) error {
 		}
 	}
 
-	err = freetier.CreateHostWithPlanAllowed(db, u, bp, pl, reg)
-	if err != nil {
-		switch err {
-		case freetier.ErrFreePlanNotAllowed:
-			return errFreePlanNotAllowed
-		case freetier.ErrPaidPlanNotAllowed:
+	isOrgBillingProfile := bp.OrgID.Valid
+	if isOrgBillingProfile && pl.IsFree() {
+		return errFreePlanNotAllowed
+	}
+
+	var hosts []*host.Host
+	if !isOrgBillingProfile && bp.IsFreeTier() {
+		if pl.IsFree() {
+			hosts, err = host.FindAllWithoutOrphaned(db, u.ID)
+			if err != nil {
+				return err
+			}
+			if len(hosts) > 0 {
+				return errMaxFreeHostReached
+			}
+			hosts, err = host.FindAllByRegionIDAndPlanID(db, reg.ID, pl.ID)
+			if err != nil {
+				return err
+			}
+			freeHostQuota, err := strconv.Atoi(envvars.FreeHostQuota)
+			if err != nil {
+				return err
+			}
+			if len(hosts) > freeHostQuota {
+				return errFreeDailyHostLimitExceeded
+			}
+		} else {
 			return errPaidPlanNotAllowed
-		case freetier.ErrMaxFreeHostReached:
-			return errMaxFreeHostReached
-		case freetier.ErrFreeTimeLimitExceeded:
-			return errFreeTimeLimitExceeded
-		case freetier.ErrPhoneAuthRequired:
-			return errPhoneAuthRequired
-		default:
-			return err
 		}
 	}
 
