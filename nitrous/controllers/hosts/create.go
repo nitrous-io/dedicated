@@ -202,8 +202,6 @@ func Create(env *middleware.Env, w http.ResponseWriter, r *http.Request) error {
 			return errPaidPlanNotAllowed
 		case freetier.ErrMaxFreeHostReached:
 			return errMaxFreeHostReached
-		case freetier.ErrFreeTimeLimitExceeded:
-			return errFreeTimeLimitExceeded
 		case freetier.ErrPhoneAuthRequired:
 			return errPhoneAuthRequired
 		default:

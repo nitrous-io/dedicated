@@ -16,8 +16,7 @@ var (
 	ErrMaxFreeHostReached = errors.New("free tier user already has existing free host")
 	ErrPhoneAuthRequired  = errors.New("phone authentication required")
 
-	ErrFreeTimeLimitExceeded = errors.New("free tier user has exceeded daily usage quota")
-	ErrLastRunningAtInvalid  = errors.New("last_running_at is invalid")
+	ErrLastRunningAtInvalid = errors.New("last_running_at is invalid")
 )
 
 // Checks whether a free/paid user can create a host of given plan.
