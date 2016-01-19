@@ -210,7 +210,7 @@ func Create(env *middleware.Env, w http.ResponseWriter, r *http.Request) error {
 			if len(hosts) > 0 {
 				return errMaxFreeHostReached
 			}
-			hosts, err = host.FindAllByRegionIDAndPlanID(db, reg.ID, pl.ID)
+			hosts, err = host.FindAllByRegionAndPlan(db, reg.ID, pl.ID)
 			if err != nil {
 				return err
 			}

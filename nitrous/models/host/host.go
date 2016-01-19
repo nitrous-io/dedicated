@@ -225,9 +225,9 @@ func FindAllWithTerminated(db *db.Database, userID int64) ([]*Host, error) {
 	return hosts, nil
 }
 
-func FindAllWithOrphaned(db *db.Database, userID int64) ([]*Host, error) {
+func FindAllWithoutOrphaned(db *db.Database, userID int64) ([]*Host, error) {
 	hosts := []*Host{}
-	err := db.Select(&hosts, "SELECT * FROM hosts WHERE user_id = $1 AND state = $2 AND preprovisioned = FALSE AND terminated_at IS NULL;", userID, StateOrphan)
+	err := db.Select(&hosts, "SELECT * FROM hosts WHERE user_id = $1 AND state != $2 AND preprovisioned = FALSE AND terminated_at IS NULL;", userID, StateOrphan)
 
 	if err != nil {
 		return nil, err
@@ -395,6 +395,16 @@ func FindAllByOrgID(db *db.Database, orgID int64) ([]*Host, error) {
 		WHERE org_id=$1
 		AND terminated_at IS NULL
 		AND state <> 'terminated';`, orgID)
+	return hosts, err
+}
+
+func FindAllByRegionAndPlan(db *db.Database, regionID, planID int64) ([]*Host, error) {
+	hosts := []*Host{}
+	err := db.Select(&hosts,
+		`SELECT * FROM hosts
+		WHERE region_id = $1
+		AND plan_id = $2
+		AND created_at > NOW() - '1 day'::INTERVAL`, regionID, planID)
 	return hosts, err
 }
 

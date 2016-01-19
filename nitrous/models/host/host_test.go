@@ -500,6 +500,49 @@ var _ = Describe("models/host", func() {
 		})
 	})
 
+	Describe("FindAllByRegionAndPlan()", func() {
+		var (
+			u1 *user.User
+		)
+
+		BeforeEach(func() {
+			u1 = &user.User{
+				Username: "foo",
+				Email:    "foo@example.com",
+				Password: "123456",
+			}
+			err := test.WrapInTransaction(db, u1.Insert)
+			Expect(err).To(BeNil())
+
+			_, err = db.Exec(`INSERT INTO hosts
+				(user_id, slug, region_id, plan_id, provider_template_id, created_at)
+				VALUES ($1, $2, $3, $4, $5, now());`,
+				u1.ID, "my-host-1", hs.R.ID, hs.P.ID, hs.PT.ID)
+			Expect(err).To(BeNil())
+
+			_, err = db.Exec(`INSERT INTO hosts
+				(user_id, slug, region_id, plan_id, provider_template_id, created_at)
+				VALUES ($1, $2, $3, $4, $5, now());`,
+				u1.ID, "my-host-2", hs.R.ID, hs.P.ID, hs.PT.ID)
+			Expect(err).To(BeNil())
+
+			dateTime := time.Date(2013, time.November, 2, 1, 0, 0, 0, time.UTC)
+			_, err = db.Exec(`INSERT INTO hosts
+				(user_id, slug, region_id, plan_id, provider_template_id, created_at)
+				VALUES ($1, $2, $3, $4, $5, $6);`,
+				u1.ID, "my-host-3", hs.R.ID, hs.P.ID, hs.PT.ID, pq.NullTime{dateTime, true})
+			Expect(err).To(BeNil())
+		})
+
+		It("returns all hosts created in last 24 hours", func() {
+			hosts, err := host.FindAllByRegionAndPlan(db, hs.R.ID, hs.P.ID)
+			Expect(err).To(BeNil())
+			Expect(hosts).To(HaveLen(3))
+			Expect(hosts[0].Slug).To(Equal("my-host-2"))
+			Expect(hosts[1].Slug).To(Equal("my-host-1"))
+		})
+	})
+
 	Describe("FindAllWithTerminated()", func() {
 		var (
 			u1 *user.User
@@ -562,7 +605,7 @@ var _ = Describe("models/host", func() {
 		})
 	})
 
-	Describe("FindAllWithOrphaned()", func() {
+	Describe("FindAllWithoutOrphaned()", func() {
 		var (
 			u1 *user.User
 		)
@@ -583,23 +626,31 @@ var _ = Describe("models/host", func() {
 			Expect(err).To(BeNil())
 
 			_, err = db.Exec(`INSERT INTO hosts
-				(user_id, slug, region_id, plan_id, provider_template_id, terminated_at)
-				VALUES ($1, $2, $3, $4, $5, now());`,
-				u1.ID, "my-host-2", hs.R.ID, hs.P.ID, hs.PT.ID)
+				(user_id, slug, region_id, plan_id, provider_template_id, state)
+				VALUES ($1, $2, $3, $4, $5, $6);`,
+				u1.ID, "my-host-2", hs.R.ID, hs.P.ID, hs.PT.ID, host.StateOrphan)
 			Expect(err).To(BeNil())
 
 			_, err = db.Exec(`INSERT INTO hosts
-				(user_id, slug, region_id, plan_id, provider_template_id, state)
-				VALUES ($1, $2, $3, $4, $5, $6);`,
-				u1.ID, "my-host-3", hs.R.ID, hs.P.ID, hs.PT.ID, host.StateOrphan)
+				(user_id, slug, region_id, plan_id, provider_template_id, terminated_at)
+				VALUES ($1, $2, $3, $4, $5, now());`,
+				u1.ID, "my-host-3", hs.R.ID, hs.P.ID, hs.PT.ID)
 			Expect(err).To(BeNil())
+
+			_, err = db.Exec(`INSERT INTO hosts
+				(user_id, slug, region_id, plan_id, provider_template_id)
+				VALUES ($1, $2, $3, $4, $5);`,
+				u1.ID, "my-host-4", hs.R.ID, hs.P.ID, hs.PT.ID)
+			Expect(err).To(BeNil())
+
 		})
 
-		It("returns all orphan hosts", func() {
-			hosts, err := host.FindAllWithOrphaned(db, u1.ID)
+		It("returns all non-terminated and non-orphan hosts", func() {
+			hosts, err := host.FindAllWithoutOrphaned(db, u1.ID)
 			Expect(err).To(BeNil())
-			Expect(hosts).To(HaveLen(1))
-			Expect(hosts[0].Slug).To(Equal("my-host-3"))
+			Expect(hosts).To(HaveLen(2))
+			Expect(hosts[0].Slug).To(Equal("my-host-4"))
+			Expect(hosts[1].Slug).To(Equal("my-host-1"))
 		})
 	})
 
