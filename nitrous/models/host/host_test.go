@@ -609,6 +609,159 @@ var _ = Describe("models/host", func() {
 		})
 	})
 
+	Describe("FindAllIdleAndFree()", func() {
+		var (
+			h4, h8, h9 *host.Host
+		)
+
+		BeforeEach(func() {
+			t1 := time.Now()
+			t2 := t1.Add(-900 * time.Second) // 900s = idle_timeout DEFAULT
+			t3 := t2.Add(1 * time.Minute)
+			t4 := t2.Add(-1 * time.Minute)
+
+			u1 := &user.User{
+				Username: "foo",
+				Email:    "foo@example.com",
+				Password: "123456",
+			}
+			err := test.WrapInTransaction(db, u1.Insert)
+			Expect(err).To(BeNil())
+
+			h1 := &host.Host{
+				Slug:         "my-host-1",
+				State:        host.StateRunning,
+				LastPingedAt: pq.NullTime{Valid: false},
+				AutoShutdown: false,
+			}
+
+			_, err = test.CreateHostStack(db, &test.HostStack{
+				H: h1,
+				U: u1,
+			})
+			Expect(err).To(BeNil())
+
+			h2 := &host.Host{
+				Slug:               "my-host-2",
+				State:              host.StateRunning,
+				LastPingedAt:       pq.NullTime{t1, true},
+				AutoShutdown:       false,
+				UserID:             u1.ID,
+				PlanID:             h1.PlanID,
+				RegionID:           h1.RegionID,
+				ProviderTemplateID: h1.ProviderTemplateID,
+			}
+			Expect(h2.Insert(db)).To(BeNil())
+
+			h3 := &host.Host{
+				Slug:               "my-host-3",
+				State:              host.StateRunning,
+				LastPingedAt:       pq.NullTime{t1, true},
+				AutoShutdown:       true,
+				UserID:             u1.ID,
+				PlanID:             h1.PlanID,
+				RegionID:           h1.RegionID,
+				ProviderTemplateID: h1.ProviderTemplateID,
+			}
+			Expect(h3.Insert(db)).To(BeNil())
+
+			h4 = &host.Host{
+				Slug:               "my-host-4",
+				State:              host.StateRunning,
+				LastPingedAt:       pq.NullTime{t2, true},
+				AutoShutdown:       true,
+				UserID:             u1.ID,
+				PlanID:             h1.PlanID,
+				RegionID:           h1.RegionID,
+				ProviderTemplateID: h1.ProviderTemplateID,
+			}
+			Expect(h4.Insert(db)).To(BeNil())
+
+			h5 := &host.Host{
+				Slug:               "my-host-5",
+				State:              host.StateStopped,
+				LastPingedAt:       pq.NullTime{t2, true},
+				AutoShutdown:       true,
+				UserID:             u1.ID,
+				PlanID:             h1.PlanID,
+				RegionID:           h1.RegionID,
+				ProviderTemplateID: h1.ProviderTemplateID,
+			}
+			Expect(h5.Insert(db)).To(BeNil())
+
+			h6 := &host.Host{
+				Slug:               "my-host-6",
+				State:              host.StateRunning,
+				LastPingedAt:       pq.NullTime{t2, true},
+				AutoShutdown:       false,
+				UserID:             u1.ID,
+				PlanID:             h1.PlanID,
+				RegionID:           h1.RegionID,
+				ProviderTemplateID: h1.ProviderTemplateID,
+			}
+			Expect(h6.Insert(db)).To(BeNil())
+
+			h7 := &host.Host{
+				Slug:               "my-host-7",
+				State:              host.StateRunning,
+				LastPingedAt:       pq.NullTime{t3, true},
+				AutoShutdown:       true,
+				UserID:             u1.ID,
+				PlanID:             h1.PlanID,
+				RegionID:           h1.RegionID,
+				ProviderTemplateID: h1.ProviderTemplateID,
+			}
+			Expect(h7.Insert(db)).To(BeNil())
+
+			h8 = &host.Host{
+				Slug:               "my-host-8",
+				State:              host.StateRunning,
+				LastPingedAt:       pq.NullTime{t4, true},
+				AutoShutdown:       true,
+				UserID:             u1.ID,
+				PlanID:             h1.PlanID,
+				RegionID:           h1.RegionID,
+				ProviderTemplateID: h1.ProviderTemplateID,
+			}
+			Expect(h8.Insert(db)).To(BeNil())
+
+			// host which was started but has never been pinged (no websockets
+			// support, user didn't open IDE, etc)
+			h9 = &host.Host{
+				Slug:               "my-host-9",
+				State:              host.StateRunning,
+				LastPingedAt:       pq.NullTime{Valid: false},
+				AutoShutdown:       true,
+				UserID:             u1.ID,
+				PlanID:             h1.PlanID,
+				RegionID:           h1.RegionID,
+				ProviderTemplateID: h1.ProviderTemplateID,
+			}
+			Expect(h9.Insert(db)).To(BeNil())
+		})
+
+		It("returns a list of idle hosts that are eligible for auto shutdown", func() {
+			res, err := host.FindAllIdleAndFree(db)
+			Expect(err).To(BeNil())
+			Expect(res).To(HaveLen(3))
+			Expect([]int64{res[0].ID, res[1].ID, res[2].ID}).To(Equal([]int64{h8.ID, h4.ID, h9.ID}))
+
+			// sanity-check that SQL query populates Provider field (required by hostcontrol)
+			Expect(res[0].Provider).To(Equal("docker"))
+		})
+
+		Context("when db query fails with error", func() {
+			BeforeEach(func() {
+				db.Close()
+			})
+
+			It("returns error", func() {
+				_, err := host.FindAllIdleAndFree(db)
+				Expect(err).NotTo(BeNil())
+			})
+		})
+	})
+
 	Describe("FindAllForTermination()", func() {
 		var (
 			u1 *user.User
@@ -1706,6 +1859,105 @@ var _ = Describe("models/host", func() {
 			h2, err := host.FindByIdentifier(db, hs.H.Slug)
 			Expect(err).To(BeNil())
 			Expect(h2.UnavailableAt.Valid).To(BeFalse())
+		})
+	})
+
+	Describe("IsIdle()", func() {
+		var (
+			t1, t2, t3 time.Time
+		)
+
+		BeforeEach(func() {
+			t1 = time.Now()
+			t2 = t1.Add(-900 * time.Second) // 900s = idle_timeout DEFAULT
+			t3 = t2.Add(1 * time.Minute)
+		})
+
+		It("returns true when host has been idle", func() {
+			h := &host.Host{
+				Slug:               "my-host-1",
+				State:              host.StateRunning,
+				LastPingedAt:       pq.NullTime{t2, true},
+				AutoShutdown:       true,
+				UserID:             hs.U.ID,
+				PlanID:             hs.H.PlanID,
+				RegionID:           hs.H.RegionID,
+				ProviderTemplateID: hs.H.ProviderTemplateID,
+			}
+			Expect(h.Insert(db)).To(BeNil())
+
+			idle, err := h.IsIdle(db)
+			Expect(err).To(BeNil())
+			Expect(idle).To(BeTrue())
+
+			// even if last_pinged_at is not set
+			_, err = db.Exec(`UPDATE hosts SET last_pinged_at = NULL WHERE id = $1`, h.ID)
+			Expect(err).To(BeNil())
+			idle, err = h.IsIdle(db)
+			Expect(err).To(BeNil())
+			Expect(idle).To(BeTrue())
+
+			// unless the host has been running for less than 45 minutes
+			_, err = db.Exec(`UPDATE hosts SET last_running_at = now() - interval '43 minutes' WHERE id = $1`, h.ID)
+			Expect(err).To(BeNil())
+
+			idle, err = h.IsIdle(db)
+			Expect(err).To(BeNil())
+			Expect(idle).To(BeFalse())
+		})
+
+		It("returns false if host does have the auto_shutdown=true", func() {
+			h := &host.Host{
+				Slug:               "my-host-1",
+				State:              host.StateRunning,
+				LastPingedAt:       pq.NullTime{t2, true},
+				AutoShutdown:       false,
+				UserID:             hs.U.ID,
+				PlanID:             hs.H.PlanID,
+				RegionID:           hs.H.RegionID,
+				ProviderTemplateID: hs.H.ProviderTemplateID,
+			}
+			Expect(h.Insert(db)).To(BeNil())
+
+			idle, err := h.IsIdle(db)
+			Expect(err).To(BeNil())
+			Expect(idle).To(BeFalse())
+		})
+
+		It("returns false if host is not running", func() {
+			h := &host.Host{
+				Slug:               "my-host-1",
+				State:              host.StateStopped,
+				LastPingedAt:       pq.NullTime{t2, true},
+				AutoShutdown:       true,
+				UserID:             hs.U.ID,
+				PlanID:             hs.H.PlanID,
+				RegionID:           hs.H.RegionID,
+				ProviderTemplateID: hs.H.ProviderTemplateID,
+			}
+			Expect(h.Insert(db)).To(BeNil())
+
+			idle, err := h.IsIdle(db)
+			Expect(err).To(BeNil())
+			Expect(idle).To(BeFalse())
+		})
+
+		It("returns false if it has been pinged within its idle_timeout", func() {
+			h := &host.Host{
+				Slug:               "my-host-1",
+				State:              host.StateStopped,
+				LastPingedAt:       pq.NullTime{t3, true},
+				AutoShutdown:       true,
+				UserID:             hs.U.ID,
+				PlanID:             hs.H.PlanID,
+				RegionID:           hs.H.RegionID,
+				ProviderTemplateID: hs.H.ProviderTemplateID,
+			}
+			Expect(h.Insert(db)).To(BeNil())
+
+			idle, err := h.IsIdle(db)
+			Expect(err).To(BeNil())
+			Expect(idle).To(BeFalse())
 		})
 	})
 
