@@ -417,13 +417,3 @@ func findBillingProfile(db ndb.QueryReceiver, u *user.User, o *org.Org) (*billin
 
 	return u.BillingProfile(db)
 }
-
-// generate cert with server certificate and key. The cert will be used for
-// TLS encryption
-func generateCerts(hostname string) (*cert.Cert, error) {
-	caInfo, err := certauth.NewCAInfo(envvars.CACertPath, envvars.CAKeyPath)
-	if err != nil {
-		return nil, err
-	}
-	return cert.Generate(hostname, caInfo.X509Cert, caInfo.Key)
-}
