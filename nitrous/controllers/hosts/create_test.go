@@ -1077,7 +1077,6 @@ var _ = Describe("POST /api/v0/hosts", func() {
 				billingprofile.StatePaid,
 				billingprofile.StateExempt,
 				billingprofile.StatePaymentDue,
-				billingprofile.StateFree,
 			}
 			for _, st := range validStates {
 				_, err := db.Exec(`UPDATE billing_profiles SET state = $1 WHERE org_id = $2`, st, o.ID)
