@@ -625,8 +625,8 @@ var _ = Describe("controllers/billing", func() {
 			in         *invoice.Invoice
 		)
 
-		doRequest := func(invID int64) *httptest.ResponseRecorder {
-			url := fmt.Sprintf("/api/v0/invoices/%d/pay", invID)
+		doRequest := func(invID string) *httptest.ResponseRecorder {
+			url := fmt.Sprintf("/api/v0/invoices/%s/pay", invID)
 			req, err := NewAuthedRequest(t, "POST", url, nil)
 			Expect(err).To(BeNil())
 			res := httptest.NewRecorder()
@@ -655,13 +655,16 @@ var _ = Describe("controllers/billing", func() {
 		})
 
 		It("should return not found if the invoice does not exist", func() {
-			res := doRequest(-1)
+			res := doRequest("-1")
+			Expect(res.Code).To(Equal(http.StatusNotFound))
+
+			res = doRequest("in_not-in-stripe")
 			Expect(res.Code).To(Equal(http.StatusNotFound))
 		})
 
 		It("should not be blocked if the user has billing issues", func() {
 			MarkDelinquentUser(db, u)
-			res := doRequest(-1)
+			res := doRequest("-1")
 			Expect(res.Code).To(Equal(http.StatusNotFound))
 		})
 
@@ -685,12 +688,12 @@ var _ = Describe("controllers/billing", func() {
 			}
 			Expect(in2.Insert(db)).To(BeNil())
 
-			res := doRequest(in2.ID)
+			res := doRequest(strconv.Itoa(int(in2.ID)))
 			Expect(res.Code).To(Equal(http.StatusNotFound))
 		})
 
 		It("should return a not payable error if it lacks a StripeID", func() {
-			res := doRequest(in.ID)
+			res := doRequest(strconv.Itoa(int(in.ID)))
 			Expect(res.Code).To(Equal(http.StatusBadRequest))
 			errType, errDesc := ErrorSlug(res.Body)
 			Expect(errType).To(Equal("invoice_not_payable"))
@@ -698,10 +701,10 @@ var _ = Describe("controllers/billing", func() {
 		})
 
 		It("should return a not payable error if the invoice is deferred", func() {
-			_, err := db.Exec("UPDATE invoices SET stripe_id = 'SSS', state = $1 WHERE id = $2", invoice.StateDeferred, in.ID)
+			_, err := db.Exec("UPDATE invoices SET stripe_id = 'in_SSS', state = $1 WHERE id = $2", invoice.StateDeferred, in.ID)
 			Expect(err).To(BeNil())
 
-			res := doRequest(in.ID)
+			res := doRequest(strconv.Itoa(int(in.ID)))
 			Expect(res.Code).To(Equal(http.StatusBadRequest))
 			errType, errDesc := ErrorSlug(res.Body)
 			Expect(errType).To(Equal("invoice_not_payable"))
@@ -709,10 +712,10 @@ var _ = Describe("controllers/billing", func() {
 		})
 
 		It("should return a error if the invoice is already paid", func() {
-			_, err := db.Exec("UPDATE invoices SET stripe_id = 'SSS', state = $1, successful_charge = TRUE WHERE id = $2", invoice.StatePaid, in.ID)
+			_, err := db.Exec("UPDATE invoices SET stripe_id = 'in_SSS', state = $1, successful_charge = TRUE WHERE id = $2", invoice.StatePaid, in.ID)
 			Expect(err).To(BeNil())
 
-			res := doRequest(in.ID)
+			res := doRequest(strconv.Itoa(int(in.ID)))
 			Expect(res.Code).To(Equal(http.StatusBadRequest))
 			errType, errDesc := ErrorSlug(res.Body)
 			Expect(errType).To(Equal("invoice_paid"))
@@ -721,7 +724,7 @@ var _ = Describe("controllers/billing", func() {
 
 		Describe("with payable invoice", func() {
 			BeforeEach(func() {
-				_, err := db.Exec("UPDATE invoices SET stripe_id = 'SSS', state = $1 WHERE id = $2", invoice.StateUnpaid, in.ID)
+				_, err := db.Exec("UPDATE invoices SET stripe_id = 'in_SSS', state = $1 WHERE id = $2", invoice.StateUnpaid, in.ID)
 				Expect(err).To(BeNil())
 			})
 
@@ -737,7 +740,7 @@ var _ = Describe("controllers/billing", func() {
 					`{"broke_response}`,
 				}
 
-				res := doRequest(in.ID)
+				res := doRequest(strconv.Itoa(int(in.ID)))
 				Expect(res.Code).To(Equal(http.StatusInternalServerError))
 				at := getInvoiceManualAttempt()
 				Expect(at.Success).To(BeFalse())
@@ -750,7 +753,7 @@ var _ = Describe("controllers/billing", func() {
 				}
 
 				fakeStripe.Errors = []*stripe.Error{StripeCardDeclined}
-				res := doRequest(in.ID)
+				res := doRequest(strconv.Itoa(int(in.ID)))
 				Expect(res.Code).To(Equal(http.StatusBadRequest))
 				errType, errDesc := ErrorSlug(res.Body)
 				Expect(errType).To(Equal("card_declined"))
@@ -767,7 +770,7 @@ var _ = Describe("controllers/billing", func() {
 				}
 
 				fakeStripe.Errors = []*stripe.Error{StripeCardExpired}
-				res := doRequest(in.ID)
+				res := doRequest(strconv.Itoa(int(in.ID)))
 				Expect(res.Code).To(Equal(http.StatusBadRequest))
 				errType, errDesc := ErrorSlug(res.Body)
 				Expect(errType).To(Equal("card_expired"))
@@ -790,7 +793,7 @@ var _ = Describe("controllers/billing", func() {
 						Code: stripe.ErrorCode(stripe.RateLimit),
 					},
 				}
-				res := doRequest(in.ID)
+				res := doRequest(strconv.Itoa(int(in.ID)))
 				Expect(res.Code).To(Equal(http.StatusInternalServerError))
 
 				at := getInvoiceManualAttempt()
@@ -804,8 +807,22 @@ var _ = Describe("controllers/billing", func() {
 				}
 				fakeStripe.Errors = []*stripe.Error{}
 
-				res := doRequest(in.ID)
+				res := doRequest(strconv.Itoa(int(in.ID)))
 				Expect(res.Code).To(Equal(http.StatusInternalServerError))
+			})
+
+			It("works when endpoint is given a stripe id", func() {
+				fakeStripe.Responses = []string{
+					`{"object": "invoice", "id": "ID1", "paid": true}`,
+				}
+				fakeStripe.Errors = []*stripe.Error{}
+
+				res := doRequest("in_SSS")
+				Expect(res.Code).To(Equal(http.StatusOK))
+				j := map[string]interface{}{}
+				err := json.Unmarshal(res.Body.Bytes(), &j)
+				Expect(err).To(BeNil())
+				Expect(j["paid"]).To(BeTrue())
 			})
 
 			It("should notify the user on a successful payment", func() {
@@ -814,7 +831,7 @@ var _ = Describe("controllers/billing", func() {
 				}
 				fakeStripe.Errors = []*stripe.Error{}
 
-				res := doRequest(in.ID)
+				res := doRequest(strconv.Itoa(int(in.ID)))
 				Expect(res.Code).To(Equal(http.StatusOK))
 				j := map[string]interface{}{}
 				err := json.Unmarshal(res.Body.Bytes(), &j)
@@ -835,7 +852,7 @@ var _ = Describe("controllers/billing", func() {
 				`{"object": "invoice", "id": "ID1", "paid": true}`,
 			}
 			fakeStripe.Errors = []*stripe.Error{}
-			res := doRequest(in.ID)
+			res := doRequest(strconv.Itoa(int(in.ID)))
 			Expect(res.Code).To(Equal(http.StatusForbidden))
 		})
 
