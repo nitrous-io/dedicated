@@ -562,6 +562,53 @@ var _ = Describe("models/host", func() {
 		})
 	})
 
+	Describe("FindAllWithoutOrphaned()", func() {
+		var u *user.User
+
+		BeforeEach(func() {
+			u = &user.User{
+				Username: "foo",
+				Email:    "foo@example.com",
+				Password: "123456",
+			}
+			Expect(test.WrapInTransaction(db, u.Insert)).To(BeNil())
+
+			_, err := db.Exec(`INSERT INTO hosts
+				(user_id, slug, region_id, plan_id, provider_template_id)
+				VALUES ($1, $2, $3, $4, $5);`,
+				u.ID, "my-host-1", hs.R.ID, hs.P.ID, hs.PT.ID)
+			Expect(err).To(BeNil())
+
+			// Orphan host.
+			_, err = db.Exec(`INSERT INTO hosts
+				(user_id, slug, region_id, plan_id, provider_template_id, state)
+				VALUES ($1, $2, $3, $4, $5, $6);`,
+				u.ID, "my-host-2", hs.R.ID, hs.P.ID, hs.PT.ID, host.StateOrphan)
+			Expect(err).To(BeNil())
+
+			// Terminated host - this should not be returned.
+			_, err = db.Exec(`INSERT INTO hosts
+				(user_id, slug, region_id, plan_id, provider_template_id, terminated_at)
+				VALUES ($1, $2, $3, $4, $5, now());`,
+				u.ID, "my-host-3", hs.R.ID, hs.P.ID, hs.PT.ID)
+			Expect(err).To(BeNil())
+
+			_, err = db.Exec(`INSERT INTO hosts
+				(user_id, slug, region_id, plan_id, provider_template_id)
+				VALUES ($1, $2, $3, $4, $5);`,
+				u.ID, "my-host-4", hs.R.ID, hs.P.ID, hs.PT.ID)
+			Expect(err).To(BeNil())
+		})
+
+		It("returns all non-terminated and non-orphan hosts", func() {
+			hosts, err := host.FindAllWithoutOrphaned(db, u.ID)
+			Expect(err).To(BeNil())
+			Expect(hosts).To(HaveLen(2))
+			Expect(hosts[0].Slug).To(Equal("my-host-1"))
+			Expect(hosts[1].Slug).To(Equal("my-host-4"))
+		})
+	})
+
 	Describe("FindAllForTermination()", func() {
 		var (
 			u1 *user.User
