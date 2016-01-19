@@ -105,7 +105,7 @@ var _ = Describe("models/stripememo/ninvoice", func() {
 			"amount": 3696,
 			"period_start": "2015-06-01T00:01:32Z",
 			"state": "paid",
-			"description": "Usage for Jun 2015",
+			"description": "Usage for May 2015",
 			"items":[{
  				"amount":600,
 				"description":"'ronoaldop-1734' base (50 GB storage) - 672 hours at 0.893c/hour",
@@ -220,7 +220,7 @@ var _ = Describe("models/stripememo/ninvoice", func() {
 			"amount": 248,
 			"period_start": "2015-02-01T00:15:15Z",
 			"state": "paid",
-			"description": "Usage for Feb 2015",
+			"description": "Usage for Jan 2015",
 			"items":[{
 				"amount": -80,
 				"description": "Credit of $0.80",

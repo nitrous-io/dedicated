@@ -149,6 +149,7 @@ func StripeInvoices(env *middleware.Env, w http.ResponseWriter, r *http.Request)
 			continue
 		}
 		sInv := serializers.SerializeStripeInvoice(inv)
+		sInv.UserID = env.User.ID
 		serInvs = append(serInvs, sInv)
 	}
 

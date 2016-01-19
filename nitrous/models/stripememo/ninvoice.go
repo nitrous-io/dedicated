@@ -150,7 +150,12 @@ func (n NitrousInvoice) Description() string {
 		return fmt.Sprintf("Subscription to %s: $%.0f/%s", plan.Name, float64(plan.Amount)/100.00, plan.Interval)
 	case !isSub:
 		pstart := time.Unix(n.Start, 0)
-		return fmt.Sprintf("Usage for %s", pstart.Format("Jan 2006"))
+		// Usage-based invoices were post-paid and always billed on the 1st of
+		// the month, so the relevant month is the one prior to the invoice
+		// date.
+		// We just need to subtract a day to get the previous month.
+		invPeriod := pstart.Add(-24 * time.Hour)
+		return fmt.Sprintf("Usage for %s", invPeriod.Format("Jan 2006"))
 	}
 
 	pstart, pend := time.Unix(n.Start, 0), time.Unix(n.End, 0)
