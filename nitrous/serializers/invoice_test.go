@@ -72,6 +72,7 @@ var _ = Describe("invoice serializer", func() {
 				PeriodEnd:   &t2,
 				State:       invoice.StatePaid,
 				Attempts:    1,
+				StripeID:    sql.NullString{"in_abcd", true},
 			}
 		})
 
@@ -94,6 +95,7 @@ var _ = Describe("invoice serializer", func() {
 			Expect(err).To(BeNil())
 			Expect(b).To(MatchJSON(`{
 				"id": 23,
+				"sid": "in_abcd",
 				"user_id": 29,
 				"total_charge": 329,
 				"period_start": "1970-01-01T00:00:20Z",
@@ -124,6 +126,7 @@ var _ = Describe("invoice serializer", func() {
 			Expect(err).To(BeNil())
 			Expect(b).To(MatchJSON(`{
 				"id": 23,
+				"sid": "in_abcd",
 				"user_id": 29,
 				"total_charge": 329,
 				"period_start": "1970-01-01T00:00:20Z",
