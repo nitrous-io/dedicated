@@ -181,19 +181,6 @@ var _ = Describe("models/freetier", func() {
 			})
 		})
 
-		Context("When user is in free tier without phone verification", func() {
-			BeforeEach(func() {
-				bp.State = billingprofile.StateFree
-				bp.MaxHours = sql.NullInt64{10, true}
-				Expect(bp.Update(db)).To(BeNil())
-			})
-
-			It("Should not be allowed to create host with free plan", func() {
-				err := freetier.CreateHostWithPlanAllowed(db, u, bp, freePlan)
-				Expect(err).To(Equal(freetier.ErrPhoneAuthRequired))
-			})
-		})
-
 		Context("When user is in paid tier", func() {
 			It("Should not be allowed to create host with free plan", func() {
 				err := freetier.CreateHostWithPlanAllowed(db, u, bp, freePlan)

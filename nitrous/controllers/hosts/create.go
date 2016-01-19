@@ -41,7 +41,6 @@ var (
 	errFreePlanNotAllowed = httperror.New(http.StatusForbidden, "free_plan_not_allowed", "You are not allowed to create a free tier workspace")
 	errPaidPlanNotAllowed = httperror.New(http.StatusForbidden, "paid_plan_not_allowed", "You are not allowed to create a paid workspace")
 	errMaxFreeHostReached = httperror.New(http.StatusForbidden, "max_free_host_reached", "You can't create any more free workspaces")
-	errPhoneAuthRequired  = httperror.New(http.StatusForbidden, "phone_auth_required", "You need to verify your phone before creating free workspace")
 
 	errSuspiciousUser = httperror.New(http.StatusForbidden, "invalid_request", "Unexpected error")
 
@@ -202,8 +201,6 @@ func Create(env *middleware.Env, w http.ResponseWriter, r *http.Request) error {
 			return errPaidPlanNotAllowed
 		case freetier.ErrMaxFreeHostReached:
 			return errMaxFreeHostReached
-		case freetier.ErrPhoneAuthRequired:
-			return errPhoneAuthRequired
 		default:
 			return err
 		}

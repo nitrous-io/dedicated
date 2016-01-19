@@ -14,7 +14,6 @@ var (
 	ErrFreePlanNotAllowed = errors.New("paying user is not allowed to create a free tier workspace")
 	ErrPaidPlanNotAllowed = errors.New("free tier user is not allowed to create a paid workspace")
 	ErrMaxFreeHostReached = errors.New("free tier user already has existing free host")
-	ErrPhoneAuthRequired  = errors.New("phone authentication required")
 
 	ErrLastRunningAtInvalid = errors.New("last_running_at is invalid")
 )
@@ -52,10 +51,6 @@ func createFreeTierHostAllowed(d *db.Database, u *user.User) error {
 
 	if !bp.IsFreeTier() {
 		return ErrFreePlanNotAllowed
-	}
-
-	if !u.PhoneAuthed {
-		return ErrPhoneAuthRequired
 	}
 
 	// Exclude orphaned hosts so free users who have issues creating can create
