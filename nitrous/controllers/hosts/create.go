@@ -45,8 +45,9 @@ var (
 
 	errSuspiciousUser = httperror.New(http.StatusForbidden, "invalid_request", "Unexpected error")
 
-	errUserMaxHostsReached = httperror.New(http.StatusForbidden, "max_hosts_reached", "you have reached the maximum number of workspaces")
-	errUserNoCard          = httperror.New(http.StatusForbidden, "request_not_allowed", "you have not added a credit card")
+	errUserMaxHostsReached   = httperror.New(http.StatusForbidden, "max_hosts_reached", "you have reached the maximum number of workspaces")
+	errUserNoCard            = httperror.New(http.StatusForbidden, "request_not_allowed", "you have not added a credit card")
+	errUserEmailNotConfirmed = httperror.New(http.StatusForbidden, "request_not_allowed", "please confirm your email address before proceeding")
 
 	errOrgMaxHostsReached = httperror.New(http.StatusForbidden, "max_hosts_reached", "your organization has reached the maximum number of workspaces")
 	errOrgNoCard          = httperror.New(http.StatusForbidden, "request_not_allowed", "your organization has not added a credit card")
@@ -88,6 +89,10 @@ type createOpts struct {
 func Create(env *middleware.Env, w http.ResponseWriter, r *http.Request) error {
 	db := env.DB
 	u := env.User
+
+	if !u.ConfirmedAt.Valid {
+		return errUserEmailNotConfirmed
+	}
 
 	options, err := buildCreateOptions(r, u)
 	if err != nil {
