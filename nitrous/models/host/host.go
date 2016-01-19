@@ -225,6 +225,31 @@ func FindAllWithTerminated(db *db.Database, userID int64) ([]*Host, error) {
 	return hosts, nil
 }
 
+func FindAllWithIdleAndFree(db *db.Database) ([]*Host, error) {
+	hosts := []*Host{}
+	err := db.Select(&hosts, `SELECT hosts.*, pts.provider, pts.config
+		FROM hosts
+		INNER JOIN provider_templates AS pts on hosts.provider_template_id = pts.id
+		WHERE auto_shutdown = $1
+			AND state = $2
+			AND (
+				EXTRACT(EPOCH FROM (now() - last_pinged_at)) > idle_timeout
+				-- if host started but IDE is never started, last_pinged_at will be null
+				OR
+				last_pinged_at IS NULL
+			)
+			-- if host has been running for less than 2700 seconds = 45 minutes; not idle
+			AND 
+			  (last_running_at IS NULL OR MOD(CAST(EXTRACT(EPOCH FROM now() - last_running_at) as numeric), 3600) > 2700)
+			AND terminated_at IS NULL
+		ORDER BY last_pinged_at ASC
+	`, true, StateRunning)
+	if err != nil {
+		return nil, err
+	}
+	return hosts, nil
+}
+
 func FindAllWithoutOrphaned(db *db.Database, userID int64) ([]*Host, error) {
 	hosts := []*Host{}
 	err := db.Select(&hosts, "SELECT * FROM hosts WHERE user_id = $1 AND state != $2 AND preprovisioned = FALSE AND terminated_at IS NULL;", userID, StateOrphan)
@@ -406,6 +431,31 @@ func FindAllByRegionAndPlan(db *db.Database, regionID, planID int64) ([]*Host, e
 		AND plan_id = $2
 		AND created_at > NOW() - '1 day'::INTERVAL`, regionID, planID)
 	return hosts, err
+}
+
+func (h *Host) IsIdle(db *db.Database) (bool, error) {
+	var count int
+	err := db.QueryRow(`
+		SELECT count(*) FROM hosts
+		WHERE id = $1
+			AND auto_shutdown = $2
+			AND state = $3
+			AND (
+				EXTRACT(EPOCH FROM (now() - last_pinged_at)) > idle_timeout
+				-- if host started but IDE is never started, last_pinged_at will be null
+				OR
+				last_pinged_at IS NULL
+			)
+			-- if host has been running for less than 2700 seconds = 45 minutes; not idle
+			AND 
+			  (last_running_at IS NULL OR MOD(CAST(EXTRACT(EPOCH FROM now() - last_running_at) as numeric), 3600) > 2700)
+			AND terminated_at IS NULL
+		`, h.ID, true, StateRunning).Scan(&count)
+	if err != nil {
+		return false, err
+	}
+
+	return (count == 1), nil
 }
 
 func (h Host) String() string {
