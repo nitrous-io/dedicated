@@ -103,7 +103,6 @@ func Create(env *middleware.Env, w http.ResponseWriter, r *http.Request) error {
 		reg      *region.Region
 		pl       *plan.Plan
 		template *providertemplate.ProviderTemplate
-		o        *org.Org
 	)
 
 	// if template name is specified, we use it to locate the correct plan,
@@ -134,8 +133,7 @@ func Create(env *middleware.Env, w http.ResponseWriter, r *http.Request) error {
 		}
 	}
 
-	var bp *billingprofile.BillingProfile
-
+	var o *org.Org
 	if options.Org != "" {
 		o, err = org.FindBySlug(db, options.Org)
 		if err != nil {
@@ -144,15 +142,11 @@ func Create(env *middleware.Env, w http.ResponseWriter, r *http.Request) error {
 			}
 			return err
 		}
-		bp, err = billingprofile.FindForOrg(db, o.ID)
-		if err != nil {
-			return err
-		}
-	} else {
-		bp, err = u.BillingProfile(db)
-		if err != nil {
-			return err
-		}
+	}
+
+	bp, err := findBillingProfile(db, u, o)
+	if err != nil {
+		return err
 	}
 
 	var sub *subscription.Subscription
@@ -419,6 +413,14 @@ func findTemplate(db ndb.QueryReceiver, pl *plan.Plan, rg *region.Region, provid
 		return nil, fmt.Errorf("no matching templates found, error %s", err)
 	}
 	return pt, nil
+}
+
+func findBillingProfile(db ndb.QueryReceiver, u *user.User, o *org.Org) (*billingprofile.BillingProfile, error) {
+	if o != nil {
+		return billingprofile.FindForOrg(db, o.ID)
+	}
+
+	return u.BillingProfile(db)
 }
 
 // generate cert with server certificate and key. The cert will be used for
