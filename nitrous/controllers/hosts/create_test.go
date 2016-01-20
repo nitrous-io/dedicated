@@ -296,8 +296,8 @@ var _ = Describe("POST /api/v0/hosts", func() {
 
 			params.Set("size", hs.P.Slug)
 			params.Set("region", hs.R.Slug)
-			res := doRequest(params)
 
+			res := doRequest(params)
 			Expect(res.Code).To(Equal(http.StatusBadRequest))
 
 			errType, errDesc := test.ErrorSlug(res.Body)
@@ -311,8 +311,12 @@ var _ = Describe("POST /api/v0/hosts", func() {
 				return nil
 			})
 			Expect(err).To(BeNil())
-			res := doRequest(params)
 
+			_, err = db.Exec(`UPDATE billing_profiles SET state=$1 WHERE user_id=$2;`,
+				billingprofile.StatePaid, u.ID)
+			Expect(err).To(BeNil())
+
+			res := doRequest(params)
 			Expect(res.Code).To(Equal(http.StatusForbidden))
 
 			errType, errDesc := test.ErrorSlug(res.Body)
@@ -327,8 +331,12 @@ var _ = Describe("POST /api/v0/hosts", func() {
 				return err
 			})
 			Expect(err).To(BeNil())
-			res := doRequest(params)
 
+			_, err = db.Exec(`UPDATE billing_profiles SET state=$1 WHERE user_id=$2;`,
+				billingprofile.StatePaid, u.ID)
+			Expect(err).To(BeNil())
+
+			res := doRequest(params)
 			Expect(res.Code).To(Equal(http.StatusForbidden))
 
 			errType, errDesc := test.ErrorSlug(res.Body)
@@ -341,8 +349,8 @@ var _ = Describe("POST /api/v0/hosts", func() {
 		_, err := db.Exec("INSERT INTO regions (slug, name, rank, disabled_at) values ($1, $2, $3, now());", "newfoundland", "New Found Land", 1)
 		Expect(err).To(BeNil())
 		params.Set("region", "newfoundland")
-		res := doRequest(params)
 
+		res := doRequest(params)
 		Expect(res.Code).To(Equal(http.StatusBadRequest))
 
 		errType, errDesc := test.ErrorSlug(res.Body)
@@ -388,6 +396,7 @@ var _ = Describe("POST /api/v0/hosts", func() {
 		}
 		replaceTransport(hb, rt)
 		hosts.HostbuilderClient = hb
+
 		doRequest(params)
 
 		req := rt.Requests[0]
@@ -893,6 +902,308 @@ var _ = Describe("POST /api/v0/hosts", func() {
 			Expect(j.Host.FreighterdPort).To(BeZero(), "unexpected freighterd port")
 		})
 
+		testCases := []struct {
+			freePlan            bool
+			billingProfileState string
+			isOrg               bool
+			hasHosts            bool
+
+			expectedCode    int
+			expectedErrType string
+			expectedErrDesc string
+		}{
+			{
+				// User billing profile: no card (no card on file, email unconfirmed).
+				// Expected result: cannot create free workspace.
+				freePlan: true, billingProfileState: billingprofile.StateNoCard, isOrg: false, hasHosts: false,
+
+				expectedCode:    http.StatusForbidden,
+				expectedErrType: "free_plan_not_allowed",
+				expectedErrDesc: "You are not allowed to create a free workstation",
+			},
+			{
+				// User billing profile: free (email confirmed).
+				// Expected result: can create free workspace.
+				freePlan: true, billingProfileState: billingprofile.StateFree, isOrg: false, hasHosts: false,
+
+				expectedCode: http.StatusAccepted,
+			},
+			{
+				// User billing profile: paid (credit card on file).
+				// Existing hosts: no.
+				// Expected result: can create free workspace.
+				freePlan: true, billingProfileState: billingprofile.StatePaid, isOrg: false, hasHosts: false,
+
+				expectedCode: http.StatusAccepted,
+			},
+
+			// User with existing workspace cannot create a free workspace.
+			{
+				// User billing profile: no card (no card on file, email unconfirmed).
+				// Existing hosts: yes.
+				// Expected result: cannot create free workspace.
+				freePlan: true, billingProfileState: billingprofile.StateNoCard, isOrg: false, hasHosts: true,
+
+				expectedCode:    http.StatusForbidden,
+				expectedErrType: "max_free_host_reached",
+				expectedErrDesc: "You can't create any more free workstations",
+			},
+			{
+				// User billing profile: free (email confirmed).
+				// Existing hosts: yes.
+				// Expected result: cannot create free workspace.
+				freePlan: true, billingProfileState: billingprofile.StateFree, isOrg: false, hasHosts: true,
+
+				expectedCode:    http.StatusForbidden,
+				expectedErrType: "max_free_host_reached",
+				expectedErrDesc: "You can't create any more free workstations",
+			},
+			{
+				// User billing profile: paid (credit card on file).
+				// Existing hosts: yes.
+				// Expected result: cannot create free workspace.
+				freePlan: true, billingProfileState: billingprofile.StatePaid, isOrg: false, hasHosts: true,
+
+				expectedCode:    http.StatusForbidden,
+				expectedErrType: "max_free_host_reached",
+				expectedErrDesc: "You can't create any more free workstations",
+			},
+
+			// Orgs can never create free workspaces.
+			{
+				// Org billing profile: no card (no card on file, email unconfirmed).
+				// Expected result: cannot create free workspace.
+				freePlan: true, billingProfileState: billingprofile.StateNoCard, isOrg: true, hasHosts: false,
+
+				expectedCode:    http.StatusForbidden,
+				expectedErrType: "free_plan_not_allowed",
+				expectedErrDesc: "You are not allowed to create a free workstation",
+			},
+			{
+				// Org billing profile: free (email confirmed).
+				// Expected result: cannot create free workspace.
+				freePlan: true, billingProfileState: billingprofile.StateFree, isOrg: true, hasHosts: false,
+
+				expectedCode:    http.StatusForbidden,
+				expectedErrType: "free_plan_not_allowed",
+				expectedErrDesc: "You are not allowed to create a free workstation",
+			},
+			{
+				// Org billing profile: paid (credit card on file).
+				// Existing hosts: no.
+				// Expected result: can create free workspace.
+				freePlan: true, billingProfileState: billingprofile.StatePaid, isOrg: true, hasHosts: false,
+
+				expectedCode:    http.StatusForbidden,
+				expectedErrType: "free_plan_not_allowed",
+				expectedErrDesc: "You are not allowed to create a free workstation",
+			},
+			{
+				// Org billing profile: no card (no card on file, email unconfirmed).
+				// Expected result: cannot create free workspace.
+				freePlan: true, billingProfileState: billingprofile.StateNoCard, isOrg: true, hasHosts: true,
+
+				expectedCode:    http.StatusForbidden,
+				expectedErrType: "free_plan_not_allowed",
+				expectedErrDesc: "You are not allowed to create a free workstation",
+			},
+			{
+				// Org billing profile: free (email confirmed).
+				// Expected result: cannot create free workspace.
+				freePlan: true, billingProfileState: billingprofile.StateFree, isOrg: true, hasHosts: true,
+
+				expectedCode:    http.StatusForbidden,
+				expectedErrType: "free_plan_not_allowed",
+				expectedErrDesc: "You are not allowed to create a free workstation",
+			},
+			{
+				// Org billing profile: paid (credit card on file).
+				// Existing hosts: no.
+				// Expected result: cannot create free workspace.
+				freePlan: true, billingProfileState: billingprofile.StatePaid, isOrg: true, hasHosts: true,
+
+				expectedCode:    http.StatusForbidden,
+				expectedErrType: "free_plan_not_allowed",
+				expectedErrDesc: "You are not allowed to create a free workstation",
+			},
+
+			{
+				// User billing profile: no card (no card on file, email unconfirmed).
+				// Paid plan.
+				// Expected result: cannot create free workspace.
+				freePlan: false, billingProfileState: billingprofile.StateNoCard, isOrg: false, hasHosts: false,
+
+				expectedCode:    http.StatusForbidden,
+				expectedErrType: "request_not_allowed",
+				expectedErrDesc: "you have not added a credit card",
+			},
+			{
+				// User billing profile: free (email confirmed).
+				// Paid plan.
+				// Expected result: cannot create free workspace.
+				freePlan: false, billingProfileState: billingprofile.StateFree, isOrg: false, hasHosts: false,
+
+				expectedCode:    http.StatusForbidden,
+				expectedErrType: "paid_plan_not_allowed",
+				expectedErrDesc: "You are not allowed to create a paid workstation",
+			},
+			{
+				// User billing profile: paid (credit card on file).
+				// Paid plan.
+				// Expected result: can create free workspace.
+				freePlan: false, billingProfileState: billingprofile.StatePaid, isOrg: false, hasHosts: false,
+
+				expectedCode: http.StatusAccepted,
+			},
+
+			{
+				// User billing profile: no card (no card on file, email unconfirmed).
+				// Paid plan.
+				// Existing hosts: yes.
+				// Expected result: cannot create free workspace.
+				freePlan: false, billingProfileState: billingprofile.StateNoCard, isOrg: false, hasHosts: true,
+
+				expectedCode:    http.StatusForbidden,
+				expectedErrType: "request_not_allowed",
+				expectedErrDesc: "you have not added a credit card",
+			},
+			{
+				// User billing profile: free (email confirmed).
+				// Paid plan.
+				// Existing hosts: yes.
+				// Expected result: cannot create free workspace.
+				freePlan: false, billingProfileState: billingprofile.StateFree, isOrg: false, hasHosts: true,
+				expectedCode:    http.StatusForbidden,
+				expectedErrType: "paid_plan_not_allowed",
+				expectedErrDesc: "You are not allowed to create a paid workstation",
+			},
+			{
+				// User billing profile: paid (credit card on file).
+				// Paid plan.
+				// Existing hosts: yes.
+				// Expected result: can create free workspace.
+				freePlan: false, billingProfileState: billingprofile.StatePaid, isOrg: false, hasHosts: true,
+				expectedCode: http.StatusAccepted,
+			},
+
+			{
+				// Org billing profile: no card (no card on file, email unconfirmed).
+				// Paid plan.
+				// Expected result: cannot create free workspace.
+				freePlan: false, billingProfileState: billingprofile.StateNoCard, isOrg: true, hasHosts: false,
+				expectedCode:    http.StatusForbidden,
+				expectedErrType: "request_not_allowed",
+				expectedErrDesc: "your organization has not added a credit card",
+			},
+			{
+				// Org billing profile: free (email confirmed).
+				// Paid plan.
+				// Expected result: cannot create free workspace.
+				freePlan: false, billingProfileState: billingprofile.StateFree, isOrg: true, hasHosts: false,
+				expectedCode:    http.StatusForbidden,
+				expectedErrType: "paid_plan_not_allowed",
+				expectedErrDesc: "You are not allowed to create a paid workstation",
+			},
+			{
+				// Org billing profile: paid (credit card on file).
+				// Paid plan.
+				// Expected result: can create free workspace.
+				freePlan: false, billingProfileState: billingprofile.StatePaid, isOrg: true, hasHosts: false,
+				expectedCode: http.StatusAccepted,
+			},
+
+			{
+				// Org billing profile: no card (no card on file, email unconfirmed).
+				// Paid plan.
+				// Existing hosts: yes.
+				// Expected result: cannot create free workspace.
+				freePlan: false, billingProfileState: billingprofile.StateNoCard, isOrg: true, hasHosts: true,
+				expectedCode:    http.StatusForbidden,
+				expectedErrType: "request_not_allowed",
+				expectedErrDesc: "your organization has not added a credit card",
+			},
+			{
+				// Org billing profile: free (email confirmed).
+				// Paid plan.
+				// Existing hosts: yes.
+				// Expected result: cannot create free workspace.
+				freePlan: false, billingProfileState: billingprofile.StateFree, isOrg: true, hasHosts: true,
+				expectedCode:    http.StatusForbidden,
+				expectedErrType: "paid_plan_not_allowed",
+				expectedErrDesc: "You are not allowed to create a paid workstation",
+			},
+			{
+				// Org billing profile: paid (credit card on file).
+				// Paid plan.
+				// Existing hosts: yes.
+				// Expected result: can create free workspace.
+				freePlan: false, billingProfileState: billingprofile.StatePaid, isOrg: true, hasHosts: true,
+				expectedCode: http.StatusAccepted,
+			},
+		}
+
+		for _, tc0 := range testCases {
+			tc := tc0
+
+			It(fmt.Sprintf("responds with HTTP %d with test case %+v", tc.expectedCode, tc), func() {
+				var (
+					err error
+					pl  *plan.Plan
+				)
+
+				if tc.freePlan {
+					pl = &plan.Plan{Name: "Free", Slug: "free", Price: 0, Org: tc.isOrg}
+				} else {
+					pl = &plan.Plan{Name: "Paid", Slug: "paid", Price: 100, Org: tc.isOrg}
+				}
+				hs, err := test.CreateHostStack(db, &test.HostStack{
+					R: &region.Region{Slug: "asia"},
+					P: pl,
+				})
+				Expect(err).To(BeNil())
+
+				if tc.isOrg {
+					// Create org billing profile and add user to the org.
+					err := db.WithTransaction(func(t *sqlx.Tx) error {
+						return billingprofile.Create(t, u.ID, sql.NullInt64{o.ID, true})
+					})
+					Expect(err).To(BeNil())
+					_, err = orgmembership.AddMember(db, o.ID, strconv.FormatInt(u.ID, 10), orgmembership.RoleMember)
+					Expect(err).To(BeNil())
+
+					_, err = db.Exec(`UPDATE billing_profiles SET state = $1 WHERE user_id = $2 AND org_id = $3`,
+						tc.billingProfileState, u.ID, o.ID)
+					Expect(err).To(BeNil())
+				} else {
+					_, err := db.Exec(`UPDATE billing_profiles SET state = $1 WHERE user_id = $2`,
+						tc.billingProfileState, u.ID)
+					Expect(err).To(BeNil())
+				}
+
+				if tc.hasHosts {
+					// Create another host belonging to the user.
+					_, err := test.CreateHostStack(db, &test.HostStack{U: u})
+					Expect(err).To(BeNil())
+				}
+
+				params.Set("name", "my host")
+				params.Set("size", hs.P.Slug)
+				params.Set("region", hs.R.Slug)
+				if tc.isOrg {
+					params.Set("org", o.Slug)
+				}
+
+				res := doRequest(params)
+				Expect(res.Code).To(Equal(tc.expectedCode))
+
+				if tc.expectedErrType != "" || tc.expectedErrDesc != "" {
+					errType, errDesc := test.ErrorSlug(res.Body)
+					Expect(errType).To(Equal(tc.expectedErrType))
+					Expect(errDesc).To(Equal(tc.expectedErrDesc))
+				}
+			})
+		}
+
 		Context("when hostbuilder successfully creates a host", func() {
 			BeforeEach(func() {
 				hb := hostbuilderclient.NewHostbuilder("www.example.com")
@@ -1049,7 +1360,7 @@ var _ = Describe("POST /api/v0/hosts", func() {
 					Expect(ok).To(BeTrue())
 					Expect(evtData["host"]).To(Equal(serializers.SerializeHost(h)))
 					// Original error caused by hostbuilder error is masked.
-					Expect(evtData["error"]).To(ContainSubstring("failed to create workspace"))
+					Expect(evtData["error"]).To(ContainSubstring("failed to create workstation"))
 				case <-time.After(100 * time.Millisecond):
 					Fail("timeout while waiting for EventHostCreateFailed")
 				}
@@ -1078,28 +1389,16 @@ var _ = Describe("POST /api/v0/hosts", func() {
 				billingprofile.StateExempt,
 				billingprofile.StatePaymentDue,
 			}
-			for _, st := range validStates {
-				_, err := db.Exec(`UPDATE billing_profiles SET state = $1 WHERE org_id = $2`, st, o.ID)
+			for _, state := range validStates {
+				_, err := db.Exec(`UPDATE billing_profiles SET state = $1 WHERE org_id = $2`, state, o.ID)
 				Expect(err).To(BeNil())
 
 				params.Set("async", "true")
 				res := doRequest(params)
 
-				Expect(res.Code).To(Equal(http.StatusAccepted))
+				Expect(res.Code).To(Equal(http.StatusAccepted),
+					fmt.Sprintf("unexpected response code %d for billing profile state %v", res.Code, state))
 			}
-		})
-
-		It("responds with no credit card error when org does not have billing profile", func() {
-			_, err := db.Exec(`UPDATE billing_profiles SET state = $1 WHERE org_id = $2`, billingprofile.StateNoCard, o.ID)
-			Expect(err).To(BeNil())
-
-			res := doRequest(params)
-
-			Expect(res.Code).To(Equal(http.StatusForbidden))
-
-			errType, errDesc := test.ErrorSlug(res.Body)
-			Expect(errType).To(Equal("request_not_allowed"))
-			Expect(errDesc).To(Equal("your organization has not added a credit card"))
 		})
 
 		It("responds with unpaid invoices error when org has delinquent billing profile", func() {
@@ -1129,7 +1428,7 @@ var _ = Describe("POST /api/v0/hosts", func() {
 
 			errType, errDesc := test.ErrorSlug(res.Body)
 			Expect(errType).To(Equal("max_hosts_reached"))
-			Expect(errDesc).To(Equal("your organization has reached the maximum number of workspaces"))
+			Expect(errDesc).To(Equal("your organization has reached the maximum number of workstations"))
 		})
 
 		It("does not allow orgs to create a free host", func() {
@@ -1147,7 +1446,7 @@ var _ = Describe("POST /api/v0/hosts", func() {
 
 			errType, errDesc := test.ErrorSlug(res.Body)
 			Expect(errType).To(Equal("free_plan_not_allowed"))
-			Expect(errDesc).To(Equal("You are not allowed to create a free tier workspace"))
+			Expect(errDesc).To(Equal("You are not allowed to create a free workstation"))
 		})
 	})
 
@@ -1288,18 +1587,6 @@ var _ = Describe("POST /api/v0/hosts", func() {
 		})
 	})
 
-	It("responds with no credit card error when user does not have billing profile", func() {
-		_, err := db.Exec(`UPDATE billing_profiles SET state = $1 WHERE user_id = $2`, billingprofile.StateNoCard, u.ID)
-		Expect(err).To(BeNil())
-
-		res := doRequest(params)
-
-		Expect(res.Code).To(Equal(http.StatusForbidden))
-		errType, errDesc := test.ErrorSlug(res.Body)
-		Expect(errType).To(Equal("request_not_allowed"))
-		Expect(errDesc).To(Equal("you have not added a credit card"))
-	})
-
 	It("responds with unpaid invoices error when user has delinquent billing profile", func() {
 		_, err := db.Exec(`UPDATE billing_profiles SET state = $1 WHERE user_id = $2`, billingprofile.StateDelinquent, u.ID)
 		Expect(err).To(BeNil())
@@ -1324,7 +1611,7 @@ var _ = Describe("POST /api/v0/hosts", func() {
 		Expect(res.Code).To(Equal(http.StatusForbidden))
 		errType, errDesc := test.ErrorSlug(res.Body)
 		Expect(errType).To(Equal("max_hosts_reached"))
-		Expect(errDesc).To(Equal("you have reached the maximum number of workspaces"))
+		Expect(errDesc).To(Equal("you have reached the maximum number of workstations"))
 	})
 
 	Context("oauth token failure modes", func() {

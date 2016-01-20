@@ -14,11 +14,8 @@ import (
 	"github.com/nitrous-io/dedicated/nitrous/controllers"
 	"github.com/nitrous-io/dedicated/nitrous/controllers/volumes"
 	ndb "github.com/nitrous-io/dedicated/nitrous/db"
-	"github.com/nitrous-io/dedicated/nitrous/envvars"
 	"github.com/nitrous-io/dedicated/nitrous/middleware"
 	"github.com/nitrous-io/dedicated/nitrous/models/billingprofile"
-	"github.com/nitrous-io/dedicated/nitrous/models/cert"
-	"github.com/nitrous-io/dedicated/nitrous/models/freetier"
 	"github.com/nitrous-io/dedicated/nitrous/models/host"
 	"github.com/nitrous-io/dedicated/nitrous/models/org"
 	"github.com/nitrous-io/dedicated/nitrous/models/plan"
@@ -27,7 +24,6 @@ import (
 	"github.com/nitrous-io/dedicated/nitrous/models/region"
 	"github.com/nitrous-io/dedicated/nitrous/models/subscription"
 	"github.com/nitrous-io/dedicated/nitrous/models/user"
-	"github.com/nitrous-io/dedicated/nitrous/pkg/certauth"
 	"github.com/nitrous-io/dedicated/nitrous/pkg/httperror"
 	"github.com/nitrous-io/dedicated/nitrous/provisioner"
 	"github.com/nitrous-io/dedicated/nitrous/serializers"
@@ -38,17 +34,17 @@ import (
 var (
 	CreateVolumeFn = volumes.CreateVolume
 
-	errFreePlanNotAllowed = httperror.New(http.StatusForbidden, "free_plan_not_allowed", "You are not allowed to create a free tier workspace")
-	errPaidPlanNotAllowed = httperror.New(http.StatusForbidden, "paid_plan_not_allowed", "You are not allowed to create a paid workspace")
-	errMaxFreeHostReached = httperror.New(http.StatusForbidden, "max_free_host_reached", "You can't create any more free workspaces")
+	errFreePlanNotAllowed = httperror.New(http.StatusForbidden, "free_plan_not_allowed", "You are not allowed to create a free workstation")
+	errPaidPlanNotAllowed = httperror.New(http.StatusForbidden, "paid_plan_not_allowed", "You are not allowed to create a paid workstation")
+	errMaxFreeHostReached = httperror.New(http.StatusForbidden, "max_free_host_reached", "You can't create any more free workstations")
 
 	errSuspiciousUser = httperror.New(http.StatusForbidden, "invalid_request", "Unexpected error")
 
-	errUserMaxHostsReached   = httperror.New(http.StatusForbidden, "max_hosts_reached", "you have reached the maximum number of workspaces")
+	errUserMaxHostsReached   = httperror.New(http.StatusForbidden, "max_hosts_reached", "you have reached the maximum number of workstations")
 	errUserNoCard            = httperror.New(http.StatusForbidden, "request_not_allowed", "you have not added a credit card")
 	errUserEmailNotConfirmed = httperror.New(http.StatusForbidden, "request_not_allowed", "please confirm your email address before proceeding")
 
-	errOrgMaxHostsReached = httperror.New(http.StatusForbidden, "max_hosts_reached", "your organization has reached the maximum number of workspaces")
+	errOrgMaxHostsReached = httperror.New(http.StatusForbidden, "max_hosts_reached", "your organization has reached the maximum number of workstations")
 	errOrgNoCard          = httperror.New(http.StatusForbidden, "request_not_allowed", "your organization has not added a credit card")
 	errOrgDelinquent      = httperror.New(http.StatusForbidden, "outstanding_invoices", "your organization has outstanding invoices")
 
@@ -192,21 +188,19 @@ func Create(env *middleware.Env, w http.ResponseWriter, r *http.Request) error {
 		}
 	}
 
-	err = freetier.CreateHostWithPlanAllowed(db, u, bp, pl)
+	// Check if user has any existing hosts.
+	hosts, err := host.FindAllWithoutOrphaned(db, u.ID)
 	if err != nil {
-		switch err {
-		case freetier.ErrFreePlanNotAllowed:
-			return errFreePlanNotAllowed
-		case freetier.ErrPaidPlanNotAllowed:
-			return errPaidPlanNotAllowed
-		case freetier.ErrMaxFreeHostReached:
-			return errMaxFreeHostReached
-		default:
-			return err
-		}
+		return err
 	}
 
-	// suspicious users cannot create workspaces
+	isOrg := (o != nil)
+	hasHosts := len(hosts) > 0
+	if err := hostCreateCheck(pl, bp.State, isOrg, hasHosts); err != nil {
+		return err
+	}
+
+	// suspicious users cannot create workstations
 	if u.Suspicious.Valid {
 		return errSuspiciousUser
 	}
@@ -238,7 +232,7 @@ func Create(env *middleware.Env, w http.ResponseWriter, r *http.Request) error {
 		if e, ok := err.(*provisioner.HostbuilderError); ok {
 			logrus.Errorf("hostbuilder error provisioning host: %v", e)
 			// Change error into something we can display to end users.
-			err = errors.New("failed to create workspace")
+			err = errors.New("failed to create workstation")
 		}
 
 		env.Events.Publish(
@@ -268,7 +262,6 @@ func Create(env *middleware.Env, w http.ResponseWriter, r *http.Request) error {
 			provisioned <- h
 		},
 	})
-
 	if err != nil {
 		if e, ok := err.(*provisioner.InvalidHostError); ok {
 			return httperror.New(http.StatusBadRequest, "invalid_request", e.Err.Error())
@@ -416,4 +409,71 @@ func findBillingProfile(db ndb.QueryReceiver, u *user.User, o *org.Org) (*billin
 	}
 
 	return u.BillingProfile(db)
+}
+
+type condition struct {
+	freePlan            bool
+	billingProfileState string
+	isOrg               bool
+	hasHosts            bool
+}
+
+var (
+	_freePlan, _paidPlan      = true, false
+	_noCard, _isFree, _isPaid = billingprofile.StateNoCard, billingprofile.StateFree, billingprofile.StatePaid
+	_isOrg, _indiv            = true, false
+	_zeroHosts, _someHosts    = false, true
+
+	decisionTable = map[condition]error{
+		condition{_freePlan, _noCard, _indiv, _zeroHosts}: errFreePlanNotAllowed,
+		condition{_freePlan, _isFree, _indiv, _zeroHosts}: nil,
+		condition{_freePlan, _isPaid, _indiv, _zeroHosts}: nil,
+
+		condition{_freePlan, _noCard, _indiv, _someHosts}: errMaxFreeHostReached,
+		condition{_freePlan, _isFree, _indiv, _someHosts}: errMaxFreeHostReached,
+		condition{_freePlan, _isPaid, _indiv, _someHosts}: errMaxFreeHostReached,
+
+		condition{_freePlan, _noCard, _isOrg, _zeroHosts}: errFreePlanNotAllowed,
+		condition{_freePlan, _isFree, _isOrg, _zeroHosts}: errFreePlanNotAllowed,
+		condition{_freePlan, _isPaid, _isOrg, _zeroHosts}: errFreePlanNotAllowed,
+
+		condition{_freePlan, _noCard, _isOrg, _someHosts}: errFreePlanNotAllowed,
+		condition{_freePlan, _isFree, _isOrg, _someHosts}: errFreePlanNotAllowed,
+		condition{_freePlan, _isPaid, _isOrg, _someHosts}: errFreePlanNotAllowed,
+
+		condition{_paidPlan, _noCard, _indiv, _zeroHosts}: errUserNoCard,
+		condition{_paidPlan, _isFree, _indiv, _zeroHosts}: errPaidPlanNotAllowed,
+		condition{_paidPlan, _isPaid, _indiv, _zeroHosts}: nil,
+
+		condition{_paidPlan, _noCard, _indiv, _someHosts}: errUserNoCard,
+		condition{_paidPlan, _isFree, _indiv, _someHosts}: errPaidPlanNotAllowed,
+		condition{_paidPlan, _isPaid, _indiv, _someHosts}: nil,
+
+		condition{_paidPlan, _noCard, _isOrg, _zeroHosts}: errOrgNoCard,
+		condition{_paidPlan, _isFree, _isOrg, _zeroHosts}: errPaidPlanNotAllowed,
+		condition{_paidPlan, _isPaid, _isOrg, _zeroHosts}: nil,
+
+		condition{_paidPlan, _noCard, _isOrg, _someHosts}: errOrgNoCard,
+		condition{_paidPlan, _isFree, _isOrg, _someHosts}: errPaidPlanNotAllowed,
+		condition{_paidPlan, _isPaid, _isOrg, _someHosts}: nil,
+	}
+)
+
+func hostCreateCheck(pl *plan.Plan, bpState string, isOrg, hasHosts bool) error {
+	cond := condition{
+		freePlan:            pl.IsFree(),
+		billingProfileState: bpState,
+		isOrg:               isOrg,
+		hasHosts:            hasHosts,
+	}
+
+	if e, ok := decisionTable[cond]; ok {
+		return e
+	}
+
+	// TODO We should return an error for an unhandled condition after we
+	// refactor so that "delinquent" and "payment_due" billing profile states
+	// are also handled here.
+	logrus.Warnf("unhandled condition determining if user can create host: %+v", cond)
+	return nil
 }
