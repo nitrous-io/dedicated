@@ -3,6 +3,7 @@ package users_test
 import (
 	"database/sql"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"net/http"
 	"net/http/httptest"
@@ -83,6 +84,8 @@ var _ = Describe("controllers/users", func() {
 		}
 		err = t.Insert(db)
 		Expect(err).To(BeNil())
+
+		users.CVerifier = &test.FakeCaptchaVerifier{}
 	})
 
 	AfterEach(func() {
@@ -152,10 +155,6 @@ var _ = Describe("controllers/users", func() {
 			params.Set("name", "Foo Bar")
 			params.Set("promo_code", "")
 			params.Set("captcha_token", "catpcha-token")
-
-			users.VerifyCaptchaToken = func(captchaSecret, captchaToken string) error {
-				return nil
-			}
 		})
 
 		Context("when valid params are received", func() {
@@ -759,9 +758,7 @@ var _ = Describe("controllers/users", func() {
 
 		Context("captcha token is invalid", func() {
 			BeforeEach(func() {
-				users.VerifyCaptchaToken = func(captchaSecret, captchaToken string) error {
-					return fmt.Errorf("token is invalid")
-				}
+				users.CVerifier = &test.FakeCaptchaVerifier{Err: errors.New("failed to verify")}
 			})
 
 			It("responds with 400 bad request", func() {

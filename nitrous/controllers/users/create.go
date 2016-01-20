@@ -1,13 +1,8 @@
 package users
 
 import (
-	"bytes"
 	"database/sql"
-	"encoding/json"
-	"fmt"
 	"net/http"
-	"net/url"
-	"strconv"
 	"strings"
 
 	"github.com/Sirupsen/logrus"
@@ -22,11 +17,10 @@ import (
 	"github.com/nitrous-io/dedicated/nitrous/models/promocode"
 	"github.com/nitrous-io/dedicated/nitrous/models/user"
 	"github.com/nitrous-io/dedicated/nitrous/pkg/cidrblacklist"
+	"github.com/nitrous-io/dedicated/nitrous/pkg/googlerecaptcha"
 	"github.com/nitrous-io/dedicated/nitrous/pkg/httperror"
 	"github.com/nitrous-io/dedicated/nitrous/serializers"
 )
-
-const captchaVerifyUrl = "https://www.google.com/recaptcha/api/siteverify"
 
 var (
 	errInvalidOrgSlug       = httperror.New(http.StatusBadRequest, "invalid_org_slug", "org_slug is not allowed")
@@ -43,40 +37,12 @@ var (
 
 	invalidCaptchaToken = httperror.New(http.StatusBadRequest, "invalid_captcha_token", "failed to verify captcha token")
 
-	VerifyCaptchaToken = func(captchaSecret, captchaToken string) error {
-		data := url.Values{}
-
-		data.Set("secret", captchaSecret)
-		data.Set("response", captchaToken)
-
-		req, err := http.NewRequest("POST", captchaVerifyUrl, bytes.NewBufferString(data.Encode()))
-		if err != nil {
-			return err
-		}
-
-		req.Header.Add("Content-Type", "application/x-www-form-urlencoded")
-		req.Header.Add("Content-Length", strconv.Itoa(len(data.Encode())))
-
-		res, err := http.DefaultClient.Do(req)
-		if err != nil {
-			return err
-		}
-		defer res.Body.Close()
-
-		j := map[string]interface{}{}
-		json.NewDecoder(res.Body).Decode(&j)
-
-		if res.StatusCode != http.StatusOK {
-			return fmt.Errorf("Verifying captcha error: %+v", j)
-		}
-
-		if !j["success"].(bool) {
-			return fmt.Errorf("Verifying captcha error codes: %+v", j["error-codes"])
-		}
-
-		return nil
-	}
+	CVerifier googlerecaptcha.CaptchaVerifier
 )
+
+func init() {
+	CVerifier = googlerecaptcha.NewVerifier(envvars.CaptchaSecretKey)
+}
 
 func Create(env *middleware.Env, w http.ResponseWriter, r *http.Request) error {
 	db := env.DB
@@ -98,10 +64,10 @@ func Create(env *middleware.Env, w http.ResponseWriter, r *http.Request) error {
 		Password: password,
 	}
 
-	// It only varifies captcha token when CaptchaSecret is specified
+	// It only verifies captcha token when CaptchaSecret is specified
 	if envvars.IsCaptchaAvailable() {
-		if err := VerifyCaptchaToken(envvars.CaptchaSecretKey, captchaToken); err != nil {
-			logrus.Errorf("Error verifying captcha token for user %+v, err: %+v", u, err)
+		if err := CVerifier.Verify(captchaToken); err != nil {
+			logrus.Errorf("Error verifying captcha token for user %+v, err: %s, uuid=%d", u, err, env.UUID)
 			return invalidCaptchaToken
 		}
 	}
