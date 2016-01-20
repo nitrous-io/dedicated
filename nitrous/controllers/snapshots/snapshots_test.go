@@ -117,6 +117,82 @@ var _ = Describe("controllers/snapshots", func() {
 		test.UnstubFreighterFn()
 	})
 
+	Describe("GET /api/v0/snapshots/{snapshot_id}", func() {
+		doRequest := func(snapshotID int64) *httptest.ResponseRecorder {
+			url := fmt.Sprintf("/api/v0/snapshots/%d", snapshotID)
+			req, err := test.NewRequest("GET", url, nil)
+			Expect(err).To(BeNil())
+			req.Header.Set("Authorization", "Bearer valid-token")
+			res := httptest.NewRecorder()
+			svr.Router().ServeHTTP(res, req)
+			return res
+		}
+
+		It("responds with HTTP 404 Not Found when snapshot does not exist", func() {
+			res := doRequest(9999)
+			Expect(res.Code).To(Equal(http.StatusNotFound))
+
+			errType, errDesc := test.ErrorSlug(res.Body)
+			Expect(errType).To(Equal("not_found"))
+			Expect(errDesc).To(Equal("snapshot not found"))
+		})
+
+		It("responds with HTTP 404 Not Found when user has no permission to snapshot", func() {
+			s := &snapshot.Snapshot{
+				ImageID:       i1.ID,
+				UserID:        u.ID,
+				OrgID:         sql.NullInt64{o1.ID, true},
+				Slug:          "zerobotlabs/nestorbot",
+				Namespace:     "zerobotlabs",
+				Name:          "nestorbot",
+				Tag:           "latest",
+				DisplayName:   "Nestorbot dev",
+				OriginalImage: "golang:latest",
+			}
+			Expect(s.Insert(db)).To(BeNil())
+
+			res := doRequest(s.ID)
+			Expect(res.Code).To(Equal(http.StatusForbidden))
+
+			errType, errDesc := test.ErrorSlug(res.Body)
+			Expect(errType).To(Equal("forbidden"))
+			Expect(errDesc).To(Equal("you do not have permission to this snapshot"))
+		})
+
+		It("returns status OK and serializes snapshot", func() {
+			_, err := orgmembership.AddMember(db, o1.ID, strconv.FormatInt(u.ID, 10), orgmembership.RoleAdmin)
+			Expect(err).To(BeNil())
+
+			s := &snapshot.Snapshot{
+				ImageID:       i1.ID,
+				UserID:        u.ID,
+				OrgID:         sql.NullInt64{o1.ID, true},
+				Slug:          "zerobotlabs/nestorbot",
+				Namespace:     "zerobotlabs",
+				Name:          "nestorbot",
+				Tag:           "latest",
+				DisplayName:   "Nestorbot dev",
+				OriginalImage: "golang:latest",
+			}
+			Expect(s.Insert(db)).To(BeNil())
+
+			res := doRequest(s.ID)
+			Expect(res.Code).To(Equal(http.StatusOK))
+
+			var j struct {
+				Snapshot *serializers.Snapshot `json:"snapshot"`
+			}
+			err = json.NewDecoder(res.Body).Decode(&j)
+			Expect(err).To(BeNil())
+
+			Expect(j.Snapshot.ImageID).To(Equal(i1.ID))
+			Expect(j.Snapshot.UserID).To(Equal(u.ID))
+			Expect(j.Snapshot.OrgID).To(Equal(o1.ID))
+			Expect(j.Snapshot.Slug).To(Equal("zerobotlabs/nestorbot"))
+			Expect(j.Snapshot.DisplayName).To(Equal("Nestorbot dev"))
+		})
+	})
+
 	Describe("GET /api/v0/orgs/{org_slug}/snapshots", func() {
 		doRequest := func(orgSlug string) *httptest.ResponseRecorder {
 			url := fmt.Sprintf("/api/v0/orgs/%s/snapshots", orgSlug)

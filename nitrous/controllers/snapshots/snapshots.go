@@ -29,6 +29,7 @@ import (
 var (
 	errOrgNotFound                  = httperror.New(http.StatusNotFound, "not_found", "org does not exist")
 	errNotOrgMember                 = httperror.New(http.StatusForbidden, "forbidden", "you are not a member of this org")
+	errNoPermissionToSnapshot       = httperror.New(http.StatusForbidden, "forbidden", "you do not have permission to this snapshot")
 	errPublishSnapshotNotAllowed    = httperror.New(http.StatusForbidden, "forbidden", "you are not allowed to publish snapshots")
 	errDeleteSnapshotNotAllowed     = httperror.New(http.StatusForbidden, "forbidden", "you are not allowed to delete this snapshot")
 	errHostNotFound                 = httperror.New(http.StatusNotFound, "not_found", "workstation not found")
@@ -38,6 +39,41 @@ var (
 	errSnapshotPublishingInProgress = httperror.New(http.StatusConflict, "conflict", "snapshot is currently being published")
 	errRegistryUnreachable          = httperror.New(http.StatusServiceUnavailable, "unavailable", "the snapshot service is temporarily unavailable")
 )
+
+func Show(env *middleware.Env, w http.ResponseWriter, r *http.Request) error {
+	db := env.DB
+	snapshotIDStr := mux.Vars(r)["snapshot_id"]
+
+	snapshotID, err := strconv.ParseInt(snapshotIDStr, 10, 64)
+	if err != nil {
+		return errSnapshotNotFound
+	}
+
+	snapshot, err := snapshot.FindByID(db, snapshotID)
+	if err != nil {
+		if err == sql.ErrNoRows {
+			return errSnapshotNotFound
+		}
+		return err
+	}
+
+	// As the snapshots table currently host team snapshots only, check that only members
+	// of the org can access the team snapshot.
+	if !snapshot.OrgID.Valid {
+		return errNoPermissionToSnapshot
+	}
+
+	if _, _, err := findOrgAndMembershipByOrgID(env, snapshot.OrgID.Int64); err != nil {
+		return err
+	}
+
+	env.Status = http.StatusOK
+	env.Data = map[string]interface{}{
+		"snapshot": serializers.SerializeSnapshotWithOwner(snapshot),
+	}
+
+	return nil
+}
 
 func ForOrg(env *middleware.Env, w http.ResponseWriter, r *http.Request) error {
 	db := env.DB
@@ -311,6 +347,29 @@ func findOrgAndMembership(env *middleware.Env, r *http.Request) (*org.Org, *orgm
 	if err != nil {
 		if err == sql.ErrNoRows {
 			return nil, nil, errNotOrgMember
+		}
+		return nil, nil, err
+	}
+
+	return o, membership, nil
+}
+
+// TODO Refactor into middleware together with findOrgAndMembership function
+func findOrgAndMembershipByOrgID(env *middleware.Env, orgID int64) (*org.Org, *orgmembership.OrgMembership, error) {
+	db := env.DB
+
+	o, err := org.Find(db, orgID)
+	if err != nil {
+		if err == sql.ErrNoRows {
+			return nil, nil, errOrgNotFound
+		}
+		return nil, nil, err
+	}
+
+	membership, err := orgmembership.FindByIdentifierAndOrgSlug(db, env.User.Username, o.Slug)
+	if err != nil {
+		if err == sql.ErrNoRows {
+			return nil, nil, errNoPermissionToSnapshot
 		}
 		return nil, nil, err
 	}
