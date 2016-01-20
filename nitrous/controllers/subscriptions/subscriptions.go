@@ -131,9 +131,7 @@ func Subscribe(env *middleware.Env, w http.ResponseWriter, r *http.Request) erro
 		return err
 	}
 
-	defer func() {
-		tx.Rollback()
-	}()
+	defer tx.Rollback()
 
 	locked, err := ndb.TransactionLock(tx, ndb.SUBSCRIBE_LOCK, int(bp.ID))
 	if err != nil {
