@@ -54,6 +54,14 @@ var (
 	errNotOrgPlan                = httperror.New(http.StatusBadRequest, "invalid_request", "Not an org plan")
 
 	errPlanMaxHostsReached = httperror.New(http.StatusForbidden, "max_hosts_reached", "You have exceeded the number of hosts for this plan, please upgrade")
+
+	hostCreationErrors = map[error]error{
+		host.ErrFreePlanNotAllowed: errFreePlanNotAllowed,
+		host.ErrPaidPlanNotAllowed: errPaidPlanNotAllowed,
+		host.ErrUserNoCard:         errUserNoCard,
+		host.ErrOrgNoCard:          errOrgNoCard,
+		host.ErrMaxFreeHostReached: errMaxFreeHostReached,
+	}
 )
 
 // hostCreateRequest describes the JSON request used to create a host
@@ -196,7 +204,10 @@ func Create(env *middleware.Env, w http.ResponseWriter, r *http.Request) error {
 
 	isOrg := (o != nil)
 	hasHosts := len(hosts) > 0
-	if err := hostCreateCheck(pl, bp.State, isOrg, hasHosts); err != nil {
+	if err := host.CreateCheck(pl, bp.State, isOrg, hasHosts); err != nil {
+		if e, ok := hostCreationErrors[err]; ok {
+			return e
+		}
 		return err
 	}
 
@@ -409,71 +420,4 @@ func findBillingProfile(db ndb.QueryReceiver, u *user.User, o *org.Org) (*billin
 	}
 
 	return u.BillingProfile(db)
-}
-
-type condition struct {
-	freePlan            bool
-	billingProfileState string
-	isOrg               bool
-	hasHosts            bool
-}
-
-var (
-	_freePlan, _paidPlan      = true, false
-	_noCard, _isFree, _isPaid = billingprofile.StateNoCard, billingprofile.StateFree, billingprofile.StatePaid
-	_isOrg, _indiv            = true, false
-	_zeroHosts, _someHosts    = false, true
-
-	decisionTable = map[condition]error{
-		condition{_freePlan, _noCard, _indiv, _zeroHosts}: errFreePlanNotAllowed,
-		condition{_freePlan, _isFree, _indiv, _zeroHosts}: nil,
-		condition{_freePlan, _isPaid, _indiv, _zeroHosts}: nil,
-
-		condition{_freePlan, _noCard, _indiv, _someHosts}: errMaxFreeHostReached,
-		condition{_freePlan, _isFree, _indiv, _someHosts}: errMaxFreeHostReached,
-		condition{_freePlan, _isPaid, _indiv, _someHosts}: errMaxFreeHostReached,
-
-		condition{_freePlan, _noCard, _isOrg, _zeroHosts}: errFreePlanNotAllowed,
-		condition{_freePlan, _isFree, _isOrg, _zeroHosts}: errFreePlanNotAllowed,
-		condition{_freePlan, _isPaid, _isOrg, _zeroHosts}: errFreePlanNotAllowed,
-
-		condition{_freePlan, _noCard, _isOrg, _someHosts}: errFreePlanNotAllowed,
-		condition{_freePlan, _isFree, _isOrg, _someHosts}: errFreePlanNotAllowed,
-		condition{_freePlan, _isPaid, _isOrg, _someHosts}: errFreePlanNotAllowed,
-
-		condition{_paidPlan, _noCard, _indiv, _zeroHosts}: errUserNoCard,
-		condition{_paidPlan, _isFree, _indiv, _zeroHosts}: errPaidPlanNotAllowed,
-		condition{_paidPlan, _isPaid, _indiv, _zeroHosts}: nil,
-
-		condition{_paidPlan, _noCard, _indiv, _someHosts}: errUserNoCard,
-		condition{_paidPlan, _isFree, _indiv, _someHosts}: errPaidPlanNotAllowed,
-		condition{_paidPlan, _isPaid, _indiv, _someHosts}: nil,
-
-		condition{_paidPlan, _noCard, _isOrg, _zeroHosts}: errOrgNoCard,
-		condition{_paidPlan, _isFree, _isOrg, _zeroHosts}: errPaidPlanNotAllowed,
-		condition{_paidPlan, _isPaid, _isOrg, _zeroHosts}: nil,
-
-		condition{_paidPlan, _noCard, _isOrg, _someHosts}: errOrgNoCard,
-		condition{_paidPlan, _isFree, _isOrg, _someHosts}: errPaidPlanNotAllowed,
-		condition{_paidPlan, _isPaid, _isOrg, _someHosts}: nil,
-	}
-)
-
-func hostCreateCheck(pl *plan.Plan, bpState string, isOrg, hasHosts bool) error {
-	cond := condition{
-		freePlan:            pl.IsFree(),
-		billingProfileState: bpState,
-		isOrg:               isOrg,
-		hasHosts:            hasHosts,
-	}
-
-	if e, ok := decisionTable[cond]; ok {
-		return e
-	}
-
-	// TODO We should return an error for an unhandled condition after we
-	// refactor so that "delinquent" and "payment_due" billing profile states
-	// are also handled here.
-	logrus.Warnf("unhandled condition determining if user can create host: %+v", cond)
-	return nil
 }
