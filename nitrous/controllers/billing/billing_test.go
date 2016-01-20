@@ -218,9 +218,13 @@ var _ = Describe("controllers/billing", func() {
 		})
 
 		It("serializes attempted stripe invoices", func() {
+			_, err := db.Exec(`UPDATE billing_profiles
+				SET stripe_id = 'cus_abcd' WHERE id = $1`, bp.ID)
+			Expect(err).To(BeNil())
+
 			attempted := strings.Replace(StripeInvoiceResponse,
 				`"attempted": false`, `"attempted": true`, 1)
-			_, err := db.Exec(`INSERT INTO stripe_invoices
+			_, err = db.Exec(`INSERT INTO stripe_invoices
 			(billing_profile_id, invoice_json, invoiced_at) VALUES
 			($1, $2, now())
 			`, bp.ID, attempted)
@@ -238,9 +242,13 @@ var _ = Describe("controllers/billing", func() {
 		})
 
 		It("skips unattempted stripe invoices", func() {
+			_, err := db.Exec(`UPDATE billing_profiles
+				SET stripe_id = 'cus_abcd' WHERE id = $1`, bp.ID)
+			Expect(err).To(BeNil())
+
 			// unattempted invoices are ones where the user has not been
 			// charged yet; we leave them out
-			_, err := db.Exec(`INSERT INTO stripe_invoices
+			_, err = db.Exec(`INSERT INTO stripe_invoices
 			(billing_profile_id, invoice_json, invoiced_at) VALUES
 			($1, $2, now())
 			`, bp.ID, StripeInvoiceResponse)
@@ -251,6 +259,17 @@ var _ = Describe("controllers/billing", func() {
 
 			var j map[string][]serializers.Invoice
 			err = json.NewDecoder(res.Body).Decode(&j)
+			Expect(err).To(BeNil())
+
+			Expect(j["invoices"]).To(HaveLen(0))
+		})
+
+		It("returns no invoices for billing profiles with no stripe id", func() {
+			res := doRequest(false)
+			Expect(res.Code).To(Equal(http.StatusOK))
+
+			var j map[string][]serializers.Invoice
+			err := json.NewDecoder(res.Body).Decode(&j)
 			Expect(err).To(BeNil())
 
 			Expect(j["invoices"]).To(HaveLen(0))

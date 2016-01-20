@@ -133,6 +133,16 @@ func StripeInvoices(env *middleware.Env, w http.ResponseWriter, r *http.Request)
 	if err != nil {
 		return err
 	}
+	if !bp.StripeID.Valid {
+		// user has no stripe history = no invoices
+		// otherwise the call to Stripe API will fail with
+		// `invalid_request_error` due to missing 'customer' field
+		env.Status = http.StatusOK
+		env.Data = map[string]interface{}{
+			"invoices": []interface{}{},
+		}
+		return nil
+	}
 	invoices, err := stripememo.Invoices(env.DB, bp)
 	if err != nil {
 		return err
