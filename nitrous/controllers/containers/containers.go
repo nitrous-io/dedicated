@@ -433,18 +433,9 @@ func show(cn *container.Container, h *host.Host, env *middleware.Env, w http.Res
 	go func() {
 		defer wg.Done()
 
-		// free users do not get ssh access
-		bp, err := env.User.BillingProfile(env.DB)
-		if err != nil {
-			billingError = err
-			return
-		}
-
-		if showSSH := bp.State != billingprofile.StateFree; showSSH {
-			url, err := FindSSHURL(h, config)
-			if err == nil {
-				sshURL = url
-			}
+		url, err := FindSSHURL(h, config)
+		if err == nil {
+			sshURL = url
 		}
 	}()
 	wg.Add(1)
