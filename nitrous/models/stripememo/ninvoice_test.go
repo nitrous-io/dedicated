@@ -80,7 +80,7 @@ var _ = Describe("models/stripememo/ninvoice", func() {
 			"id": 0,
 			"user_id": 0,
 			"amount": 2900,
-			"period_start": "2015-11-30T23:59:59Z",
+			"period_start": "2016-01-01T00:33:57Z",
 			"state": "paid",
 			"description": "Subscription to Standard (Early-2015): $29/month",
 			"items":[{
@@ -91,7 +91,7 @@ var _ = Describe("models/stripememo/ninvoice", func() {
 			}],
 			"sid": "in_17OGrhD2OOBduWpzsNYZKqrK",
 			"total_charge": 2900,
-			"period_end": "2015-11-30T23:59:59Z"
+			"period_end": "2016-01-01T00:33:57Z"
 		}`))
 	})
 
@@ -142,7 +142,7 @@ var _ = Describe("models/stripememo/ninvoice", func() {
 			"id": 0,
 			"user_id": 0,
 			"amount": 3900,
-			"period_start": "2015-12-23T05:23:45Z",
+			"period_start": "2016-01-06T05:27:20Z",
 			"state": "failed",
 			"description": "Subscription to Standard: $39/month",
 			"items":[{
@@ -153,7 +153,7 @@ var _ = Describe("models/stripememo/ninvoice", func() {
 			}],
 			"sid": "in_17Q9pMD2OOBduWpzu7hqP1rX",
 			"total_charge": 3900,
-			"period_end": "2015-12-23T05:23:45Z"
+			"period_end": "2016-01-06T05:27:20Z"
 		}`))
 	})
 
@@ -166,7 +166,7 @@ var _ = Describe("models/stripememo/ninvoice", func() {
 			"id": 0,
 			"user_id": 0,
 			"amount": 1900,
-			"period_start": "2015-12-13T02:36:11Z",
+			"period_start": "2016-01-12T02:39:22Z",
 			"state": "unpaid",
 			"description": "Subscription to Basic: $19/month",
 			"items":[{
@@ -177,7 +177,7 @@ var _ = Describe("models/stripememo/ninvoice", func() {
 			}],
 			"sid": "in_17SI46D2OOBduWpzgi38TLz5",
 			"total_charge": 1900,
-			"period_end": "2015-12-13T02:36:11Z"
+			"period_end": "2016-01-12T02:39:22Z"
 		}`))
 	})
 

@@ -40,7 +40,7 @@ var _ = Describe("invoice serializer", func() {
 				"user_id": 0,
 				"amount": 3000,
 				"description": "Subscription to New plan name: $20/month",
-				"period_start": "2015-11-23T04:12:51Z",
+				"period_start": "2015-11-24T04:14:07Z",
 				"sid": "in_17AYBv2eZvKYlo2C8sW8Cs4R",
 				"state": "unpaid",
 				"items": [
@@ -52,7 +52,7 @@ var _ = Describe("invoice serializer", func() {
 					}
 				],
 				"total_charge": 3000,
-				"period_end": "2015-11-23T04:12:51Z"
+				"period_end": "2015-11-24T04:14:07Z"
 			}`))
 		})
 	})
