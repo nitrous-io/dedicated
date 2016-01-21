@@ -55,7 +55,7 @@ func (v *GoogleReCaptchaVerifier) Verify(token string) error {
 		return fmt.Errorf("Verifying reCaptcha error: %+v", j)
 	}
 
-	if !j["success"].(bool) {
+	if success, ok := j["success"]; !ok || !success.(bool) {
 		return fmt.Errorf("Verifying reCaptcha error codes: %v", j["error-codes"])
 	}
 

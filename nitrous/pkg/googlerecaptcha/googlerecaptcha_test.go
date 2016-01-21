@@ -66,6 +66,16 @@ var _ = Describe("googlerecaptcha", func() {
 			Expect(verifier.Verify(token)).NotTo(HaveOccurred())
 		})
 
+		It("returns an error when it fails with empty body", func() {
+			server.AppendHandlers(ghttp.CombineHandlers(
+				ghttp.VerifyRequest("POST", "/"),
+				parseForm,
+				ghttp.RespondWith(http.StatusOK, `{}`),
+			))
+
+			Expect(verifier.Verify(token)).To(HaveOccurred())
+		})
+
 		It("returns an error when it fails", func() {
 			server.AppendHandlers(ghttp.CombineHandlers(
 				ghttp.VerifyRequest("POST", "/"),
