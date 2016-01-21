@@ -190,5 +190,21 @@ We can test with HTTPS through preview URL to test GitHub OAuth with webhooks
 NOTE: Since your dev nitrous server become public, other people can access to your dev site.
 Please shutdown the server or switch to original setting after you finish the testing.
 
+### Setup for Google ReCaptcha
+
+* Change Nginx config: change server_name to `<container-name>.nitrouspro.com`
+  - i.e. /etc/nginx/sites-enabled/default
+  ```conf
+    listen 7000 default_server;
+
+    ssl_certificate /etc/nginx/certs/n2odev.crt;
+    ssl_certificate_key /etc/nginx/certs/n2odev.key;
+    server_name sunjin-3424.nitrouspro.com;
+  ```
+* Register the url to https://www.google.com/recaptcha/admin#list. You will get site key and secret key
+
+* Reconfigure preview port to open 443 and map the port to 7000
+
+* Add `GOOGLE_RECAPTCHA_PUBLIC_KEY` and `GOOGLE_RECAPTCHA_SECRET_KEY` to your '.env' file
 - - -
 Copyright (c) 2012-2015 Nitrous, Inc. All Rights Reserved.

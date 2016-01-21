@@ -3,6 +3,7 @@ package users_test
 import (
 	"database/sql"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"net/http"
 	"net/http/httptest"
@@ -83,6 +84,8 @@ var _ = Describe("controllers/users", func() {
 		}
 		err = t.Insert(db)
 		Expect(err).To(BeNil())
+
+		users.CVerifier = &test.FakeCaptchaVerifier{}
 	})
 
 	AfterEach(func() {
@@ -134,7 +137,6 @@ var _ = Describe("controllers/users", func() {
 			Expect(err).To(BeNil())
 			Expect(count).To(Equal(1))
 		})
-
 	})
 
 	Describe("POST /api/v0/users", func() {
@@ -152,6 +154,7 @@ var _ = Describe("controllers/users", func() {
 			params.Set("password", "123456")
 			params.Set("name", "Foo Bar")
 			params.Set("promo_code", "")
+			params.Set("captcha_token", "catpcha-token")
 		})
 
 		Context("when valid params are received", func() {
@@ -750,6 +753,22 @@ var _ = Describe("controllers/users", func() {
 					_, err := user.FindByUsername(db, "foo")
 					Expect(err).To(Equal(sql.ErrNoRows))
 				})
+			})
+		})
+
+		Context("captcha token is invalid", func() {
+			BeforeEach(func() {
+				users.CVerifier = &test.FakeCaptchaVerifier{Err: errors.New("failed to verify")}
+			})
+
+			It("responds with 400 bad request", func() {
+				doRequest()
+				Expect(res.Code).To(Equal(http.StatusBadRequest))
+				j := map[string]string{}
+				err := json.Unmarshal(res.Body.Bytes(), &j)
+				Expect(err).To(BeNil())
+				Expect(j["error"]).To(Equal("invalid_captcha_token"))
+				Expect(j["error_description"]).To(Equal("failed to verify captcha token"))
 			})
 		})
 	})
