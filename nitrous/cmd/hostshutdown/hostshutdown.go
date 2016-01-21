@@ -10,7 +10,6 @@ import (
 	"github.com/nitrous-io/dedicated/nitrous/db"
 	"github.com/nitrous-io/dedicated/nitrous/envvars"
 	"github.com/nitrous-io/dedicated/nitrous/hostcontrol"
-	"github.com/nitrous-io/dedicated/nitrous/models/freetier"
 	"github.com/nitrous-io/dedicated/nitrous/models/host"
 	"github.com/nitrous-io/dedicated/nitrous/pkg/constants"
 	"github.com/nitrous-io/dedicated/pkg/uuid"
@@ -63,9 +62,9 @@ func main() {
 
 	ticker := time.NewTicker(checkInterval)
 	for _ = range ticker.C {
-		hosts, err := freetier.IdleFreeHosts(dbConn)
+		hosts, err := host.FindAllIdleAndFree(dbConn)
 		if err != nil {
-			logrus.Fatalf("freetier.IdleFreeHosts() failed with '%s'", err)
+			logrus.Fatalf("failed to lookup idle and free hosts, err: %v", err)
 		}
 
 		for _, hst := range hosts {
@@ -107,7 +106,7 @@ func stopHost(dbConn *db.Database, hst *host.Host) error {
 	// Confirm that host is still eligible for shutdown - user might have used
 	// the host since the time the last query was ran, and we don't want to
 	// incorrectly shutdown the host at this point.
-	idle, err := freetier.IsIdle(dbConn, hst)
+	idle, err := hst.IsIdle(dbConn)
 	if err != nil {
 		return fmt.Errorf("error confirming that host %d is still idle, err: %v", hst.ID, err)
 	}

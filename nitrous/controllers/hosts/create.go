@@ -14,11 +14,8 @@ import (
 	"github.com/nitrous-io/dedicated/nitrous/controllers"
 	"github.com/nitrous-io/dedicated/nitrous/controllers/volumes"
 	ndb "github.com/nitrous-io/dedicated/nitrous/db"
-	"github.com/nitrous-io/dedicated/nitrous/envvars"
 	"github.com/nitrous-io/dedicated/nitrous/middleware"
 	"github.com/nitrous-io/dedicated/nitrous/models/billingprofile"
-	"github.com/nitrous-io/dedicated/nitrous/models/cert"
-	"github.com/nitrous-io/dedicated/nitrous/models/freetier"
 	"github.com/nitrous-io/dedicated/nitrous/models/host"
 	"github.com/nitrous-io/dedicated/nitrous/models/org"
 	"github.com/nitrous-io/dedicated/nitrous/models/plan"
@@ -27,7 +24,6 @@ import (
 	"github.com/nitrous-io/dedicated/nitrous/models/region"
 	"github.com/nitrous-io/dedicated/nitrous/models/subscription"
 	"github.com/nitrous-io/dedicated/nitrous/models/user"
-	"github.com/nitrous-io/dedicated/nitrous/pkg/certauth"
 	"github.com/nitrous-io/dedicated/nitrous/pkg/httperror"
 	"github.com/nitrous-io/dedicated/nitrous/provisioner"
 	"github.com/nitrous-io/dedicated/nitrous/serializers"
@@ -38,18 +34,17 @@ import (
 var (
 	CreateVolumeFn = volumes.CreateVolume
 
-	errFreePlanNotAllowed = httperror.New(http.StatusForbidden, "free_plan_not_allowed", "You are not allowed to create a free tier workspace")
-	errPaidPlanNotAllowed = httperror.New(http.StatusForbidden, "paid_plan_not_allowed", "You are not allowed to create a paid workspace")
-	errMaxFreeHostReached = httperror.New(http.StatusForbidden, "max_free_host_reached", "You can't create any more free workspaces")
-	errPhoneAuthRequired  = httperror.New(http.StatusForbidden, "phone_auth_required", "You need to verify your phone before creating free workspace")
+	errFreePlanNotAllowed = httperror.New(http.StatusForbidden, "free_plan_not_allowed", "You are not allowed to create a free workstation")
+	errPaidPlanNotAllowed = httperror.New(http.StatusForbidden, "paid_plan_not_allowed", "You are not allowed to create a paid workstation")
+	errMaxFreeHostReached = httperror.New(http.StatusForbidden, "max_free_host_reached", "You can't create any more free workstations")
 
 	errSuspiciousUser = httperror.New(http.StatusForbidden, "invalid_request", "Unexpected error")
 
-	errUserMaxHostsReached   = httperror.New(http.StatusForbidden, "max_hosts_reached", "you have reached the maximum number of workspaces")
+	errUserMaxHostsReached   = httperror.New(http.StatusForbidden, "max_hosts_reached", "you have reached the maximum number of workstations")
 	errUserNoCard            = httperror.New(http.StatusForbidden, "request_not_allowed", "you have not added a credit card")
 	errUserEmailNotConfirmed = httperror.New(http.StatusForbidden, "request_not_allowed", "please confirm your email address before proceeding")
 
-	errOrgMaxHostsReached = httperror.New(http.StatusForbidden, "max_hosts_reached", "your organization has reached the maximum number of workspaces")
+	errOrgMaxHostsReached = httperror.New(http.StatusForbidden, "max_hosts_reached", "your organization has reached the maximum number of workstations")
 	errOrgNoCard          = httperror.New(http.StatusForbidden, "request_not_allowed", "your organization has not added a credit card")
 	errOrgDelinquent      = httperror.New(http.StatusForbidden, "outstanding_invoices", "your organization has outstanding invoices")
 
@@ -59,6 +54,14 @@ var (
 	errNotOrgPlan                = httperror.New(http.StatusBadRequest, "invalid_request", "Not an org plan")
 
 	errPlanMaxHostsReached = httperror.New(http.StatusForbidden, "max_hosts_reached", "You have exceeded the number of hosts for this plan, please upgrade")
+
+	hostCreationErrors = map[error]error{
+		host.ErrFreePlanNotAllowed: errFreePlanNotAllowed,
+		host.ErrPaidPlanNotAllowed: errPaidPlanNotAllowed,
+		host.ErrUserNoCard:         errUserNoCard,
+		host.ErrOrgNoCard:          errOrgNoCard,
+		host.ErrMaxFreeHostReached: errMaxFreeHostReached,
+	}
 )
 
 // hostCreateRequest describes the JSON request used to create a host
@@ -103,7 +106,6 @@ func Create(env *middleware.Env, w http.ResponseWriter, r *http.Request) error {
 		reg      *region.Region
 		pl       *plan.Plan
 		template *providertemplate.ProviderTemplate
-		o        *org.Org
 	)
 
 	// if template name is specified, we use it to locate the correct plan,
@@ -134,8 +136,7 @@ func Create(env *middleware.Env, w http.ResponseWriter, r *http.Request) error {
 		}
 	}
 
-	var bp *billingprofile.BillingProfile
-
+	var o *org.Org
 	if options.Org != "" {
 		o, err = org.FindBySlug(db, options.Org)
 		if err != nil {
@@ -144,15 +145,11 @@ func Create(env *middleware.Env, w http.ResponseWriter, r *http.Request) error {
 			}
 			return err
 		}
-		bp, err = billingprofile.FindForOrg(db, o.ID)
-		if err != nil {
-			return err
-		}
-	} else {
-		bp, err = u.BillingProfile(db)
-		if err != nil {
-			return err
-		}
+	}
+
+	bp, err := findBillingProfile(db, u, o)
+	if err != nil {
+		return err
 	}
 
 	var sub *subscription.Subscription
@@ -199,25 +196,22 @@ func Create(env *middleware.Env, w http.ResponseWriter, r *http.Request) error {
 		}
 	}
 
-	err = freetier.CreateHostWithPlanAllowed(db, u, bp, pl)
+	// Check if user has any existing hosts.
+	hosts, err := host.FindAllWithoutOrphaned(db, u.ID)
 	if err != nil {
-		switch err {
-		case freetier.ErrFreePlanNotAllowed:
-			return errFreePlanNotAllowed
-		case freetier.ErrPaidPlanNotAllowed:
-			return errPaidPlanNotAllowed
-		case freetier.ErrMaxFreeHostReached:
-			return errMaxFreeHostReached
-		case freetier.ErrFreeTimeLimitExceeded:
-			return errFreeTimeLimitExceeded
-		case freetier.ErrPhoneAuthRequired:
-			return errPhoneAuthRequired
-		default:
-			return err
-		}
+		return err
 	}
 
-	// suspicious users cannot create workspaces
+	isOrg := (o != nil)
+	hasHosts := len(hosts) > 0
+	if err := host.CreateCheck(pl, bp.State, isOrg, hasHosts); err != nil {
+		if e, ok := hostCreationErrors[err]; ok {
+			return e
+		}
+		return err
+	}
+
+	// suspicious users cannot create workstations
 	if u.Suspicious.Valid {
 		return errSuspiciousUser
 	}
@@ -249,7 +243,7 @@ func Create(env *middleware.Env, w http.ResponseWriter, r *http.Request) error {
 		if e, ok := err.(*provisioner.HostbuilderError); ok {
 			logrus.Errorf("hostbuilder error provisioning host: %v", e)
 			// Change error into something we can display to end users.
-			err = errors.New("failed to create workspace")
+			err = errors.New("failed to create workstation")
 		}
 
 		env.Events.Publish(
@@ -279,7 +273,6 @@ func Create(env *middleware.Env, w http.ResponseWriter, r *http.Request) error {
 			provisioned <- h
 		},
 	})
-
 	if err != nil {
 		if e, ok := err.(*provisioner.InvalidHostError); ok {
 			return httperror.New(http.StatusBadRequest, "invalid_request", e.Err.Error())
@@ -421,12 +414,10 @@ func findTemplate(db ndb.QueryReceiver, pl *plan.Plan, rg *region.Region, provid
 	return pt, nil
 }
 
-// generate cert with server certificate and key. The cert will be used for
-// TLS encryption
-func generateCerts(hostname string) (*cert.Cert, error) {
-	caInfo, err := certauth.NewCAInfo(envvars.CACertPath, envvars.CAKeyPath)
-	if err != nil {
-		return nil, err
+func findBillingProfile(db ndb.QueryReceiver, u *user.User, o *org.Org) (*billingprofile.BillingProfile, error) {
+	if o != nil {
+		return billingprofile.FindForOrg(db, o.ID)
 	}
-	return cert.Generate(hostname, caInfo.X509Cert, caInfo.Key)
+
+	return u.BillingProfile(db)
 }

@@ -54,7 +54,6 @@ var (
 	errHostNoPendingRespec      = httperror.New(http.StatusBadRequest, "invalid_request", "workspace has no upgrades available")
 	errRegionDisabled           = httperror.New(http.StatusBadRequest, "region_disabled", "region is disabled")
 	errBasicAuthFailed          = httperror.New(http.StatusUnauthorized, "unauthorized", "")
-	errFreeTimeLimitExceeded    = httperror.New(http.StatusForbidden, "free_time_limit_exceeded", "You have exceeded your daily usage")
 	errSubscriptionStillActive  = httperror.New(http.StatusBadRequest, "invalid_request", "cannot terminate a workspace with an active subscription")
 )
 
