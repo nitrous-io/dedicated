@@ -367,7 +367,7 @@ func Confirm(env *middleware.Env, w http.ResponseWriter, r *http.Request) error 
 		return err
 	}
 
-	if err = u.ConfirmEmail(db); err != nil {
+	if err := u.ConfirmEmail(db); err != nil {
 		if err == user.ErrConfirmationLapsed {
 			return httperror.New(http.StatusBadRequest, "confirmation_expired", err.Error())
 		} else if err == user.ErrConfirmationAlreadyCompleted {
@@ -375,6 +375,20 @@ func Confirm(env *middleware.Env, w http.ResponseWriter, r *http.Request) error 
 		}
 		return err
 	}
+
+	// Update user's billing profile state to "free" so that user becomes
+	// eligible for free plans.
+	bp, err := u.BillingProfile(db)
+	if err != nil {
+		return err
+	}
+	if bp.State == billingprofile.StateNoCard {
+		bp.State = billingprofile.StateFree
+		if err := bp.Update(db); err != nil {
+			return err
+		}
+	}
+
 	if u.ConfirmedAt.Valid {
 		env.Tracker.SetProfileProps("setnx", u.ID, map[string]interface{}{
 			"confirmed_email_date": u.ConfirmedAt.Time,
@@ -429,8 +443,7 @@ func ResendConfirmation(env *middleware.Env, w http.ResponseWriter, r *http.Requ
 		}
 	}
 
-	err = u.SendConfirmationEmail(db, false)
-	if err != nil {
+	if err := u.SendConfirmationEmail(db, false); err != nil {
 		return err
 	}
 
