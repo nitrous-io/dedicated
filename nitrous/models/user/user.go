@@ -108,8 +108,13 @@ type User struct {
 	BannedAt   pq.NullTime   `db:"banned_at"`
 	BannedByID sql.NullInt64 `db:"banned_by_id"`
 
-	MaxRunningTime sql.NullInt64 `db:"max_running_time"` // FIXME: DEPRECATED
-	RefreshPeriod  sql.NullInt64 `db:"refresh_period"`   // FIXME: DEPRECATED
+	// UsageQuota is the number of seconds that a user is allowed to use a free
+	// host.
+	UsageQuota sql.NullInt64 `db:"usage_quota"`
+	// UsageQuotaPeriod is the number of seconds after which the free host usage
+	// quota is reset to full.
+	UsageQuotaPeriod sql.NullInt64 `db:"usage_quota_period"`
+	UsageRemaining   sql.NullInt64 `db:"usage_remaining"`
 
 	CreatedByClientID sql.NullInt64 `db:"created_by_client_id"`
 
