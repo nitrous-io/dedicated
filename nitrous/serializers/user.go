@@ -22,6 +22,7 @@ type User struct {
 	Phone            string          `json:"phone"`
 	PhoneCountryCode string          `json:"phone_country_code"`
 	PhoneAuthed      bool            `json:"phone_authed"`
+	UsageRemaining   int64           `json:"usage_remaining"`
 
 	MaxContainers    int64 `json:"max_containers,omitempty"`
 	CanUseDesktopApp *bool `json:"can_use_desktop_app,omitempty"`
@@ -50,6 +51,10 @@ func SerializeUser(u *user.User) *User {
 
 		CreatedAt: u.CreatedAt,
 		UpdatedAt: u.UpdatedAt,
+	}
+
+	if u.UsageRemaining.Valid {
+		s.UsageRemaining = u.UsageRemaining.Int64
 	}
 
 	if u.CanUseDesktopApp.Valid {
