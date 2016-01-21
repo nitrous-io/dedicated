@@ -1,7 +1,6 @@
 class Host
   ATTRS = %i(hid slug username
     state terminated_at region_identifier provider_identifier provider_storage_identifier
-    hotswap
     plan_name subscription_state
   )
 

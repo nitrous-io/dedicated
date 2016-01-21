@@ -133,6 +133,16 @@ func StripeInvoices(env *middleware.Env, w http.ResponseWriter, r *http.Request)
 	if err != nil {
 		return err
 	}
+	if !bp.StripeID.Valid {
+		// user has no stripe history = no invoices
+		// otherwise the call to Stripe API will fail with
+		// `invalid_request_error` due to missing 'customer' field
+		env.Status = http.StatusOK
+		env.Data = map[string]interface{}{
+			"invoices": []interface{}{},
+		}
+		return nil
+	}
 	invoices, err := stripememo.Invoices(env.DB, bp)
 	if err != nil {
 		return err
@@ -149,6 +159,7 @@ func StripeInvoices(env *middleware.Env, w http.ResponseWriter, r *http.Request)
 			continue
 		}
 		sInv := serializers.SerializeStripeInvoice(inv)
+		sInv.UserID = env.User.ID
 		serInvs = append(serInvs, sInv)
 	}
 
@@ -265,6 +276,8 @@ func PayInvoice(env *middleware.Env, w http.ResponseWriter, r *http.Request) err
 
 	// we use a transaction purely to acquire a lock on the same user paying other invoices
 	// it is rolled back whenever this func finishes up
+	// IMPORTANT: this implies the transaction should *not* be used in
+	// functions that modify db!
 	txLock, err := env.DB.Beginx()
 	if err != nil {
 		return err
@@ -280,23 +293,23 @@ func PayInvoice(env *middleware.Env, w http.ResponseWriter, r *http.Request) err
 		return errInvoiceUserPaying
 	}
 
-	invIDStr := mux.Vars(r)["id"]
-	invID, err := strconv.ParseInt(invIDStr, 10, 64)
+	inv, err := invoiceFromParam(env.DB, mux.Vars(r)["id"])
 	if err != nil {
-		return err
-	}
-
-	inv := &invoice.Invoice{}
-	if err := env.DB.Get(inv, `SELECT i.* FROM invoices AS i INNER JOIN billing_profiles b ON b.id = i.billing_profile_id WHERE b.user_id = $1 AND i.id = $2`, env.User.ID, invID); err != nil {
 		if err == sql.ErrNoRows {
 			return errInvoiceNotFound
 		}
 		return err
 	}
+	if !inv.BillingProfileID.Valid {
+		return errInvoiceNotFound
+	}
 
 	bp, err := billingprofile.FindByID(env.DB, inv.BillingProfileID.Int64)
 	if err != nil {
 		return err
+	}
+	if bp.UserID != env.User.ID {
+		return errInvoiceNotFound
 	}
 
 	if !inv.StripeID.Valid || inv.State == invoice.StateDeferred {
@@ -309,10 +322,10 @@ func PayInvoice(env *middleware.Env, w http.ResponseWriter, r *http.Request) err
 
 	i, err := strinv.Pay(inv.StripeID.String, nil)
 	if err != nil {
-		if err := invoicemanualattempt.CreateForInvoice(env.DB, invID, false, err.Error()); err != nil {
-			logrus.Errorf("Failure recording manual attempt for invoice %d for bp %d, err: %v", invID, bp.ID, err)
+		if err := invoicemanualattempt.CreateForInvoice(env.DB, inv.ID, false, err.Error()); err != nil {
+			logrus.Errorf("Failure recording manual attempt for invoice %d for bp %d, err: %v", inv.ID, bp.ID, err)
 		}
-		logrus.Errorf("Error manual paying Stripe invoice %d for bp %d, err: %v", invID, bp.ID, err)
+		logrus.Errorf("Error manual paying Stripe invoice %d for bp %d, err: %v", inv.ID, bp.ID, err)
 		sErr, ok := err.(*stripe.Error)
 		if !ok {
 			return sErr
@@ -327,11 +340,11 @@ func PayInvoice(env *middleware.Env, w http.ResponseWriter, r *http.Request) err
 	}
 
 	if !i.Paid {
-		return fmt.Errorf("Unexpected Stripe invoice %d for bp %d not paid: %v", invID, bp.ID, i)
+		return fmt.Errorf("Unexpected Stripe invoice %d for bp %d not paid: %v", inv.ID, bp.ID, i)
 	}
 
-	if err := invoicemanualattempt.CreateForInvoice(env.DB, invID, true, ""); err != nil {
-		logrus.Errorf("Failure recording manual attempt for invoice %d for bp %d, err: %v", invID, bp.ID, err)
+	if err := invoicemanualattempt.CreateForInvoice(env.DB, inv.ID, true, ""); err != nil {
+		logrus.Errorf("Failure recording manual attempt for invoice %d for bp %d, err: %v", inv.ID, bp.ID, err)
 	}
 
 	env.Status = http.StatusOK
@@ -339,6 +352,19 @@ func PayInvoice(env *middleware.Env, w http.ResponseWriter, r *http.Request) err
 		"paid": i.Paid,
 	}
 	return nil
+}
+
+func invoiceFromParam(db db.QueryReceiver, idParam string) (*invoice.Invoice, error) {
+	// we support both a stripe id and an integer id (db)
+	if strings.HasPrefix(idParam, "in_") { // stripe id
+		return invoice.FindByStripeID(db, idParam)
+	} else {
+		invID, err := strconv.ParseInt(idParam, 10, 64)
+		if err != nil {
+			return nil, err
+		}
+		return invoice.Find(db, invID)
+	}
 }
 
 func fetchHosts(db *db.Database, user *user.User) (map[int64]*host.Host, error) {

@@ -40,7 +40,7 @@ var _ = Describe("invoice serializer", func() {
 				"user_id": 0,
 				"amount": 3000,
 				"description": "Subscription to New plan name: $20/month",
-				"period_start": "2015-11-23T04:12:51Z",
+				"period_start": "2015-11-24T04:14:07Z",
 				"sid": "in_17AYBv2eZvKYlo2C8sW8Cs4R",
 				"state": "unpaid",
 				"items": [
@@ -52,7 +52,7 @@ var _ = Describe("invoice serializer", func() {
 					}
 				],
 				"total_charge": 3000,
-				"period_end": "2015-11-23T04:12:51Z"
+				"period_end": "2015-11-24T04:14:07Z"
 			}`))
 		})
 	})
@@ -72,6 +72,7 @@ var _ = Describe("invoice serializer", func() {
 				PeriodEnd:   &t2,
 				State:       invoice.StatePaid,
 				Attempts:    1,
+				StripeID:    sql.NullString{"in_abcd", true},
 			}
 		})
 
@@ -94,6 +95,7 @@ var _ = Describe("invoice serializer", func() {
 			Expect(err).To(BeNil())
 			Expect(b).To(MatchJSON(`{
 				"id": 23,
+				"sid": "in_abcd",
 				"user_id": 29,
 				"total_charge": 329,
 				"period_start": "1970-01-01T00:00:20Z",
@@ -124,6 +126,7 @@ var _ = Describe("invoice serializer", func() {
 			Expect(err).To(BeNil())
 			Expect(b).To(MatchJSON(`{
 				"id": 23,
+				"sid": "in_abcd",
 				"user_id": 29,
 				"total_charge": 329,
 				"period_start": "1970-01-01T00:00:20Z",

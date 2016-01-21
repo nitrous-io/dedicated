@@ -19,10 +19,13 @@ type InvoiceSerialized struct {
 	ID          int64                    `json:"id"`
 	UserID      int64                    `json:"user_id"`
 	Amount      int64                    `json:"amount"`
-	PeriodStart *time.Time               `json:"period_start"`
 	State       string                   `json:"state"`
 	Items       []*InvoiceItemSerialized `json:"items"`
 	Description string                   `json:"description"`
+
+	// TODO: since we now only display a single date on the frontend, this
+	// should be renamed 'Date' to match with the value we use from Stripe
+	PeriodStart *time.Time `json:"period_start"`
 
 	// this is used to provide a unique id for frontend
 	StripeID string `json:"sid,omitempty"`
@@ -68,17 +71,17 @@ func (n NitrousInvoice) Serialize() *InvoiceSerialized {
 	// Note: the UserID field will have to be added later since there is no db
 	// access at this point
 
-	pstart := time.Unix(n.Start, 0)
+	invDate := time.Unix(n.Date, 0)
 	inv := &InvoiceSerialized{
 		StripeID:    n.ID,
 		Amount:      n.Amount,
 		State:       n.State(),
-		PeriodStart: &pstart,
+		PeriodStart: &invDate,
 		Description: n.Description(),
 
 		// TODO: remove deprecated fields below once frontend is updated
 		TotalCharge: n.Amount,
-		PeriodEnd:   &pstart,
+		PeriodEnd:   &invDate,
 	}
 	inv.Items = n.SerializeItems()
 	return inv
@@ -149,8 +152,13 @@ func (n NitrousInvoice) Description() string {
 	case isSub && plan != nil:
 		return fmt.Sprintf("Subscription to %s: $%.0f/%s", plan.Name, float64(plan.Amount)/100.00, plan.Interval)
 	case !isSub:
-		pstart := time.Unix(n.Start, 0)
-		return fmt.Sprintf("Usage for %s", pstart.Format("Jan 2006"))
+		date := time.Unix(n.Date, 0)
+		// Usage-based invoices were post-paid and always billed on the 1st of
+		// the month, so the relevant month is the one prior to the invoice
+		// date.
+		// We just need to subtract a day to get the previous month.
+		invPeriod := date.Add(-24 * time.Hour)
+		return fmt.Sprintf("Usage for %s", invPeriod.Format("Jan 2006"))
 	}
 
 	pstart, pend := time.Unix(n.Start, 0), time.Unix(n.End, 0)

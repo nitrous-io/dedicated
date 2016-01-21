@@ -41,6 +41,9 @@ func SerializeInvoice(i *invoice.Invoice) *Invoice {
 	if i.AvailableCredit.Valid {
 		inv.AvailableCredit = i.AvailableCredit.Int64
 	}
+	if i.StripeID.Valid {
+		inv.StripeID = i.StripeID.String
+	}
 	return inv
 }
 
