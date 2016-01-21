@@ -198,7 +198,6 @@ func Record(tx *sqlx.Tx, h *host.Host, previousState string, enactedAt time.Time
 	err := tx.QueryRowx(
 		`SELECT id FROM host_transitions WHERE host_transitions.host_id = $1 ORDER BY created_at DESC LIMIT 1`,
 		h.ID).Scan(&prevId)
-
 	if err != nil {
 		if err != sql.ErrNoRows {
 			return err
@@ -223,7 +222,6 @@ func Record(tx *sqlx.Tx, h *host.Host, previousState string, enactedAt time.Time
 		`INSERT INTO host_transitions (host_id, initiator_id, previous_state, state, metadata, created_at)
 		VALUES (:host_id, :initiator_id, :previous_state, :state, :metadata, :created_at)`,
 		ht)
-
 	if err != nil {
 		return err
 	}
@@ -233,9 +231,9 @@ func Record(tx *sqlx.Tx, h *host.Host, previousState string, enactedAt time.Time
 		h.IdleNoticesSent = host.IDLE_NOTICES_NO_WARNING
 		h.IdleNextCheck = pq.NullTime{Valid: false}
 		nstmt, err := tx.PrepareNamed(`UPDATE hosts
-                        SET last_running_at = :last_running_at,
-                        idle_notices_sent = :idle_notices_sent,
-                        idle_next_check = :idle_next_check
+			SET last_running_at = :last_running_at,
+				idle_notices_sent = :idle_notices_sent,
+				idle_next_check = :idle_next_check
 			WHERE id = :id RETURNING last_running_at;`)
 		if err != nil {
 			return err

@@ -108,6 +108,35 @@ var _ = Describe("models/host", func() {
 			Expect(time.Now().Sub(h.LastPingedAt.Time)).To(BeNumerically("<=", 1*time.Second))
 		})
 
+		It("decrements user's usage remaining by the amount of time that they have used a free host, since the last time the host was pinged", func() {
+			// Make user's host a free host because we only count usage of free hosts.
+			hs.H.Free = true
+			_, err := db.Exec(`UPDATE hosts SET free = true WHERE id = $1`, hs.H.ID)
+			Expect(err).To(BeNil())
+
+			startTime := time.Date(2014, 1, 1, 0, 0, 0, 0, time.Local)
+
+			hs.H.LastPingedAt = pq.NullTime{startTime, true}
+			_, err = db.Exec(`UPDATE hosts SET last_pinged_at = $1 WHERE id = $2`, startTime, hs.H.ID)
+			Expect(err).To(BeNil())
+
+			usageRemaining := hs.U.UsageRemaining.Int64
+
+			// Insert host transitions that count as usage of a free host.
+			_, err = db.Exec("INSERT INTO host_transitions (host_id, previous_state, state, created_at, ended_at) values ($1, $2, $3, $4, $5);", hs.H.ID, "born", "running", startTime, startTime.Add(2*time.Hour))
+			Expect(err).To(BeNil())
+			_, err = db.Exec("INSERT INTO host_transitions (host_id, previous_state, state, created_at) values ($1, $2, $3, $4);", hs.H.ID, "running", "stopped", startTime.Add(2*time.Hour))
+			Expect(err).To(BeNil())
+
+			err = hs.H.Touch(db)
+			Expect(err).To(BeNil())
+
+			u, err := user.FindByID(db, hs.U.ID)
+			Expect(err).To(BeNil())
+
+			Expect(u.UsageRemaining.Int64).To(Equal(usageRemaining - 2*60*60))
+		})
+
 		Context("when some error occurs", func() {
 			It("returns the error", func() {
 				db.Close()
