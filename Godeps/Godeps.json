@@ -132,7 +132,8 @@
 		},
 		{
 			"ImportPath": "github.com/lib/pq",
-			"Rev": "ae7391529ced9c12f06bf01eae33dadb4c70e49f"
+			"Comment": "go1.0-cutoff-74-g8ad2b29",
+			"Rev": "8ad2b298cadd691a77015666a5372eae5dbfac8f"
 		},
 		{
 			"ImportPath": "github.com/miekg/dns",
