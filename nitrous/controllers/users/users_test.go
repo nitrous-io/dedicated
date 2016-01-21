@@ -1537,25 +1537,6 @@ var _ = Describe("controllers/users", func() {
 	})
 
 	Describe("POST /api/v0/user/confirm", func() {
-		var (
-			u                 *user.User
-			confirmationToken = "a1b2c3d4"
-		)
-
-		BeforeEach(func() {
-			u = &user.User{
-				Username: "qux",
-				Name:     "quxboy",
-				Password: "123456",
-				Email:    "qux@example.com",
-			}
-			err := test.WrapInTransaction(db, u.Insert)
-			Expect(err).To(BeNil())
-
-			_, err = db.Exec(`UPDATE users SET confirmation_sent_at = $1, confirmation_token = $2 WHERE id = $3;`, time.Now().Add(-48*time.Hour), confirmationToken, u.ID)
-			Expect(err).To(BeNil())
-		})
-
 		doRequest := func(token string) {
 			var err error
 			params := &url.Values{}
@@ -1575,91 +1556,85 @@ var _ = Describe("controllers/users", func() {
 			Expect(j["error_description"]).To(Equal("`token` must be provided"))
 		})
 
-		It("should error out if the token is incorrect", func() {
-			doRequest("incorrect-token")
+		Context("with correct user", func() {
 
-			Expect(res.Code).To(Equal(http.StatusBadRequest))
-			errType, errDesc := test.ErrorSlug(res.Body)
-			Expect(errType).To(Equal("validation_failed"))
-			Expect(errDesc).To(Equal("specified user does not exist"))
-		})
+			var u *user.User
+			curTime := time.Now()
 
-		It("should successfully return a token for the user", func() {
-			Expect(u.ConfirmedAt.Valid).To(BeFalse(), "expect user to not confirmed yet")
-			doRequest(confirmationToken)
+			BeforeEach(func() {
+				u = &user.User{
+					Username: "qux",
+					Name:     "quxboy",
+					Password: "123456",
+					Email:    "qux@example.com",
+				}
+				err := test.WrapInTransaction(db, u.Insert)
+				Expect(err).To(BeNil())
 
-			Expect(res.Code).To(Equal(http.StatusOK))
-			j := map[string]interface{}{}
-			err := json.Unmarshal(res.Body.Bytes(), &j)
-			Expect(err).To(BeNil())
-			Expect(j["access_token"]).ToNot(BeNil())
-			Expect(j["token_type"]).ToNot(BeNil())
+				_, err = db.Exec(`UPDATE users SET confirmation_sent_at = $1, confirmation_token = 'ABCD' WHERE id = $2;`, curTime.Add(-48*time.Hour), u.ID)
+				Expect(err).To(BeNil())
+			})
 
-			t, err := token.FindByToken(db, j["access_token"].(string))
-			Expect(err).To(BeNil())
-			Expect(t).ToNot(BeNil())
-			Expect(t.UserID).To(Equal(u.ID))
+			It("should error out if the token is incorrect", func() {
+				doRequest("sdas")
 
-			// and track the confirmation on mixpanel
-			Expect(ft.PropsCalled).To(HaveLen(2))
-			pc := ft.PropsCalled[0]
-			Expect(pc.UserID).To(Equal(u.ID))
-			Expect(pc.Mode).To(Equal("setnx"))
-			ctime, ok := pc.PropsSet["confirmed_email_date"]
-			Expect(ok).To(BeTrue())
-			pqt, ok := ctime.(time.Time)
-			Expect(ok).To(BeTrue())
-			Expect(pqt).To(BeTemporally("~", time.Now(), time.Minute))
+				Expect(res.Code).To(Equal(http.StatusBadRequest))
+				j := map[string]interface{}{}
+				err := json.Unmarshal(res.Body.Bytes(), &j)
+				Expect(err).To(BeNil())
+				Expect(j["error"]).To(Equal("validation_failed"))
+				Expect(j["error_description"]).To(Equal("specified user does not exist"))
+			})
 
-			// and update email
-			pc2 := ft.PropsCalled[1]
-			Expect(pc2.UserID).To(Equal(u.ID))
-			Expect(pc2.Mode).To(Equal("set"))
-			Expect(pc2.PropsSet["$email"]).To(Equal(u.Email))
-		})
+			It("should successfully return a token for the user", func() {
+				Expect(u.ConfirmedAt.Valid).To(BeFalse(), "expect user to not confirmed yet")
+				doRequest("ABCD")
 
-		It("sets the user's billing profile to free", func() {
-			bp, err := billingprofile.Find(db, u.ID)
-			Expect(err).To(BeNil())
-			Expect(bp.State).To(Equal(billingprofile.StateNoCard))
+				Expect(res.Code).To(Equal(http.StatusOK))
+				j := map[string]interface{}{}
+				err := json.Unmarshal(res.Body.Bytes(), &j)
+				Expect(err).To(BeNil())
+				Expect(j["access_token"]).ToNot(BeNil())
+				Expect(j["token_type"]).ToNot(BeNil())
 
-			doRequest(confirmationToken)
+				t, err := token.FindByToken(db, j["access_token"].(string))
+				Expect(err).To(BeNil())
+				Expect(t).ToNot(BeNil())
+				Expect(t.UserID).To(Equal(u.ID))
 
-			Expect(res.Code).To(Equal(http.StatusOK))
+				// and track the confirmation on mixpanel
+				Expect(ft.PropsCalled).To(HaveLen(2))
+				pc := ft.PropsCalled[0]
+				Expect(pc.UserID).To(Equal(u.ID))
+				Expect(pc.Mode).To(Equal("setnx"))
+				ctime, ok := pc.PropsSet["confirmed_email_date"]
+				Expect(ok).To(BeTrue())
+				pqt, ok := ctime.(time.Time)
+				Expect(ok).To(BeTrue())
+				Expect(pqt).To(BeTemporally("~", time.Now(), time.Minute))
 
-			bp, err = billingprofile.Find(db, u.ID)
-			Expect(err).To(BeNil())
-			Expect(bp.State).To(Equal(billingprofile.StateFree))
-		})
+				// and update email
+				pc2 := ft.PropsCalled[1]
+				Expect(pc2.UserID).To(Equal(u.ID))
+				Expect(pc2.Mode).To(Equal("set"))
+				Expect(pc2.PropsSet["$email"]).To(Equal(u.Email))
+			})
 
-		It("does not set the user's billing profile to free if it's already paid", func() {
-			// Set user's billing profile to paid.
-			bp, err := billingprofile.Find(db, u.ID)
-			Expect(err).To(BeNil())
-			bp.State = billingprofile.StatePaid
-			err = bp.Update(db)
-			Expect(err).To(BeNil())
-			Expect(bp.State).To(Equal(billingprofile.StatePaid))
+			It("should communicate if the confirmation has lapsed", func() {
+				_, err := db.Exec(`UPDATE users SET confirmation_sent_at = $1, confirmation_token = 'ABCD' WHERE id = $2;`, curTime.Add(-73*time.Hour), u.ID)
+				Expect(err).To(BeNil())
 
-			doRequest(confirmationToken)
+				doRequest("ABCD")
 
-			Expect(res.Code).To(Equal(http.StatusOK))
+				Expect(res.Code).To(Equal(http.StatusBadRequest))
+				j := map[string]interface{}{}
+				err = json.Unmarshal(res.Body.Bytes(), &j)
+				Expect(err).To(BeNil())
+				Expect(j["error"]).To(Equal("confirmation_expired"))
+				Expect(j["error_description"]).To(Equal(user.ErrConfirmationLapsed.Error()))
+				Expect(j["confirmed"]).To(BeNil())
+			})
 
-			bp, err = billingprofile.Find(db, u.ID)
-			Expect(err).To(BeNil())
-			Expect(bp.State).To(Equal(billingprofile.StatePaid))
-		})
-
-		It("should communicate if the confirmation has lapsed", func() {
-			_, err := db.Exec(`UPDATE users SET confirmation_sent_at = $1, confirmation_token = $2 WHERE id = $3;`, time.Now().Add(-73*time.Hour), confirmationToken, u.ID)
-			Expect(err).To(BeNil())
-
-			doRequest(confirmationToken)
-
-			Expect(res.Code).To(Equal(http.StatusBadRequest))
-			errType, errDesc := test.ErrorSlug(res.Body)
-			Expect(errType).To(Equal("confirmation_expired"))
-			Expect(errDesc).To(Equal(user.ErrConfirmationLapsed.Error()))
 		})
 	})
 
