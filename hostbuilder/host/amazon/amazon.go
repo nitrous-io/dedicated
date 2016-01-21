@@ -20,6 +20,7 @@ import (
 	"github.com/nitrous-io/dedicated/hostbuilder/state"
 	mh "github.com/nitrous-io/dedicated/pkg/metricshelper"
 	"github.com/nitrous-io/dedicated/pkg/queue"
+	"github.com/nitrous-io/dedicated/pkg/shellquote"
 )
 
 const (
@@ -44,6 +45,8 @@ const (
 	userDeviceName = "/dev/sdu"
 	// userDeviceOSName is the name of the user device/volume within the OS.
 	userDeviceOSName = "/dev/xvdu"
+	// userMountPoint is the mount path of userDeviceName
+	userMountPoint = "/mnt/userdata"
 
 	updateTimeout            = 30 * time.Second
 	resizeVolumeTimeout      = 30 * time.Minute
@@ -680,6 +683,16 @@ func mountUserVolume(ctx *host.HostContext) error {
 		return fmt.Errorf("failed to mount %s, err: %v, output: %s", userDeviceOSName, err, out)
 	}
 
+	// Store information about the host on the userVolume
+	// In that way we are able to attach host information into system logs.
+	// metadata files are stored in the userVolume (/mnt/userdata/etc/metadata)
+	ts := time.Now().Format("20060102150405")
+	metadataCmd := fmt.Sprintf(`sudo mkdir -p %s/etc/metadata && echo -e %s | sudo tee %s/etc/metadata/metadata{,.%s}`,
+		userMountPoint, getMetadata(h), userMountPoint, ts)
+	if out, err := conn.CombinedOutput(metadataCmd); err != nil {
+		h.Printf("failed to write host information, err: %v, output: %s", err, out)
+	}
+
 	if out, err := conn.CombinedOutput(`sudo service docker start`); err != nil {
 		return fmt.Errorf("failed to start docker, err: %v, output: %s", err, out)
 	}
@@ -800,4 +813,24 @@ func containsUserDevice(bdm []ec2.BlockDeviceMapping) bool {
 	}
 
 	return false
+}
+
+// getMetadata returns a quoted string that contains the host metadata as key=value pairs.
+// The output is safe to be used in a shell script
+func getMetadata(h *Host) string {
+	if h == nil {
+		return ""
+	}
+
+	metadata := []string{
+		fmt.Sprintf("instance_id=%s", h.instance.InstanceId),
+		fmt.Sprintf("host_id=%d", h.Config.HostID),
+		fmt.Sprintf("environment=%s", h.Env),
+		fmt.Sprintf("region=%s", h.Config.RegionID), // ex: ap-southeast-1
+		fmt.Sprintf("volume_id=%s", h.Config.VolumeID),
+		fmt.Sprintf("ip=%s", h.Config.IPAddress),
+		fmt.Sprintf("timestamp=%d", time.Now().Unix()),
+	}
+
+	return shellquote.QuoteCmd(strings.Join(metadata, "\n"))
 }
