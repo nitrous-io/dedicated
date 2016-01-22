@@ -10,6 +10,8 @@ import (
 	"github.com/jinzhu/now"
 	"github.com/jmoiron/sqlx"
 	"github.com/lib/pq"
+	"github.com/lib/pq/hstore"
+
 	"github.com/nitrous-io/dedicated/nitrous/db"
 	"github.com/nitrous-io/dedicated/nitrous/models/host"
 )
@@ -24,6 +26,8 @@ type HostTransition struct {
 
 	CreatedAt *time.Time `db:"created_at"`
 	EndedAt   *time.Time `db:"ended_at"`
+
+	Metadata hstore.Hstore `db:"metadata"`
 }
 
 type HostUsage struct {
@@ -34,21 +38,21 @@ type HostUsage struct {
 }
 
 func FindMostRecentForHost(db *db.Database, id int64) (*HostTransition, error) {
-	hT := &HostTransition{}
-	err := db.Get(hT, `SELECT * FROM host_transitions WHERE host_transitions.host_id = $1 ORDER BY created_at DESC LIMIT 1`, id)
+	ht := &HostTransition{}
+	err := db.Get(ht, `SELECT * FROM host_transitions WHERE host_transitions.host_id = $1 ORDER BY created_at DESC LIMIT 1`, id)
 	if err != nil {
 		return nil, err
 	}
-	return hT, err
+	return ht, err
 }
 
 func FindByID(db *db.Database, id int64) (*HostTransition, error) {
-	hT := &HostTransition{}
-	err := db.Get(hT, `SELECT * FROM host_transitions WHERE id = $1`, id)
+	ht := &HostTransition{}
+	err := db.Get(ht, `SELECT * FROM host_transitions WHERE id = $1`, id)
 	if err != nil {
 		return nil, err
 	}
-	return hT, err
+	return ht, err
 }
 
 func hostsToHostIDs(hs []*host.Host) []int64 {
@@ -175,7 +179,7 @@ func CurrentMonthUsageForUser(d *db.Database, userID int64, now time.Time) (int6
 // user initiating the host transition is an admin user
 // instead of the host owner.
 func Record(tx *sqlx.Tx, h *host.Host, previousState string, enactedAt time.Time, initiatorID int64) error {
-	hT := &HostTransition{
+	ht := &HostTransition{
 		HostID:      h.ID,
 		State:       h.State,
 		CreatedAt:   &enactedAt,
@@ -183,11 +187,11 @@ func Record(tx *sqlx.Tx, h *host.Host, previousState string, enactedAt time.Time
 	}
 
 	if initiatorID > 0 {
-		hT.InitiatorID = sql.NullInt64{initiatorID, true}
+		ht.InitiatorID = sql.NullInt64{initiatorID, true}
 	}
 
 	if previousState != "" {
-		hT.PreviousState = sql.NullString{previousState, true}
+		ht.PreviousState = sql.NullString{previousState, true}
 	}
 
 	var prevId int64
@@ -201,16 +205,24 @@ func Record(tx *sqlx.Tx, h *host.Host, previousState string, enactedAt time.Time
 		}
 	} else {
 		// set previous
-		_, err := tx.Exec(`UPDATE host_transitions SET ended_at = $1 WHERE id = $2;`, hT.CreatedAt, prevId)
+		_, err := tx.Exec(`UPDATE host_transitions SET ended_at = $1 WHERE id = $2;`, ht.CreatedAt, prevId)
 		if err != nil {
 			return err
 		}
 	}
 
+	ht.Metadata.Map = make(map[string]sql.NullString)
+	if h.ProviderIdentifier.Valid {
+		ht.Metadata.Map["provider_identifier"] = h.ProviderIdentifier
+	}
+	if h.IPAddress.Valid {
+		ht.Metadata.Map["ip_address"] = h.IPAddress
+	}
+
 	_, err = tx.NamedExec(
-		`INSERT INTO host_transitions (host_id, initiator_id, previous_state, state, created_at)
-      VALUES (:host_id, :initiator_id, :previous_state, :state, :created_at)`,
-		hT)
+		`INSERT INTO host_transitions (host_id, initiator_id, previous_state, state, metadata, created_at)
+		VALUES (:host_id, :initiator_id, :previous_state, :state, :metadata, :created_at)`,
+		ht)
 
 	if err != nil {
 		return err

@@ -130,6 +130,25 @@ var _ = Describe("models/hosttransition", func() {
 				Expect(h.LastRunningAt.Valid).To(BeTrue())
 			})
 
+			It("records host metadata if present", func() {
+				tx, err := db.Beginx()
+				Expect(err).To(BeNil())
+
+				t := time.Now()
+				h1.State = "running"
+				h1.ProviderIdentifier = sql.NullString{"i-12345", true}
+				h1.IPAddress = sql.NullString{"", false}
+				err = hosttransition.Record(tx, h1, "born", t, u.ID)
+				Expect(err).To(BeNil())
+				Expect(tx.Commit()).To(BeNil())
+
+				ht, err := hosttransition.FindMostRecentForHost(db, h1.ID)
+				Expect(err).To(BeNil())
+
+				Expect(ht.Metadata.Map["provider_identifier"].String).To(Equal("i-12345"))
+				Expect(ht.Metadata.Map).NotTo(HaveKey("ip_address"))
+			})
+
 			It("should flush out idle_notices_sent and idle_next_check if the state becomes running", func() {
 				_, err := db.Exec("UPDATE hosts SET idle_next_check = now(), idle_notices_sent = 2 WHERE id = $1", h1.ID)
 				Expect(err).To(BeNil())
