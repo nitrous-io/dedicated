@@ -10,6 +10,8 @@ import (
 	"github.com/jinzhu/now"
 	"github.com/jmoiron/sqlx"
 	"github.com/lib/pq"
+	"github.com/lib/pq/hstore"
+
 	"github.com/nitrous-io/dedicated/nitrous/db"
 	"github.com/nitrous-io/dedicated/nitrous/models/host"
 )
@@ -24,6 +26,8 @@ type HostTransition struct {
 
 	CreatedAt *time.Time `db:"created_at"`
 	EndedAt   *time.Time `db:"ended_at"`
+
+	Metadata hstore.Hstore `db:"metadata"`
 }
 
 type HostUsage struct {
@@ -207,9 +211,17 @@ func Record(tx *sqlx.Tx, h *host.Host, previousState string, enactedAt time.Time
 		}
 	}
 
+	ht.Metadata.Map = make(map[string]sql.NullString)
+	if h.ProviderIdentifier.Valid {
+		ht.Metadata.Map["provider_identifier"] = h.ProviderIdentifier
+	}
+	if h.IPAddress.Valid {
+		ht.Metadata.Map["ip_address"] = h.IPAddress
+	}
+
 	_, err = tx.NamedExec(
-		`INSERT INTO host_transitions (host_id, initiator_id, previous_state, state, created_at)
-      VALUES (:host_id, :initiator_id, :previous_state, :state, :created_at)`,
+		`INSERT INTO host_transitions (host_id, initiator_id, previous_state, state, metadata, created_at)
+		VALUES (:host_id, :initiator_id, :previous_state, :state, :metadata, :created_at)`,
 		ht)
 
 	if err != nil {
