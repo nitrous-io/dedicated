@@ -581,6 +581,7 @@ var _ = Describe("models/user", func() {
 			u.UnconfirmedEmail = sql.NullString{String: "un@example.com", Valid: true}
 			u.ConfirmationSentAt = pq.NullTime{uTime, true}
 			u.ConfirmationToken = sql.NullString{"hello", true}
+			u.UsageQuotaRestoredAt = pq.NullTime{uTime.Add(time.Hour), true}
 			oldCreated, oldUpdated := u.CreatedAt, u.UpdatedAt
 			t := time.Now()
 			u.CreatedAt = &t
@@ -595,8 +596,9 @@ var _ = Describe("models/user", func() {
 			Expect(updated.Password).To(BeEmpty())
 			Expect(bcrypt.Verify(updated.EncryptedPassword, "abcdef")).To(BeTrue())
 			Expect(updated.ConfirmationSentAt.Valid).To(BeTrue())
-			Expect(updated.ConfirmationSentAt.Time.Unix()).To(BeNumerically(">=", uTime.Unix()))
+			Expect(updated.ConfirmationSentAt.Time.Unix()).To(Equal(uTime.Unix()))
 			Expect(updated.ConfirmationToken).To(Equal(sql.NullString{"hello", true}))
+			Expect(updated.UsageQuotaRestoredAt.Time.Unix()).To(Equal(uTime.Add(time.Hour).Unix()))
 			Expect(updated.CreatedAt).To(Equal(oldCreated))
 			Expect(*updated.UpdatedAt).To(BeTemporally(">", *oldUpdated))
 		})

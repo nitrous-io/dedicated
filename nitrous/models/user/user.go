@@ -115,7 +115,7 @@ type User struct {
 	// quota is reset to full.
 	UsageQuotaPeriod     sql.NullInt64 `db:"usage_quota_period"`
 	UsageRemaining       sql.NullInt64 `db:"usage_remaining"`
-	UsageQuotaRestoredAt pq.NullTime     `db:"usage_quota_restored_at"`
+	UsageQuotaRestoredAt pq.NullTime   `db:"usage_quota_restored_at"`
 
 	CreatedByClientID sql.NullInt64 `db:"created_by_client_id"`
 
@@ -277,10 +277,14 @@ func (u *User) Update(d db.QueryReceiver) error {
 		return err
 	}
 	nstmt, err := d.PrepareNamed(`UPDATE users
-		SET (name, email, encrypted_password, unconfirmed_email, confirmation_sent_at,
-			confirmation_token, updated_at)
-		= (:name, :email, :encrypted_password, :unconfirmed_email, :confirmation_sent_at,
-			:confirmation_token, now())
+		SET (name, email, encrypted_password,
+			unconfirmed_email, confirmation_sent_at, confirmation_token,
+			usage_quota_restored_at,
+			updated_at)
+		= (:name, :email, :encrypted_password,
+			:unconfirmed_email, :confirmation_sent_at, :confirmation_token,
+			:usage_quota_restored_at,
+			now())
 		WHERE id = :id
 		RETURNING *;`)
 	if err != nil {
