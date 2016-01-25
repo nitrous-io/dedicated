@@ -113,8 +113,9 @@ type User struct {
 	UsageQuota sql.NullInt64 `db:"usage_quota"`
 	// UsageQuotaPeriod is the number of seconds after which the free host usage
 	// quota is reset to full.
-	UsageQuotaPeriod sql.NullInt64 `db:"usage_quota_period"`
-	UsageRemaining   sql.NullInt64 `db:"usage_remaining"`
+	UsageQuotaPeriod     sql.NullInt64 `db:"usage_quota_period"`
+	UsageRemaining       sql.NullInt64 `db:"usage_remaining"`
+	UsageQuotaRestoredAt pq.NullTime     `db:"usage_quota_restored_at"`
 
 	CreatedByClientID sql.NullInt64 `db:"created_by_client_id"`
 
