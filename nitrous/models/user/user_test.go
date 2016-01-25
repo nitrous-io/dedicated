@@ -15,6 +15,7 @@ import (
 	"github.com/nitrous-io/dedicated/nitrous/models/billingprofile"
 	"github.com/nitrous-io/dedicated/nitrous/models/container"
 	"github.com/nitrous-io/dedicated/nitrous/models/containercollab"
+	"github.com/nitrous-io/dedicated/nitrous/models/host"
 	"github.com/nitrous-io/dedicated/nitrous/models/org"
 	"github.com/nitrous-io/dedicated/nitrous/models/user"
 	"github.com/nitrous-io/dedicated/nitrous/models/userprofile"
@@ -56,6 +57,193 @@ var _ = Describe("models/user", func() {
 		if db != nil {
 			db.Close()
 		}
+	})
+
+	Describe("RestoreUsageQuotas()", func() {
+		var (
+			u  *user.User
+			hs *test.HostStack
+		)
+
+		BeforeEach(func() {
+			u = &user.User{
+				Username: "aroon",
+				Password: "123456",
+				Email:    "aroon@zerobotlabs.com",
+			}
+			Expect(test.WrapInTransaction(db, u.Insert)).To(BeNil())
+
+			// Create a free host belonging to the user.
+			var err error
+			hs, err = test.CreateHostStack(db, &test.HostStack{
+				U: u,
+				H: &host.Host{
+					Slug: "free-host",
+					Free: true,
+				},
+			})
+			Expect(err).To(BeNil())
+		})
+
+		It("sets usage_remaining to the usage_quota when it was last restored earlier than usage_quota_period ago", func() {
+			// Decrement user's usage_remaining to simulate usage of quota.
+			err := u.DecrementUsageRemaining(db, 60)
+			Expect(err).To(BeNil())
+
+			origUsageRemaining := u.UsageRemaining.Int64
+			Expect(origUsageRemaining > 0).To(Equal(true))
+			Expect(origUsageRemaining < u.UsageQuota.Int64).To(Equal(true))
+
+			// Set usage_quota_restored_at to earlier than usage_quota_period ago.
+			quotaPeriod := time.Duration(u.UsageQuotaPeriod.Int64) * time.Second
+			Expect(quotaPeriod > 0).To(Equal(true))
+			now := time.Now()
+			lastRestoredAt := now.Add(-quotaPeriod).Add(-time.Second)
+			u.UsageQuotaRestoredAt = pq.NullTime{lastRestoredAt, true}
+			Expect(u.Update(db)).To(BeNil())
+
+			numRestored, err := user.RestoreUsageQuotas(db, now)
+			Expect(err).To(BeNil())
+			Expect(numRestored).To(Equal(int64(1)))
+
+			updated, err := user.FindByID(db, u.ID)
+			Expect(err).To(BeNil())
+
+			Expect(updated.UsageRemaining.Int64).To(Equal(updated.UsageQuota.Int64))
+			Expect(updated.UsageRemaining.Int64 > origUsageRemaining).To(Equal(true))
+
+			// The usage_quota_restored_at should be set.
+			Expect(updated.UsageQuotaRestoredAt.Time).To(BeTemporally("~", now, time.Second))
+		})
+
+		It("does not do anything if the usage was restored less than usage_quota_period ago", func() {
+			// Decrement user's usage_remaining to simulate usage of quota.
+			err := u.DecrementUsageRemaining(db, 60)
+			Expect(err).To(BeNil())
+
+			origUsageRemaining := u.UsageRemaining.Int64
+			Expect(origUsageRemaining > 0).To(Equal(true))
+			Expect(origUsageRemaining < u.UsageQuota.Int64).To(Equal(true))
+
+			// Set usage_quota_restored_at to later than usage_quota_period ago.
+			quotaPeriod := time.Duration(u.UsageQuotaPeriod.Int64) * time.Second
+			Expect(quotaPeriod > 0).To(Equal(true))
+			now := time.Now()
+			lastRestoredAt := now.Add(-quotaPeriod).Add(time.Second)
+			u.UsageQuotaRestoredAt = pq.NullTime{lastRestoredAt, true}
+			Expect(u.Update(db)).To(BeNil())
+
+			numRestored, err := user.RestoreUsageQuotas(db, now)
+			Expect(err).To(BeNil())
+			Expect(numRestored).To(Equal(int64(0)))
+
+			updated, err := user.FindByID(db, u.ID)
+			Expect(err).To(BeNil())
+
+			Expect(updated.UsageRemaining.Int64).To(Equal(origUsageRemaining))
+
+			// The usage_quota_restored_at should be unchanged.
+			Expect(updated.UsageQuotaRestoredAt.Time).To(BeTemporally("~", lastRestoredAt))
+			Expect(*updated.UpdatedAt).To(BeTemporally("~", *u.UpdatedAt))
+		})
+
+		It("does not do anything if user's host is not free", func() {
+			// Set user's host to "not free".
+			_, err := db.Exec(`UPDATE hosts SET free = false WHERE ID = $1;`, hs.H.ID)
+			Expect(err).To(BeNil())
+
+			// Decrement user's usage_remaining to simulate usage of quota.
+			err = u.DecrementUsageRemaining(db, 60)
+			Expect(err).To(BeNil())
+
+			origUsageRemaining := u.UsageRemaining.Int64
+			Expect(origUsageRemaining > 0).To(Equal(true))
+			Expect(origUsageRemaining < u.UsageQuota.Int64).To(Equal(true))
+
+			// Set usage_quota_restored_at to earlier than usage_quota_period ago.
+			quotaPeriod := time.Duration(u.UsageQuotaPeriod.Int64) * time.Second
+			Expect(quotaPeriod > 0).To(Equal(true))
+			now := time.Now()
+			lastRestoredAt := now.Add(-quotaPeriod).Add(-time.Second)
+			u.UsageQuotaRestoredAt = pq.NullTime{lastRestoredAt, true}
+			Expect(u.Update(db)).To(BeNil())
+
+			numRestored, err := user.RestoreUsageQuotas(db, now)
+			Expect(err).To(BeNil())
+			Expect(numRestored).To(Equal(int64(0)))
+
+			updated, err := user.FindByID(db, u.ID)
+			Expect(err).To(BeNil())
+
+			Expect(updated.UsageRemaining.Int64).To(Equal(origUsageRemaining))
+
+			// The usage_quota_restored_at should be unchanged.
+			Expect(updated.UsageQuotaRestoredAt.Time).To(BeTemporally("~", lastRestoredAt))
+			Expect(*updated.UpdatedAt).To(BeTemporally("~", *u.UpdatedAt))
+		})
+
+		It("does not do anything if user does not have any hosts", func() {
+			// Terminate user's free host.
+			err := hs.H.Delete(db)
+			Expect(err).To(BeNil())
+
+			// Decrement user's usage_remaining to simulate usage of quota.
+			err = u.DecrementUsageRemaining(db, 60)
+			Expect(err).To(BeNil())
+
+			origUsageRemaining := u.UsageRemaining.Int64
+			Expect(origUsageRemaining > 0).To(Equal(true))
+			Expect(origUsageRemaining < u.UsageQuota.Int64).To(Equal(true))
+
+			// Set usage_quota_restored_at to earlier than usage_quota_period ago.
+			quotaPeriod := time.Duration(u.UsageQuotaPeriod.Int64) * time.Second
+			Expect(quotaPeriod > 0).To(Equal(true))
+			now := time.Now()
+			lastRestoredAt := now.Add(-quotaPeriod).Add(-time.Second)
+			u.UsageQuotaRestoredAt = pq.NullTime{lastRestoredAt, true}
+			Expect(u.Update(db)).To(BeNil())
+
+			numRestored, err := user.RestoreUsageQuotas(db, now)
+			Expect(err).To(BeNil())
+			Expect(numRestored).To(Equal(int64(0)))
+
+			updated, err := user.FindByID(db, u.ID)
+			Expect(err).To(BeNil())
+
+			Expect(updated.UsageRemaining.Int64).To(Equal(origUsageRemaining))
+
+			// The usage_quota_restored_at should be unchanged.
+			Expect(updated.UsageQuotaRestoredAt.Time).To(BeTemporally("~", lastRestoredAt))
+			Expect(*updated.UpdatedAt).To(BeTemporally("~", *u.UpdatedAt))
+		})
+
+		It("does not do anything if the usage_quota_restored_at is empty", func() {
+			// Decrement user's usage_remaining to simulate usage of quota.
+			err := u.DecrementUsageRemaining(db, 60)
+			Expect(err).To(BeNil())
+
+			origUsageRemaining := u.UsageRemaining.Int64
+			Expect(origUsageRemaining > 0).To(Equal(true))
+			Expect(origUsageRemaining < u.UsageQuota.Int64).To(Equal(true))
+
+			// Set usage_quota_restored_at to null.
+			u.UsageQuotaRestoredAt = pq.NullTime{}
+			Expect(u.Update(db)).To(BeNil())
+
+			now := time.Now()
+			numRestored, err := user.RestoreUsageQuotas(db, now)
+			Expect(err).To(BeNil())
+			Expect(numRestored).To(Equal(int64(0)))
+
+			updated, err := user.FindByID(db, u.ID)
+			Expect(err).To(BeNil())
+
+			Expect(updated.UsageRemaining.Int64).To(Equal(origUsageRemaining))
+
+			// The usage_quota_restored_at should be unchanged.
+			Expect(updated.UsageQuotaRestoredAt.Valid).To(Equal(false))
+			Expect(*updated.UpdatedAt).To(BeTemporally("~", *u.UpdatedAt))
+		})
 	})
 
 	Describe("FindByID()", func() {
