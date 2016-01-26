@@ -356,6 +356,10 @@ func (u *User) DecrementUsageRemaining(d db.QueryReceiver, secondsUsed int64) er
 		RETURNING *`, secondsUsed, u.ID).StructScan(u)
 }
 
+func (u *User) HasUsageRemaining() bool {
+	return u.UsageRemaining.Valid && u.UsageRemaining.Int64 > 0
+}
+
 func (u *User) Validate() error {
 	if u.Email == "" {
 		return ErrEmailBlank

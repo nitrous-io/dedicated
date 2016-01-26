@@ -884,7 +884,7 @@ var _ = Describe("POST /api/v0/hosts", func() {
 			params.Set("async", "true")
 		})
 
-		It("returns 202 accepted and creates host asynchronously", func() {
+		It("responds with HTTP 202 Accepted and creates host asynchronously", func() {
 			res := doRequest(params)
 			Expect(res.Code).To(Equal(http.StatusAccepted))
 
@@ -894,12 +894,35 @@ var _ = Describe("POST /api/v0/hosts", func() {
 			err := json.NewDecoder(res.Body).Decode(&j)
 			Expect(err).To(BeNil())
 
-			Expect(j.Host.ID > 0).To(BeTrue(), "missing id. not saved ?")
-			Expect(j.Host.State).To(Equal(host.StateBorn), "unexpected host state")
+			Expect(j.Host.ID).NotTo(BeZero())
+			Expect(j.Host.State).To(Equal(host.StateBorn))
 
 			// These fields are not yet set.
-			Expect(j.Host.IPAddress).To(BeEmpty(), "unexpected ip address")
-			Expect(j.Host.FreighterdPort).To(BeZero(), "unexpected freighterd port")
+			Expect(j.Host.IPAddress).To(Equal(""))
+			Expect(j.Host.FreighterdPort).To(BeZero())
+		})
+
+		It("responds with HTTP 403 Forbidden when plan is free, and user has no more free host quota remaining", func() {
+			// Create a free plan.
+			hs, err := test.CreateHostStack(db, &test.HostStack{
+				P: &plan.Plan{Name: "Free", Slug: "free", Price: 0},
+			})
+			Expect(err).To(BeNil())
+
+			// Reduce user's usage remaining to 0.
+			err = u.DecrementUsageRemaining(db, u.UsageQuota.Int64)
+			Expect(err).To(BeNil())
+
+			params.Set("name", "my host")
+			params.Set("size", hs.P.Slug)
+			params.Set("region", hs.R.Slug)
+
+			res := doRequest(params)
+			Expect(res.Code).To(Equal(http.StatusForbidden))
+
+			errType, errDesc := test.ErrorSlug(res.Body)
+			Expect(errType).To(Equal("forbidden"))
+			Expect(errDesc).To(Equal("you cannot create any more free workstations because you've exceeded your quota"))
 		})
 
 		testCases := []struct {
@@ -1595,7 +1618,7 @@ var _ = Describe("POST /api/v0/hosts", func() {
 
 			errType, errDesc := test.ErrorSlug(res.Body)
 			Expect(errType).To(Equal("max_hosts_reached"))
-			Expect(errDesc).To(Equal("You have exceeded the number of hosts for this plan, please upgrade"))
+			Expect(errDesc).To(Equal("You have exceeded the number of workstations for this plan, please upgrade"))
 		})
 
 		It("should support orgs", func() {

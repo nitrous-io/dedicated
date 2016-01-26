@@ -35,9 +35,10 @@ import (
 var (
 	CreateVolumeFn = volumes.CreateVolume
 
-	errFreePlanNotAllowed = httperror.New(http.StatusForbidden, "free_plan_not_allowed", "You are not allowed to create a free workstation")
-	errPaidPlanNotAllowed = httperror.New(http.StatusForbidden, "paid_plan_not_allowed", "You are not allowed to create a paid workstation")
-	errMaxFreeHostReached = httperror.New(http.StatusForbidden, "max_free_host_reached", "You can't create any more free workstations")
+	errFreePlanNotAllowed         = httperror.New(http.StatusForbidden, "free_plan_not_allowed", "You are not allowed to create a free workstation")
+	errPaidPlanNotAllowed         = httperror.New(http.StatusForbidden, "paid_plan_not_allowed", "You are not allowed to create a paid workstation")
+	errMaxFreeHostReached         = httperror.New(http.StatusForbidden, "max_free_host_reached", "You can't create any more free workstations")
+	errFreeUsageExceededForCreate = httperror.New(http.StatusForbidden, "forbidden", "you cannot create any more free workstations because you've exceeded your quota")
 
 	errSuspiciousUser = httperror.New(http.StatusForbidden, "invalid_request", "Unexpected error")
 
@@ -54,7 +55,7 @@ var (
 	errOrgNotFound               = httperror.New(http.StatusBadRequest, "invalid_request", "No matching org found")
 	errNotOrgPlan                = httperror.New(http.StatusBadRequest, "invalid_request", "Not an org plan")
 
-	errPlanMaxHostsReached = httperror.New(http.StatusForbidden, "max_hosts_reached", "You have exceeded the number of hosts for this plan, please upgrade")
+	errPlanMaxHostsReached = httperror.New(http.StatusForbidden, "max_hosts_reached", "You have exceeded the number of workstations for this plan, please upgrade")
 
 	hostCreationErrors = map[error]error{
 		host.ErrFreePlanNotAllowed: errFreePlanNotAllowed,
@@ -134,6 +135,14 @@ func Create(env *middleware.Env, w http.ResponseWriter, r *http.Request) error {
 			if err != nil {
 				return err
 			}
+		}
+	}
+
+	// If user is trying to create a free host (i.e. the plan is free), ensure
+	// they have free usage quota remaining.
+	if pl != nil && pl.IsFree() {
+		if !u.HasUsageRemaining() {
+			return errFreeUsageExceededForCreate
 		}
 	}
 
