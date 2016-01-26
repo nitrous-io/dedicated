@@ -117,14 +117,14 @@ var _ = Describe("models/idlehosts", func() {
 		})
 		Expect(err).To(BeNil())
 
-		_, err = db.Exec("UPDATE hosts SET last_running_at = now() - interval '7 days 1 minute' WHERE id IN ($1, $2);", hs1.H.ID, hs3.H.ID)
+		_, err = db.Exec("UPDATE hosts SET last_running_at = now() - interval '23 days 1 minute' WHERE id IN ($1, $2);", hs1.H.ID, hs3.H.ID)
 		Expect(err).To(BeNil())
-		_, err = db.Exec("UPDATE hosts SET last_running_at = now() - interval '6 days' WHERE id IN ($1, $2);", hs2.H.ID, hs4.H.ID)
+		_, err = db.Exec("UPDATE hosts SET last_running_at = now() - interval '22 days' WHERE id IN ($1, $2);", hs2.H.ID, hs4.H.ID)
 		Expect(err).To(BeNil())
 	})
 
 	Describe(".FirstWarningTargets()", func() {
-		It("should only include free hosts which have been idle for at least 14 days", func() {
+		It("should only include free hosts which have been idle for at least 23 days", func() {
 			trgts, err := idlehosts.FirstWarningTargets(db)
 			Expect(err).To(BeNil())
 			Expect(trgts).To(HaveLen(1))
@@ -224,7 +224,7 @@ var _ = Describe("models/idlehosts", func() {
 
 	Describe(".TerminationTargets()", func() {
 		BeforeEach(func() {
-			_, err := db.Exec("UPDATE hosts SET idle_notices_sent = $1, idle_next_check = now(), last_running_at = now() - interval '14 days 1 minute' WHERE id = $2", host.IDLE_NOTICES_FINAL_WARNING, hs3.H.ID)
+			_, err := db.Exec("UPDATE hosts SET idle_notices_sent = $1, idle_next_check = now(), last_running_at = now() - interval '30 days 1 minute' WHERE id = $2", host.IDLE_NOTICES_FINAL_WARNING, hs3.H.ID)
 			Expect(err).To(BeNil())
 		})
 
@@ -268,8 +268,8 @@ var _ = Describe("models/idlehosts", func() {
 			Expect(trgts).To(BeEmpty())
 		})
 
-		It("should not include hosts that have not been idle for 14 days", func() {
-			_, err := db.Exec("UPDATE hosts SET last_running_at = now() - interval '13 days 59 minutes' WHERE id = $1;", hs3.H.ID)
+		It("should not include hosts that have not been idle for 30 days", func() {
+			_, err := db.Exec("UPDATE hosts SET last_running_at = now() - interval '29 days 59 minutes' WHERE id = $1;", hs3.H.ID)
 			Expect(err).To(BeNil())
 
 			trgts, err := idlehosts.TerminationTargets(db)
@@ -322,15 +322,15 @@ var _ = Describe("models/idlehosts", func() {
 			Expect(fakeMailer.HTML).To(ContainSubstring(`<a href="https://nitrous.example/app/#/subscriptions/sub1/upgrade">upgrading to any of our paid plans</a>`))
 		})
 
-		It("should update the host", func() {
+		It("updates the host to indicate that it has been sent the first warning, and that the next check should be 6 days later", func() {
 			Expect(target.SendFirstWarning(db)).To(BeNil())
 
 			h, err := host.FindByIdentifier(db, hs1.H.Slug)
 			Expect(err).To(BeNil())
 			Expect(h.IdleNoticesSent).To(Equal(host.IDLE_NOTICES_FIRST_WARNING))
 			Expect(h.IdleNextCheck.Valid).To(BeTrue())
-			secondWarningTimeframe := ((7 * 24) - 24) * time.Hour
-			Expect(h.IdleNextCheck.Time).To(BeTemporally("~", time.Now().Add(secondWarningTimeframe), time.Second))
+			nextCheckAfter := 6 * 24 * time.Hour
+			Expect(h.IdleNextCheck.Time).To(BeTemporally("~", time.Now().Add(nextCheckAfter), time.Second))
 		})
 
 		It("should return an error if the host has an unexpected notice count", func() {
@@ -410,7 +410,7 @@ var _ = Describe("models/idlehosts", func() {
 		})
 	})
 
-	Describe("Terminate", func() {
+	Describe("SoftTerminate", func() {
 		var (
 			target     *idlehosts.Target
 			fakeStripe *test.FakeStripe
@@ -442,7 +442,7 @@ var _ = Describe("models/idlehosts", func() {
 			_, err = db.Exec("UPDATE plans SET price = 0 WHERE id = $1;", hs1.P.ID)
 			Expect(err).To(BeNil())
 
-			_, err = db.Exec("UPDATE hosts SET idle_notices_sent = $1, last_running_at = now() - interval '14 days' WHERE id = $2;", host.IDLE_NOTICES_FINAL_WARNING, hs1.H.ID)
+			_, err = db.Exec("UPDATE hosts SET idle_notices_sent = $1, last_running_at = now() - interval '30 days' WHERE id = $2;", host.IDLE_NOTICES_FINAL_WARNING, hs1.H.ID)
 			Expect(err).To(BeNil())
 		})
 
@@ -450,12 +450,12 @@ var _ = Describe("models/idlehosts", func() {
 			fakeStripe.Errors = []*stripe.Error{nil}
 			fakeStripe.Responses = []string{
 				`{
-          "cancelled": true,
-				  "id": "sub1"
+					"cancelled": true,
+					"id": "sub1"
 				}`,
 			}
 
-			Expect(target.Terminate(db)).To(BeNil())
+			Expect(target.SoftTerminate(db)).To(BeNil())
 
 			Expect(fakeStripe.ReceivedRequests).To(HaveLen(1))
 			r1 := fakeStripe.ReceivedRequests[0]
@@ -468,7 +468,7 @@ var _ = Describe("models/idlehosts", func() {
 			_, err := db.Exec("UPDATE plans SET price = 200 WHERE id = $1;", hs1.P.ID)
 			Expect(err).To(BeNil())
 
-			Expect(target.Terminate(db)).To(Equal(sql.ErrNoRows))
+			Expect(target.SoftTerminate(db)).To(Equal(sql.ErrNoRows))
 
 			Expect(fakeStripe.ReceivedRequests).To(HaveLen(0))
 		})
@@ -477,7 +477,7 @@ var _ = Describe("models/idlehosts", func() {
 			_, err := db.Exec("UPDATE subscriptions SET cancel_pending = TRUE WHERE id = $1;", hs1.S.ID)
 			Expect(err).To(BeNil())
 
-			Expect(target.Terminate(db)).To(Equal(sql.ErrNoRows))
+			Expect(target.SoftTerminate(db)).To(Equal(sql.ErrNoRows))
 
 			Expect(fakeStripe.ReceivedRequests).To(HaveLen(0))
 		})
@@ -486,7 +486,7 @@ var _ = Describe("models/idlehosts", func() {
 			_, err := db.Exec("UPDATE subscriptions SET cancelled_at = now(), state = $1 WHERE id = $2;", subscription.StateDeleted, hs1.S.ID)
 			Expect(err).To(BeNil())
 
-			Expect(target.Terminate(db)).ToNot(BeNil())
+			Expect(target.SoftTerminate(db)).ToNot(BeNil())
 
 			Expect(fakeStripe.ReceivedRequests).To(HaveLen(0))
 		})
@@ -495,7 +495,7 @@ var _ = Describe("models/idlehosts", func() {
 			_, err := db.Exec("UPDATE hosts SET terminated_at = now() WHERE id = $1;", hs1.H.ID)
 			Expect(err).To(BeNil())
 
-			Expect(target.Terminate(db)).To(Equal(sql.ErrNoRows))
+			Expect(target.SoftTerminate(db)).To(Equal(sql.ErrNoRows))
 
 			Expect(fakeStripe.ReceivedRequests).To(HaveLen(0))
 		})
@@ -504,7 +504,7 @@ var _ = Describe("models/idlehosts", func() {
 			_, err := db.Exec("UPDATE hosts SET idle_notices_sent = $1 WHERE id = $2;", host.IDLE_NOTICES_FIRST_WARNING, hs1.H.ID)
 			Expect(err).To(BeNil())
 
-			Expect(target.Terminate(db)).To(MatchError("Expected idle_notices_sent to equal 2, got 1"))
+			Expect(target.SoftTerminate(db)).To(MatchError("Expected idle_notices_sent to equal 2, got 1"))
 
 			Expect(fakeStripe.ReceivedRequests).To(HaveLen(0))
 		})
@@ -513,7 +513,7 @@ var _ = Describe("models/idlehosts", func() {
 			_, err := db.Exec("UPDATE hosts SET last_running_at = NULL WHERE id = $1;", hs1.H.ID)
 			Expect(err).To(BeNil())
 
-			Expect(target.Terminate(db)).To(Equal(idlehosts.ErrLastRunningAtInvalid))
+			Expect(target.SoftTerminate(db)).To(Equal(idlehosts.ErrLastRunningAtInvalid))
 
 			Expect(fakeStripe.ReceivedRequests).To(HaveLen(0))
 		})
@@ -522,7 +522,7 @@ var _ = Describe("models/idlehosts", func() {
 			_, err := db.Exec("UPDATE hosts SET last_running_at = now() - interval '13 days' WHERE id = $1;", hs1.H.ID)
 			Expect(err).To(BeNil())
 
-			Expect(target.Terminate(db)).To(Equal(idlehosts.ErrHostStartedWithinIdleTimeout))
+			Expect(target.SoftTerminate(db)).To(Equal(idlehosts.ErrHostStartedWithinMaxInactivityDuration))
 
 			Expect(fakeStripe.ReceivedRequests).To(HaveLen(0))
 		})

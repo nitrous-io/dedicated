@@ -12,9 +12,7 @@ import (
 	"github.com/nitrous-io/dedicated/nitrous/models/idlehosts"
 )
 
-const (
-	nWorkers = 4
-)
+const nWorkers = 4
 
 const (
 	OP_FIRST_WARNING = "first warning"
@@ -22,9 +20,7 @@ const (
 	OP_TERMINATION   = "termination"
 )
 
-var (
-	dryrun = true
-)
+var dryrun = true
 
 func init() {
 	logrus.SetLevel(logrus.DebugLevel)
@@ -54,18 +50,17 @@ func main() {
 		logrus.Warnf("--live-run specified, will be performing destructive actions")
 	}
 
-	var wg sync.WaitGroup
-
-	logrus.Infof("starting idle hosts service with %d workers", nWorkers)
+	logrus.Infof("Starting idle hosts service with %d workers", nWorkers)
 	dbURL := envvars.NitrousPgUrl
 	if dbURL == "" {
-		logrus.Fatal(envvars.DBEnvVar, "is not defined")
+		logrus.Fatalf("%v is not defined", envvars.DBEnvVar)
 	}
 	dbConn, err := db.NewDatabase(dbURL)
 	if err != nil {
-		logrus.Fatalf("db.NewDatabase() failed with '%s'", err)
+		logrus.Fatalf("failed to connect to database, err: %v", err)
 	}
 
+	var wg sync.WaitGroup
 	msgsCh := make(chan *wrkMsg)
 	for i := 0; i < nWorkers; i++ {
 		go worker(dbConn, &wg, msgsCh)
@@ -75,20 +70,26 @@ func main() {
 	if err != nil {
 		logrus.Fatalf("idlehosts.TerminationTargets() failed with '%s'", err)
 	}
+	logrus.Debugf("%d hosts to be terminated", len(targets))
 	queueTargets(OP_TERMINATION, targets, &wg, msgsCh)
 
 	targets, err = idlehosts.FinalWarningTargets(dbConn)
 	if err != nil {
 		logrus.Fatalf("idlehosts.FinalWarningTargets() failed with '%s'", err)
 	}
+	logrus.Debugf("%d hosts due to receive their final warning", len(targets))
 	queueTargets(OP_FINAL_WARNING, targets, &wg, msgsCh)
 
 	targets, err = idlehosts.FirstWarningTargets(dbConn)
 	if err != nil {
 		logrus.Fatalf("idlehosts.FirstWarningTargets() failed with '%s'", err)
 	}
+	logrus.Debugf("%d hosts due to receive their first warning.", len(targets))
 	queueTargets(OP_FIRST_WARNING, targets, &wg, msgsCh)
+
 	wg.Wait()
+
+	logrus.Info("Idle hosts service done. Exiting.")
 }
 
 func queueTargets(op string, targets []*idlehosts.Target, wg *sync.WaitGroup, ch chan *wrkMsg) {
@@ -136,7 +137,7 @@ func doTermination(dbConn *db.Database, trgt *idlehosts.Target) error {
 		return nil
 	}
 
-	return trgt.Terminate(dbConn)
+	return trgt.SoftTerminate(dbConn)
 }
 
 func doFinalWarning(dbConn *db.Database, trgt *idlehosts.Target) error {
