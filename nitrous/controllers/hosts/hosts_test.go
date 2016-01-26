@@ -796,7 +796,7 @@ var _ = Describe("controllers/hosts", func() {
 				Expect(res.Code).To(Equal(http.StatusBadRequest))
 				errType, errDesc := test.ErrorSlug(res.Body)
 				Expect(errType).To(Equal("invalid_state"))
-				Expect(errDesc).To(Equal("workspace is not running"))
+				Expect(errDesc).To(Equal("workstation is not running"))
 			})
 		})
 
@@ -813,7 +813,7 @@ var _ = Describe("controllers/hosts", func() {
 				Expect(res.Code).To(Equal(http.StatusBadRequest))
 				errType, errDesc := test.ErrorSlug(res.Body)
 				Expect(errType).To(Equal("invalid_state"))
-				Expect(errDesc).To(Equal("workspace is not running"))
+				Expect(errDesc).To(Equal("workstation is not running"))
 			})
 		})
 
@@ -943,7 +943,7 @@ var _ = Describe("controllers/hosts", func() {
 			Expect(res.Code).To(Equal(http.StatusBadRequest))
 			errType, errDesc := test.ErrorSlug(res.Body)
 			Expect(errType).To(Equal("invalid_request"))
-			Expect(errDesc).To(Equal("cannot terminate a workspace with an active subscription"))
+			Expect(errDesc).To(Equal("cannot terminate a workstation with an active subscription"))
 			Expect(rt.Requests).To(HaveLen(0))
 
 			Expect(fsub.CancelCalled).To(BeFalse())
@@ -1395,7 +1395,7 @@ var _ = Describe("controllers/hosts", func() {
 			Expect(err).To(BeNil())
 		})
 
-		It("should send the UUID headers", func() {
+		It("sends the request UUID header to hostbuilder", func() {
 			hb := hostbuilderclient.NewHostbuilder("www.example.com")
 			rt := &test.FakeRoundTripper{
 				Message: okResponse,
@@ -1410,7 +1410,7 @@ var _ = Describe("controllers/hosts", func() {
 			Expect(req.Header.Get(constants.NitrousUUIDHeader)).ToNot(BeEmpty())
 		})
 
-		It("sends the correct payload to hostbuilder", func() {
+		It("sends a payload containing the host's details to hostbuilder", func() {
 			hb := hostbuilderclient.NewHostbuilder("www.example.com")
 			rt := &test.FakeRoundTripper{
 				Message: okResponse,
@@ -1433,27 +1433,39 @@ var _ = Describe("controllers/hosts", func() {
 			Expect(payload.Region).To(Equal("us-east-1"), "invalid region")
 		})
 
-		Context("when host is not in the stopped state", func() {
-			It("responds with HTTP 400 Bad Request", func() {
-				hb := hostbuilderclient.NewHostbuilder("www.example.com")
-				replaceTransport(hb, &test.FakeRoundTripper{
-					Message: okResponse,
-					Status:  http.StatusOK,
-				})
-
-				hosts.HostbuilderClient = hb
-
-				hs.H.State = host.StateRestarting
-				err := hs.H.Update(db)
-				Expect(err).To(BeNil())
-				doRequest(hs.H.Slug)
-
-				Expect(res.Code).To(Equal(http.StatusBadRequest))
-
-				errType, errDesc := test.ErrorSlug(res.Body)
-				Expect(errType).To(Equal("invalid_state"))
-				Expect(errDesc).To(Equal("workspace is not stopped"))
+		It("responds with HTTP 403 Forbidden when host is free and user has no more free host quota remaining", func() {
+			hs2, err := test.CreateHostStack(db, &test.HostStack{
+				H: &host.Host{
+					Free:  true,
+					State: host.StateStopped,
+				},
+				U: u,
 			})
+			Expect(err).To(BeNil())
+
+			// Reduce usage remaining to 0.
+			err = u.DecrementUsageRemaining(db, u.UsageQuota.Int64)
+			Expect(err).To(BeNil())
+
+			doRequest(hs2.H.Slug)
+
+			Expect(res.Code).To(Equal(http.StatusForbidden))
+			errType, errDesc := test.ErrorSlug(res.Body)
+			Expect(errType).To(Equal("forbidden"))
+			Expect(errDesc).To(Equal("you cannot start this workstation because you've exceeded your quota"))
+		})
+
+		It("responds with HTTP 400 Bad Request when host is not in the stopped state", func() {
+			hs.H.State = host.StateRestarting
+			err := hs.H.Update(db)
+			Expect(err).To(BeNil())
+
+			doRequest(hs.H.Slug)
+
+			Expect(res.Code).To(Equal(http.StatusBadRequest))
+			errType, errDesc := test.ErrorSlug(res.Body)
+			Expect(errType).To(Equal("invalid_state"))
+			Expect(errDesc).To(Equal("workstation is not stopped"))
 		})
 
 		Context("when hostbuilder successfully starts the host", func() {
@@ -1480,7 +1492,7 @@ var _ = Describe("controllers/hosts", func() {
 				Expect(h.ProviderIdentifier.String).To(Equal("i-abcde"))
 			})
 
-			It("responds with the host and status OK", func() {
+			It("responds with HTTP 200 OK and the serialized host", func() {
 				doRequest(hs.H.Slug)
 				Expect(res.Code).To(Equal(http.StatusOK))
 
@@ -1577,7 +1589,7 @@ var _ = Describe("controllers/hosts", func() {
 				replaceTransport(hb, rt)
 				hosts.HostbuilderClient = hb
 
-				var done = make(chan struct{})
+				done := make(chan struct{})
 				go func() {
 					doRequest(hs.H.Slug)
 					done <- struct{}{}
@@ -1741,7 +1753,7 @@ var _ = Describe("controllers/hosts", func() {
 
 				errType, errDesc := test.ErrorSlug(res.Body)
 				Expect(errType).To(Equal("invalid_state"))
-				Expect(errDesc).To(Equal("workspace is not running"))
+				Expect(errDesc).To(Equal("workstation is not running"))
 			})
 
 			It("allows host to be stopped if force=true", func() {
@@ -1994,7 +2006,7 @@ var _ = Describe("controllers/hosts", func() {
 
 				errType, errDesc := test.ErrorSlug(res.Body)
 				Expect(errType).To(Equal("invalid_state"))
-				Expect(errDesc).To(Equal("workspace is not running"))
+				Expect(errDesc).To(Equal("workstation is not running"))
 			})
 
 			It("allows host to be restarted if force=true", func() {
@@ -2558,7 +2570,7 @@ var _ = Describe("controllers/hosts", func() {
 
 				errType, errDesc := test.ErrorSlug(res.Body)
 				Expect(errType).To(Equal("invalid_state"))
-				Expect(errDesc).To(Equal("workspace is not running"))
+				Expect(errDesc).To(Equal("workstation is not running"))
 			})
 		})
 
@@ -2784,7 +2796,7 @@ var _ = Describe("controllers/hosts", func() {
 
 			errType, errDesc := test.ErrorSlug(res.Body)
 			Expect(errType).To(Equal("invalid_state"))
-			Expect(errDesc).To(Equal("workspace must be running or stopped to upgrade"))
+			Expect(errDesc).To(Equal("workstation must be running or stopped to upgrade"))
 		})
 
 		It("responds with HTTP 202 Accepted and respecs the host asynchronously", func() {
