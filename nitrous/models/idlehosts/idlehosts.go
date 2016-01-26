@@ -34,7 +34,7 @@ import (
 var (
 	// MaxInactivityDuration is the duration after which an inactive free host
 	// will be terminated.
-	MaxInactivityDuration = 14 * 24 * time.Hour
+	MaxInactivityDuration = 30 * 24 * time.Hour
 	// FirstWarningTimeout is the duration after which an inactive free host is
 	// sent its 1st warning email.
 	FirstWarningTimeout        = MaxInactivityDuration - (7 * 24 * time.Hour)
