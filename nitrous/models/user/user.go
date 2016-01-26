@@ -116,6 +116,7 @@ type User struct {
 	UsageQuotaPeriod     sql.NullInt64 `db:"usage_quota_period"`
 	UsageRemaining       sql.NullInt64 `db:"usage_remaining"`
 	UsageQuotaRestoredAt pq.NullTime   `db:"usage_quota_restored_at"`
+	UsageNoticesSent     sql.NullInt64 `db:"usage_notices_sent"`
 
 	CreatedByClientID sql.NullInt64 `db:"created_by_client_id"`
 
