@@ -3,6 +3,7 @@ package parsers
 import (
 	"fmt"
 	"regexp"
+	"strconv"
 	"strings"
 
 	"github.com/docker/docker/nat"
@@ -117,4 +118,75 @@ func parsePortSpec(portSpec, gateway string) (string, error) {
 		return gateway + ":" + portSpec, nil
 	}
 	return "", ErrInvalidPortSpec
+}
+
+var (
+	// w IDLE column is > 1 minute, < 1 hour
+	wMinsRe = regexp.MustCompile(`\A(\d\d):(\d\d)\z`) // MM:SS
+	// w IDLE column is < 1 minute
+	wSecsRe = regexp.MustCompile(`\A(\d+)\.\d\ds\z`) // SS.CCs
+)
+
+// parse WOutput returns true if the command indicates that the user was active
+// (their idle time is below the threshold).  Upon idle or unexpected input,
+// returns false.
+func ParseWOutput(output, username string, threshold int) (bool, error) {
+	// output from `w --no-header <user>` (4th column is idle time) looks like:
+	// nitrous  pts/1                     03:11    2:25m  0.08s  0.08s -zsh
+	//
+	// IDLE format:
+	// The standard format is DDdays, HH:MMm, MM:SS or SS.CCs if the times are
+	// greater than 2 days, 1hour, or 1 minute respectively.
+
+	if len(output) == 0 {
+		return false, nil
+	}
+	if threshold >= 60*60 {
+		// thresholds an hour or more are not supported -- it is unlikely to be
+		// a requirement, and it saves code
+		return false, fmt.Errorf("threshold %d must be less than 3600", threshold)
+	}
+	lines := strings.Split(output, "\n")
+	// if any line is under the threshold, that indicates an active console
+	// session, so we return true
+	for _, line := range lines {
+		parts := strings.Fields(line)
+		if len(parts) < 7 {
+			return false, fmt.Errorf("line did not match expected format: %s", line)
+		}
+		if parts[0] != username {
+			return false, fmt.Errorf("line first column %s did not match username %s", parts[0], username)
+		}
+		idleStr := parts[3]
+		minsIdle := wMinsRe.FindStringSubmatch(idleStr)
+		secsIdle := wSecsRe.FindStringSubmatch(idleStr)
+		switch {
+		case strings.HasSuffix(idleStr, "days"), strings.HasSuffix(idleStr, "m"):
+			continue
+		case len(minsIdle) == 3:
+			mins, err := strconv.Atoi(minsIdle[1])
+			if err != nil {
+				return false, err
+			}
+			secs, err := strconv.Atoi(minsIdle[2])
+			if err != nil {
+				return false, err
+			}
+			if 60*mins+secs < threshold {
+				return true, nil
+			}
+		case len(secsIdle) == 2:
+			secs, err := strconv.Atoi(secsIdle[1])
+			if err != nil {
+				return false, err
+			}
+			if secs < threshold {
+				return true, nil
+			}
+		default:
+			return false, fmt.Errorf("unexpected idle string %s", idleStr)
+		}
+	}
+
+	return false, nil
 }

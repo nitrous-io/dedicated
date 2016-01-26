@@ -1082,6 +1082,48 @@ func (p *DockerProvider) Version() (string, error) {
 	return version, nil
 }
 
+func (p *DockerProvider) Activity(threshold int) (bool, error) {
+	cnrs, err := p.client.ListContainers(dockerclient.ListContainersOptions{All: false})
+	if err != nil {
+		return false, err
+	}
+	for _, cnr := range cnrs {
+		container, err := p.inspectContainer(cnr.ID)
+		if err != nil {
+			return false, err
+		}
+		username, ok := p.appUser(container)
+		if !ok { // containers with non-nitrous images won't be considered active
+			continue
+		}
+		createOpts := dockerclient.CreateExecOptions{
+			AttachStdout: true,
+			Cmd:          []string{"w", "--no-header", username},
+			Container:    container.ID,
+		}
+		ex, err := p.client.CreateExec(createOpts)
+		if err != nil {
+			return false, err
+		}
+		out := &bytes.Buffer{}
+		startOpts := dockerclient.StartExecOptions{
+			ErrorStream:  out,
+			OutputStream: out,
+		}
+		if err := p.client.StartExec(ex.ID, startOpts); err != nil {
+			return false, err
+		}
+		active, err := parsers.ParseWOutput(out.String(), username, threshold)
+		if err != nil {
+			return false, err
+		}
+		if active {
+			return true, nil
+		}
+	}
+	return false, nil
+}
+
 type authconfig struct {
 	Auth  string `json:"auth"`
 	Email string `json:"email"`

@@ -32,4 +32,6 @@ type Config struct {
 	Listen []HostAddress `json:"listen"`
 
 	ProfileDumpFolder string `json:"profile_dump_folder"` // Folder for CPU profiling
+
+	IdleThreshold int `json:"idle_threshold"` // number of seconds a console is idle before deeming host inactive
 }

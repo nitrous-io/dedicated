@@ -125,7 +125,7 @@ func (s *Server) features(w http.ResponseWriter, r *http.Request) {
 
 func (s *Server) ping(w http.ResponseWriter, r *http.Request) {
 	go func() {
-		s.notifyWebhook(map[string]interface{}{
+		s.NotifyWebhook(map[string]interface{}{
 			"event": "ping",
 		})
 	}()
