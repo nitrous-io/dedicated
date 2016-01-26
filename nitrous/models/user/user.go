@@ -8,6 +8,7 @@ import (
 	"net/mail"
 	"net/url"
 	"regexp"
+	"strconv"
 	"strings"
 	"time"
 
@@ -597,6 +598,50 @@ func (u *User) GenerateConfirmationURL(d db.QueryReceiver) (*url.URL, error) {
 		Path:     "/app/",
 		Fragment: fmt.Sprintf("/confirm-email?token=%s", u.ConfirmationToken.String),
 	}, nil
+}
+
+func (u *User) SendUsageNoticeEmail(d db.QueryReceiver, hour int64) error {
+	var hoursRemaining string
+	if hour > 1 {
+		hoursRemaining = strconv.FormatInt(hour, 10) + " hours"
+	} else {
+		hoursRemaining = strconv.FormatInt(hour, 10) + " hour"
+	}
+	usageQuotaInHour := u.UsageQuota.Int64 / 60 / 60
+	hoursUsed := usageQuotaInHour - hour
+	usageQuotaNextRestoredAt := u.UsageQuotaRestoredAt.Time.Add(time.Duration(u.UsageQuotaPeriod.Int64) * time.Second)
+	tmplData := struct {
+		Name                     string
+		HoursRemaining           string
+		HoursUsed                int64
+		UsageQuotaNextRestoredAt string
+		UsageQuotaInHour         int64
+		UsageQuotaPeriod         int64
+	}{
+		u.DisplayName(),
+		hoursRemaining,
+		hoursUsed,
+		usageQuotaNextRestoredAt.Format("2 Jan 3:04PM GMT"),
+		usageQuotaInHour,
+		u.UsageQuotaPeriod.Int64 / 60 / 60 / 24,
+	}
+
+	htmlTmpl := usageNoticeEmailHtmlTemplate
+	txtTmpl := usageNoticeEmailTxtTemplate
+	subject := fmt.Sprintf("Your free Nitrous workstation: %s remaining this month", hoursRemaining)
+	from := envvars.SupportEmail
+	to := (&mail.Address{Name: u.DisplayName(), Address: u.Email}).String()
+
+	htmlBuf := bytes.NewBuffer(nil)
+	if err := htmlTmpl.Execute(htmlBuf, tmplData); err != nil {
+		return err
+	}
+	txtBuf := bytes.NewBuffer(nil)
+	if err := txtTmpl.Execute(txtBuf, tmplData); err != nil {
+		return err
+	}
+
+	return Mailer.SendMail(from, []string{to}, []string{from}, nil, from, subject, txtBuf.String(), htmlBuf.String())
 }
 
 func (u *User) SendConfirmationEmail(d db.QueryReceiver, newUser bool) error {

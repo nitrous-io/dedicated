@@ -1918,6 +1918,60 @@ var _ = Describe("models/user", func() {
 		})
 	})
 
+	Describe("SendUsageNoticeEmail", func() {
+		var (
+			u          *user.User
+			fakeMailer *test.FakeMailer
+			origMailer mailer.Mailer
+		)
+
+		BeforeEach(func() {
+			origMailer = user.Mailer
+			fakeMailer = &test.FakeMailer{}
+			user.Mailer = fakeMailer
+
+			u = &user.User{
+				Username: "qux",
+				Name:     "quxboy",
+				Password: "123456",
+				Email:    "qux@example.com",
+			}
+			err := test.WrapInTransaction(db, u.Insert)
+			Expect(err).To(BeNil())
+			envvars.WebHostname = "nitrous.example"
+		})
+
+		AfterEach(func() {
+			user.Mailer = origMailer
+		})
+
+		It("sends 5 hours usage remaining notice email", func() {
+			err := u.SendUsageNoticeEmail(db, 5)
+			Expect(err).To(BeNil())
+
+			Expect(fakeMailer.SendMailCalled).To(BeTrue())
+			Expect(fakeMailer.From).To(Equal(envvars.SupportEmail))
+			Expect(fakeMailer.Tos).To(Equal([]string{"\"quxboy\" <qux@example.com>"}))
+			Expect(fakeMailer.ReplyTo).To(Equal(envvars.SupportEmail))
+			Expect(fakeMailer.Subject).To(Equal("Your free Nitrous workstation: 5 hours remaining this month"))
+			Expect(fakeMailer.Body).To(ContainSubstring("Hello quxboy!"))
+			Expect(fakeMailer.HTML).To(ContainSubstring("<h3>Hello quxboy!</h3>"))
+		})
+
+		It("sends 1 hour usage remaining notice email", func() {
+			err := u.SendUsageNoticeEmail(db, 1)
+			Expect(err).To(BeNil())
+
+			Expect(fakeMailer.SendMailCalled).To(BeTrue())
+			Expect(fakeMailer.From).To(Equal(envvars.SupportEmail))
+			Expect(fakeMailer.Tos).To(Equal([]string{"\"quxboy\" <qux@example.com>"}))
+			Expect(fakeMailer.ReplyTo).To(Equal(envvars.SupportEmail))
+			Expect(fakeMailer.Subject).To(Equal("Your free Nitrous workstation: 1 hour remaining this month"))
+			Expect(fakeMailer.Body).To(ContainSubstring("Hello quxboy!"))
+			Expect(fakeMailer.HTML).To(ContainSubstring("<h3>Hello quxboy!</h3>"))
+		})
+	})
+
 	Describe("SendConfirmationEmail", func() {
 		var (
 			u          *user.User
