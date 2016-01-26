@@ -1,9 +1,17 @@
+// The hostshutdown command stops free hosts that have been inactive for X
+// minutes.
+//
+// This is mostly to control our hosting costs by reducing the amount of EC2
+// compute time when users are not actually using their hosts.
 package main
 
 import (
 	"fmt"
 	"net/http"
+	"os"
+	"os/signal"
 	"sync"
+	"syscall"
 	"time"
 
 	"github.com/Sirupsen/logrus"
@@ -15,9 +23,7 @@ import (
 	"github.com/nitrous-io/dedicated/pkg/uuid"
 )
 
-const (
-	nWorkers = 4
-)
+const nWorkers = 4
 
 var (
 	checkInterval time.Duration = 5 * time.Second
@@ -30,16 +36,14 @@ func init() {
 }
 
 func main() {
-	var wg sync.WaitGroup
-
-	logrus.Infof("starting host shutdown service with %d workers", nWorkers)
+	logrus.Infof("Starting host shutdown service with %d workers", nWorkers)
 	dbURL := envvars.NitrousPgUrl
 	if dbURL == "" {
-		logrus.Fatal(envvars.DBEnvVar, "is not defined")
+		logrus.Fatalf("%v is not defined", envvars.DBEnvVar)
 	}
 	dbConn, err := db.NewDatabase(dbURL)
 	if err != nil {
-		logrus.Fatalf("db.NewDatabase() failed with '%s'", err)
+		logrus.Fatalf("failed to connect to database, err: %v", err)
 	}
 
 	if envvars.WebHostname == "" {
@@ -52,26 +56,55 @@ func main() {
 
 	err = dbConn.QueryRow(`SELECT id FROM users WHERE username = $1`, envvars.ProvisionerUser).Scan(&initiatorID)
 	if err != nil {
-		logrus.Fatalf("Failed to locate the ID of the PROVISIONER_USER. Err: '%s'", err)
+		logrus.Fatalf("failed to locate the ID of the PROVISIONER_USER, err: %v", err)
 	}
 
+	var wg sync.WaitGroup
 	hostsCh := make(chan *host.Host)
 	for i := 0; i < nWorkers; i++ {
 		go worker(dbConn, &wg, hostsCh)
 	}
 
-	ticker := time.NewTicker(checkInterval)
-	for _ = range ticker.C {
-		hosts, err := host.FindAllIdleForAutoShutdown(dbConn)
-		if err != nil {
-			logrus.Fatalf("failed to lookup idle and free hosts, err: %v", err)
+	ch := make(chan os.Signal, 1)
+	signal.Notify(ch, syscall.SIGTERM, syscall.SIGINT)
+
+	stop := make(chan struct{})
+	stopped := make(chan struct{})
+	go func() {
+		ticker := time.NewTicker(checkInterval)
+		defer ticker.Stop()
+		for {
+			select {
+			case <-ticker.C:
+				hosts, err := host.FindAllIdleAndFree(dbConn)
+				if err != nil {
+					logrus.Fatalf("failed to lookup idle and free hosts, err: %v", err)
+				}
+
+				for _, hst := range hosts {
+					wg.Add(1)
+					hostsCh <- hst
+				}
+				wg.Wait()
+			case <-stop:
+				close(stopped)
+				return
+			}
 		}
 
-		for _, hst := range hosts {
-			wg.Add(1)
-			hostsCh <- hst
-		}
-		wg.Wait()
+		close(stopped)
+	}()
+
+	sig := <-ch
+	signal.Stop(ch)
+	logrus.Infof("signal received: %v", sig)
+	close(stop)
+
+	select {
+	case <-stopped: // Wait for goroutine to exit cleanly.
+		logrus.Info("Host shutdown service exiting.")
+	case <-time.After(time.Minute):
+		logrus.Error("Timed out waiting for host shutdown service to clean up, exiting anyway.")
 	}
 }
 
