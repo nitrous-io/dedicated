@@ -6,6 +6,7 @@
 package main
 
 import (
+	"errors"
 	"fmt"
 	"net/http"
 	"os"
@@ -19,6 +20,7 @@ import (
 	"github.com/nitrous-io/dedicated/nitrous/envvars"
 	"github.com/nitrous-io/dedicated/nitrous/hostcontrol"
 	"github.com/nitrous-io/dedicated/nitrous/models/host"
+	"github.com/nitrous-io/dedicated/nitrous/models/user"
 	"github.com/nitrous-io/dedicated/nitrous/pkg/constants"
 	"github.com/nitrous-io/dedicated/pkg/uuid"
 )
@@ -76,14 +78,45 @@ func main() {
 		for {
 			select {
 			case <-ticker.C:
-				hosts, err := host.FindAllIdleAndFree(dbConn)
+				users, err := user.FindAllWithFreeHost(dbConn)
+				if err != nil {
+					logrus.Fatalf("failed to lookup users with free hosts, err: %v", err)
+				}
+
+				for _, u := range users {
+					if u.HasUsageRemaining(dbConn) {
+						continue
+					}
+
+					hosts, err := host.FindAllByUser(dbConn, u.ID)
+					if err != nil {
+						logrus.Fatalf("failed to lookup user's hosts, err: %v", err)
+					}
+
+					for _, h := range hosts {
+						// Ignore hosts that are not running or paid.
+						if h.State != host.StateRunning || !h.Free {
+							continue
+						}
+
+						logrus.Infof("Shutting down host %d whose free usage has been depleted", h.ID)
+						wg.Add(1)
+						hostsCh <- h
+					}
+				}
+				// Wait for all of the free hosts whose free usage have been
+				// depleted to shutdown.
+				wg.Wait()
+
+				hosts, err := host.FindAllIdleForAutoShutdown(dbConn)
 				if err != nil {
 					logrus.Fatalf("failed to lookup idle and free hosts, err: %v", err)
 				}
 
-				for _, hst := range hosts {
+				for _, h := range hosts {
+					logrus.Infof("Shutting down idle host %d", h.ID)
 					wg.Add(1)
-					hostsCh <- hst
+					hostsCh <- h
 				}
 				wg.Wait()
 			case <-stop:
@@ -111,8 +144,7 @@ func main() {
 func worker(dbConn *db.Database, wg *sync.WaitGroup, ch chan *host.Host) {
 	for h := range ch {
 		logrus.Infof("worker: received host %d", h.ID)
-		err := stopHost(dbConn, h)
-		if err != nil {
+		if err := stopHost(dbConn, h); err != nil {
 			logrus.Errorf("worker: error stopping host: %v", err)
 		} else {
 			logrus.Infof("worker: stopped host %d", h.ID)
@@ -136,16 +168,12 @@ func stopHost(dbConn *db.Database, hst *host.Host) error {
 		return fmt.Errorf("host %d is already locked by another process", hst.ID)
 	}
 
-	// Confirm that host is still eligible for shutdown - user might have used
-	// the host since the time the last query was ran, and we don't want to
-	// incorrectly shutdown the host at this point.
-	idle, err := hst.IsIdle(dbConn)
-	if err != nil {
-		return fmt.Errorf("error confirming that host %d is still idle, err: %v", hst.ID, err)
-	}
-
-	if !idle {
-		return fmt.Errorf("host %d is no longer idle", hst.ID)
+	// Confirm that host is still eligible for shutdown:
+	// 1. user might have used the host since the time the query was ran, or
+	// 2. user might have had their free usage quota replenished.
+	// We don't want to incorrectly shutdown the host if either of these occur.
+	if err := canShutdown(dbConn, hst); err != nil {
+		return fmt.Errorf("host %d is no longer eligible for shutdown, err: %v", hst.ID, err)
 	}
 
 	logrus.Infof("Starting shutdown on host %d for user %d", hst.ID, hst.UserID)
@@ -161,4 +189,28 @@ func stopHost(dbConn *db.Database, hst *host.Host) error {
 	logrus.Infof("Started shutdown on host %d for user %d after %s", hst.ID, hst.UserID, time.Since(start))
 
 	return nil
+}
+
+func canShutdown(dbConn *db.Database, hst *host.Host) error {
+	idle, err := hst.IsIdle(dbConn)
+	if err != nil {
+		return err
+	}
+	if idle {
+		return nil
+	}
+
+	if !hst.Free {
+		return errors.New("host is neither free nor idle")
+	}
+
+	u, err := user.FindByID(dbConn, hst.UserID)
+	if err != nil {
+		return err
+	}
+	if !u.HasUsageRemaining(dbConn) {
+		return nil
+	}
+
+	return errors.New("non-idle host's user still has free usage remaining")
 }
