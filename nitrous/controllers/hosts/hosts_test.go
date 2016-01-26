@@ -1503,7 +1503,7 @@ var _ = Describe("controllers/hosts", func() {
 				Expect(err).To(BeNil())
 				Expect(j.Host.ID).To(Equal(hs.H.ID))
 				Expect(j.Host.Slug).To(Equal(hs.H.Slug))
-				Expect(j.Host.IPAddress).To(Equal("127.0.0.1"))
+				Expect(j.Host.IPAddress).To(Equal("1.2.3.4"))
 				Expect(j.Host.FreighterdPort).To(Equal(int64(65333)))
 				Expect(j.Host.Size).To(Equal(""))
 				Expect(j.Host.State).To(Equal(host.StateRunning))
@@ -1610,7 +1610,7 @@ var _ = Describe("controllers/hosts", func() {
 					}
 					err = json.NewDecoder(res.Body).Decode(&j)
 					Expect(err).To(BeNil())
-					Expect(j.Host.IPAddress).To(Equal("127.0.0.1"))
+					Expect(j.Host.IPAddress).To(Equal("1.2.3.4"))
 					Expect(j.Host.MaxContainers).To(Equal(int64(1)))
 				}
 			})
@@ -1696,7 +1696,7 @@ var _ = Describe("controllers/hosts", func() {
 			tok = t
 		})
 
-		It("should send the UUID headers", func() {
+		It("sends the request UUID header to hostbuilder", func() {
 			hb := hostbuilderclient.NewHostbuilder("www.example.com")
 			rt := &test.FakeRoundTripper{
 				Message: stopOkResponse,
@@ -1711,7 +1711,7 @@ var _ = Describe("controllers/hosts", func() {
 			Expect(req.Header.Get(constants.NitrousUUIDHeader)).ToNot(BeEmpty())
 		})
 
-		It("sends the correct payload to hostbuilder", func() {
+		It("sends a payload containing the host's details to hostbuilder", func() {
 			hb := hostbuilderclient.NewHostbuilder("www.example.com")
 			rt := &test.FakeRoundTripper{
 				Message: stopOkResponse,
@@ -1948,7 +1948,7 @@ var _ = Describe("controllers/hosts", func() {
 			Expect(err).To(BeNil())
 		})
 
-		It("should send the UUID headers", func() {
+		It("sends the request UUID header to hostbuilder", func() {
 			hb := hostbuilderclient.NewHostbuilder("www.example.com")
 			rt := &test.FakeRoundTripper{
 				Message: okResponse,
@@ -1963,7 +1963,7 @@ var _ = Describe("controllers/hosts", func() {
 			Expect(req.Header.Get(constants.NitrousUUIDHeader)).ToNot(BeEmpty())
 		})
 
-		It("sends the correct payload to hostbuilder", func() {
+		It("sends a payload containing the host's details to hostbuilder", func() {
 			hb := hostbuilderclient.NewHostbuilder("www.example.com")
 			rt := &test.FakeRoundTripper{
 				Message: okResponse,
@@ -1993,7 +1993,6 @@ var _ = Describe("controllers/hosts", func() {
 					Message: okResponse,
 					Status:  http.StatusOK,
 				})
-
 				hosts.HostbuilderClient = hb
 
 				hs.H.State = host.StateStopped
@@ -2049,7 +2048,17 @@ var _ = Describe("controllers/hosts", func() {
 				Expect(h.State).To(Equal(host.StateRunning))
 			})
 
-			It("responds with the host and status OK", func() {
+			It("updates the host's IP address and freighterd port to values from the hostbuilder response", func() {
+				doRequest(hs.H.Slug, t.Token, nil)
+
+				h, err := host.Find(db, hs.U, hs.H.Slug)
+				Expect(err).To(BeNil())
+
+				Expect(h.IPAddress.String).To(Equal("1.2.3.4"))
+				Expect(h.FreighterdPort.Int64).To(Equal(int64(65333)))
+			})
+
+			It("responds with HTTP 200 OK and the serialized host", func() {
 				doRequest(hs.H.Slug, t.Token, nil)
 				Expect(res.Code).To(Equal(http.StatusOK))
 
@@ -2060,7 +2069,7 @@ var _ = Describe("controllers/hosts", func() {
 				Expect(err).To(BeNil())
 				Expect(j.Host.ID).To(Equal(hs.H.ID))
 				Expect(j.Host.Slug).To(Equal(hs.H.Slug))
-				Expect(j.Host.IPAddress).To(Equal("127.0.0.1"))
+				Expect(j.Host.IPAddress).To(Equal("1.2.3.4"))
 				Expect(j.Host.FreighterdPort).To(Equal(int64(65333)))
 				Expect(j.Host.Size).To(Equal(""))
 				Expect(j.Host.State).To(Equal(host.StateRunning))
@@ -2296,15 +2305,6 @@ var _ = Describe("controllers/hosts", func() {
 			})
 		})
 
-		Context("oauth token failure modes", func() {
-			BeforeEach(func() {
-				authTokenInputs.Path = "/api/v0/hosts/foo/restart"
-				authTokenInputs.Method = "POST"
-			})
-
-			test.ItRequiresAuthToken(&authTokenInputs)
-		})
-
 		It("should not be accessible by a collaborator", func() {
 			_, t := createCollaborator(hs)
 
@@ -2502,6 +2502,15 @@ var _ = Describe("controllers/hosts", func() {
 				})
 			})
 		})
+
+		Context("oauth token failure modes", func() {
+			BeforeEach(func() {
+				authTokenInputs.Path = "/api/v0/hosts/foo/restart"
+				authTokenInputs.Method = "POST"
+			})
+
+			test.ItRequiresAuthToken(&authTokenInputs)
+		})
 	})
 
 	Describe("POST /api/v0/hosts/{slug}/soft_restart", func() {
@@ -2595,7 +2604,7 @@ var _ = Describe("controllers/hosts", func() {
 				Expect(err).To(BeNil())
 				Expect(j.Host.ID).To(Equal(hs.H.ID))
 				Expect(j.Host.Slug).To(Equal(hs.H.Slug))
-				Expect(j.Host.IPAddress).To(Equal("127.0.0.1"))
+				Expect(j.Host.IPAddress).To(Equal("1.2.3.4"))
 				Expect(j.Host.FreighterdPort).To(Equal(int64(65333)))
 				Expect(j.Host.Size).To(Equal(""))
 				Expect(j.Host.State).To(Equal(host.StateRunning))
@@ -3024,7 +3033,7 @@ var _ = Describe("controllers/hosts", func() {
 
 var (
 	stopOkResponse = `{"state": "stopped", "ip_address": ""}`
-	okResponse     = `{"freighterd_port":65333,"ip_address":"127.0.0.1","id":"i-abcde"}`
+	okResponse     = `{"freighterd_port":65333,"ip_address":"1.2.3.4","id":"i-abcde"}`
 	errorResponse  = `{"error":"some error occurred"}`
 )
 

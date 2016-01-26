@@ -375,7 +375,8 @@ func Restart(h *host.Host, env *middleware.Env, w http.ResponseWriter, r *http.R
 	h.FreighterdPort = sql.NullInt64{int64(info.FreighterdPort), true}
 
 	if err := db.WithTransaction(func(tx *sqlx.Tx) error {
-		if err := h.Update(tx); err != nil {
+		columnsToUpdate := []string{"state", "ip_address", "freighterd_port"}
+		if err := h.UpdateSpecifiedColumns(tx, columnsToUpdate); err != nil {
 			return err
 		}
 		return hosttransition.Record(tx, h, host.StateRestarting, *h.UpdatedAt, env.User.ID)
