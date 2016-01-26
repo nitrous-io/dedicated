@@ -557,7 +557,45 @@ func (h *Host) Delete(d db.QueryReceiver) error {
 }
 
 func (h *Host) Touch(d db.QueryReceiver) error {
-	return h.UpdateColumn(d, "last_pinged_at", pq.NullTime{time.Now(), true})
+	now := time.Now()
+
+	if !h.Free || !h.LastPingedAt.Valid {
+		return h.UpdateColumn(d, "last_pinged_at", pq.NullTime{now, true})
+	}
+
+	// At this point, the host is free and has previously been pinged.
+	// We count the time the host was used since the last ping, and decrement
+	// the user's usage remaining time.
+	var secondsUsed int64
+	if err := d.QueryRowx(`SELECT SUM(
+		CEILING(
+			CAST(
+				EXTRACT(
+					EPOCH FROM
+						LEAST(COALESCE(ended_at, $3), $3) - GREATEST(created_at, $2)
+				)
+				AS integer
+			)
+		))
+		FROM host_transitions
+		WHERE host_id = $1
+			AND state = 'running'
+			AND (created_at, COALESCE(ended_at, $3)) OVERLAPS ($2, $3);
+		`, h.ID, h.LastPingedAt.Time, now).Scan(&secondsUsed); err != nil {
+		return err
+	}
+
+	if secondsUsed > 0 {
+		u, err := user.FindByID(d, h.UserID)
+		if err != nil {
+			return err
+		}
+		if err := u.DecrementUsageRemaining(d, secondsUsed); err != nil {
+			return err
+		}
+	}
+
+	return h.UpdateColumn(d, "last_pinged_at", pq.NullTime{now, true})
 }
 
 func (h *Host) CanCreateMoreContainers(d db.QueryReceiver, u *user.User) (bool, error) {

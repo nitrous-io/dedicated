@@ -108,8 +108,14 @@ type User struct {
 	BannedAt   pq.NullTime   `db:"banned_at"`
 	BannedByID sql.NullInt64 `db:"banned_by_id"`
 
-	MaxRunningTime sql.NullInt64 `db:"max_running_time"` // FIXME: DEPRECATED
-	RefreshPeriod  sql.NullInt64 `db:"refresh_period"`   // FIXME: DEPRECATED
+	// UsageQuota is the number of seconds that a user is allowed to use a free
+	// host.
+	UsageQuota sql.NullInt64 `db:"usage_quota"`
+	// UsageQuotaPeriod is the number of seconds after which the free host usage
+	// quota is reset to full.
+	UsageQuotaPeriod     sql.NullInt64 `db:"usage_quota_period"`
+	UsageRemaining       sql.NullInt64 `db:"usage_remaining"`
+	UsageQuotaRestoredAt pq.NullTime   `db:"usage_quota_restored_at"`
 
 	CreatedByClientID sql.NullInt64 `db:"created_by_client_id"`
 
@@ -131,6 +137,34 @@ func (u *User) BillingProfile(d db.QueryReceiver) (*billingprofile.BillingProfil
 	}
 
 	return u.billingProfile, nil
+}
+
+// RestoreUsageQuotas restores the usage_remaining (to the usage_quota value)
+// for all users who:
+// 1. have a free host, and
+// 2. had their free usage quota last restored earlier than their usage quota
+//    period.
+func RestoreUsageQuotas(d db.QueryReceiver, when time.Time) (int64, error) {
+	res, err := d.Exec(`UPDATE users
+		SET
+			usage_remaining = usage_quota,
+			usage_quota_restored_at = now()
+		WHERE id IN (
+			SELECT users.id FROM
+			users JOIN hosts
+				ON users.id = hosts.user_id
+			WHERE
+				hosts.free = true
+				AND hosts.terminated_at IS NULL
+				AND (usage_quota_restored_at
+					+ (INTERVAL '1 second' * usage_quota_period))
+						<= $1 -- (last restore date + quota period) is before "now"
+		)`, when)
+	if err != nil {
+		return 0, err
+	}
+	rowsAffected, _ := res.RowsAffected()
+	return rowsAffected, nil
 }
 
 func FindByID(d db.QueryReceiver, id int64) (*User, error) {
@@ -271,10 +305,14 @@ func (u *User) Update(d db.QueryReceiver) error {
 		return err
 	}
 	nstmt, err := d.PrepareNamed(`UPDATE users
-		SET (name, email, encrypted_password, unconfirmed_email, confirmation_sent_at,
-			confirmation_token, updated_at)
-		= (:name, :email, :encrypted_password, :unconfirmed_email, :confirmation_sent_at,
-			:confirmation_token, now())
+		SET (name, email, encrypted_password,
+			unconfirmed_email, confirmation_sent_at, confirmation_token,
+			usage_quota_restored_at,
+			updated_at)
+		= (:name, :email, :encrypted_password,
+			:unconfirmed_email, :confirmation_sent_at, :confirmation_token,
+			:usage_quota_restored_at,
+			now())
 		WHERE id = :id
 		RETURNING *;`)
 	if err != nil {
@@ -309,6 +347,13 @@ func (u *User) UpdatePhoneAuthed(d db.QueryReceiver, b bool) error {
 		SET phone_authed = $1, updated_at = now()
 		WHERE id = $2
 		RETURNING *`, b, u.ID).StructScan(u)
+}
+
+func (u *User) DecrementUsageRemaining(d db.QueryReceiver, secondsUsed int64) error {
+	return d.QueryRowx(`UPDATE users
+		SET usage_remaining = usage_remaining - $1, updated_at = now()
+		WHERE id = $2
+		RETURNING *`, secondsUsed, u.ID).StructScan(u)
 }
 
 func (u *User) Validate() error {

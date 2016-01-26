@@ -1277,6 +1277,50 @@ var _ = Describe("POST /api/v0/hosts", func() {
 					Expect(res.Code).To(Equal(http.StatusAccepted))
 				})
 
+				It("sets the user's usage_quota_restored_at time to the host creation time", func() {
+					_, err := db.Exec(`UPDATE plans SET price=0;`)
+					Expect(err).To(BeNil())
+
+					ch := svr.Events.Subscribe(u.Topic())
+					defer svr.Events.Unsubscribe(ch, u.Topic())
+
+					res := doRequest(params)
+					Expect(res.Code).To(Equal(http.StatusAccepted))
+
+					// Wait for host to be created by listening for the "host
+					// created" event.
+					finished := make(chan struct{})
+					go func() {
+						for msg := range ch {
+							evt, ok := msg.(*controllers.Event)
+							if !ok {
+								continue
+							}
+							if evt.Name == controllers.EventHostCreated {
+								close(finished)
+							}
+						}
+					}()
+
+					select {
+					case <-time.After(100 * time.Millisecond):
+						Fail("timeout while waiting for EventHostCreated")
+					case <-finished:
+						u, err := user.FindByID(db, u.ID)
+						Expect(err).To(BeNil())
+
+						Expect(u.UsageQuotaRestoredAt.Valid).To(BeTrue())
+
+						hosts, err := host.FindAllByUser(db, u.ID)
+						Expect(err).To(BeNil())
+						Expect(hosts).To(HaveLen(1))
+						h := hosts[0]
+						Expect(h.Free).To(BeTrue())
+
+						Expect(u.UsageQuotaRestoredAt.Time).To(Equal(*h.CreatedAt))
+					}
+				})
+
 				It("responds with error if paid plan is selected", func() {
 					res := doRequest(params)
 					Expect(res.Code).To(Equal(http.StatusForbidden))

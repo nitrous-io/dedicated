@@ -254,6 +254,7 @@ func (p *Provisioner) prepare(opts ProvisionOptions) (*preparedHost, error) {
 		MaxContainers:      sql.NullInt64{opts.Plan.MaxContainers, true},
 		AutoShutdown:       opts.Plan.AutoShutdown,
 		Size:               sql.NullString{opts.Plan.Slug, true},
+		Free:               opts.Plan.IsFree(),
 		State:              host.StateBorn,
 		OrgID:              opts.OrgID(),
 		// If the host's provider_template.config has disable_eip => true, static_ip

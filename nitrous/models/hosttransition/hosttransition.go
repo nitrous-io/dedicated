@@ -37,7 +37,7 @@ type HostUsage struct {
 	End     time.Time `db:"end_at"`
 }
 
-func FindMostRecentForHost(db *db.Database, id int64) (*HostTransition, error) {
+func FindMostRecentForHost(db db.QueryReceiver, id int64) (*HostTransition, error) {
 	ht := &HostTransition{}
 	err := db.Get(ht, `SELECT * FROM host_transitions WHERE host_transitions.host_id = $1 ORDER BY created_at DESC LIMIT 1`, id)
 	if err != nil {
@@ -175,9 +175,10 @@ func CurrentMonthUsageForUser(d *db.Database, userID int64, now time.Time) (int6
 	return usage, hosts, nil
 }
 
-// Optional single initiatorID argument to record if the
-// user initiating the host transition is an admin user
-// instead of the host owner.
+// Record saves a host transition, recording its previous state, new state,
+// relevant start/end times, and an optional initiatorID that can be used to
+// specify the ID of the user who intiated the transition (defaults to owner of
+// host).
 func Record(tx *sqlx.Tx, h *host.Host, previousState string, enactedAt time.Time, initiatorID int64) error {
 	ht := &HostTransition{
 		HostID:      h.ID,
@@ -185,27 +186,21 @@ func Record(tx *sqlx.Tx, h *host.Host, previousState string, enactedAt time.Time
 		CreatedAt:   &enactedAt,
 		InitiatorID: sql.NullInt64{h.UserID, true},
 	}
-
 	if initiatorID > 0 {
-		ht.InitiatorID = sql.NullInt64{initiatorID, true}
+		ht.InitiatorID.Int64 = initiatorID
 	}
-
 	if previousState != "" {
 		ht.PreviousState = sql.NullString{previousState, true}
 	}
 
-	var prevId int64
-	err := tx.QueryRowx(
-		`SELECT id FROM host_transitions WHERE host_transitions.host_id = $1 ORDER BY created_at DESC LIMIT 1`,
-		h.ID).Scan(&prevId)
-
+	prevTransition, err := FindMostRecentForHost(tx, h.ID)
 	if err != nil {
 		if err != sql.ErrNoRows {
 			return err
 		}
 	} else {
-		// set previous
-		_, err := tx.Exec(`UPDATE host_transitions SET ended_at = $1 WHERE id = $2;`, ht.CreatedAt, prevId)
+		// Set ended_at of previous transition to created_at of new transition.
+		_, err := tx.Exec(`UPDATE host_transitions SET ended_at = $1 WHERE id = $2;`, ht.CreatedAt, prevTransition.ID)
 		if err != nil {
 			return err
 		}
@@ -223,19 +218,21 @@ func Record(tx *sqlx.Tx, h *host.Host, previousState string, enactedAt time.Time
 		`INSERT INTO host_transitions (host_id, initiator_id, previous_state, state, metadata, created_at)
 		VALUES (:host_id, :initiator_id, :previous_state, :state, :metadata, :created_at)`,
 		ht)
-
 	if err != nil {
 		return err
 	}
 
+	// If the new host state is "running", set its "last running" time and mark
+	// it as having been active (since we automatically terminate free hosts
+	// that have been idle).
 	if h.State == host.StateRunning {
 		h.LastRunningAt = pq.NullTime{time.Now(), true}
 		h.IdleNoticesSent = host.IDLE_NOTICES_NO_WARNING
 		h.IdleNextCheck = pq.NullTime{Valid: false}
 		nstmt, err := tx.PrepareNamed(`UPDATE hosts
-                        SET last_running_at = :last_running_at,
-                        idle_notices_sent = :idle_notices_sent,
-                        idle_next_check = :idle_next_check
+			SET last_running_at = :last_running_at,
+				idle_notices_sent = :idle_notices_sent,
+				idle_next_check = :idle_next_check
 			WHERE id = :id RETURNING last_running_at;`)
 		if err != nil {
 			return err

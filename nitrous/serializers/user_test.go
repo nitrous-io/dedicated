@@ -37,6 +37,7 @@ var _ = Describe("user serializer", func() {
 			PhoneCountryCode:  sql.NullString{"65", true},
 			PhoneAuthed:       false,
 			MaxContainers:     sql.NullInt64{99, true},
+			UsageRemaining:    sql.NullInt64{3600, true},
 			CreatedAt:         &createdAt,
 			UpdatedAt:         &updatedAt,
 		}
@@ -61,6 +62,7 @@ var _ = Describe("user serializer", func() {
 				"phone_country_code": "65",
 				"phone_authed": false,
 				"max_containers": 99,
+				"usage_remaining": 3600,
 				"created_at": "2013-11-01T00:00:00Z",
 				"updated_at": "2013-11-02T00:00:00Z"
 			}`))
@@ -83,6 +85,7 @@ var _ = Describe("user serializer", func() {
 				"phone_country_code": "65",
 				"phone_authed": false,
 				"max_containers": 99,
+				"usage_remaining": 3600,
 				"created_at": "2013-11-01T00:00:00Z",
 				"updated_at": "2013-11-02T00:00:00Z"
 			}`))
@@ -106,6 +109,7 @@ var _ = Describe("user serializer", func() {
 				"phone": "88884444",
 				"phone_country_code": "65",
 				"phone_authed": false,
+				"usage_remaining": 3600,
 				"max_containers": 99,
 				"created_at": "2013-11-01T00:00:00Z",
 				"updated_at": "2013-11-02T00:00:00Z"
@@ -129,6 +133,7 @@ var _ = Describe("user serializer", func() {
 				"phone": "88884444",
 				"phone_country_code": "65",
 				"phone_authed": false,
+				"usage_remaining": 3600,
 				"created_at": "2013-11-01T00:00:00Z",
 				"updated_at": "2013-11-02T00:00:00Z"
 			}`))
@@ -151,6 +156,7 @@ var _ = Describe("user serializer", func() {
 				"phone": "88884444",
 				"phone_country_code": "65",
 				"phone_authed": false,
+				"usage_remaining": 3600,
 				"max_containers": 99,
 				"can_use_desktop_app": false,
 				"created_at": "2013-11-01T00:00:00Z",
@@ -175,6 +181,7 @@ var _ = Describe("user serializer", func() {
 				"phone": "88884444",
 				"phone_country_code": "65",
 				"phone_authed": false,
+				"usage_remaining": 3600,
 				"max_containers": 99,
 				"can_use_desktop_app": true,
 				"created_at": "2013-11-01T00:00:00Z",
@@ -243,6 +250,7 @@ var _ = Describe("user serializer", func() {
 				"phone": "88884444",
 				"phone_country_code": "65",
 				"phone_authed": false,
+				"usage_remaining": 3600,
 				"max_containers": 99,
 				"created_at": "2013-11-01T00:00:00Z",
 				"updated_at": "2013-11-02T00:00:00Z"
