@@ -1579,6 +1579,101 @@ var _ = Describe("models/user", func() {
 		})
 	})
 
+	Describe("FindAllByUsageAndNoticeSent()", func() {
+		var (
+			u1, u2, u3, u4, u5 *user.User
+		)
+
+		BeforeEach(func() {
+			u1 = &user.User{
+				Username: "qux1",
+				Password: "123456",
+				Email:    "qux1@example.com",
+			}
+			err := test.WrapInTransaction(db, u1.Insert)
+			Expect(err).To(BeNil())
+			_, err = db.Exec(`
+				UPDATE users SET usage_remaining = $1, usage_notices_sent = $2
+				WHERE id = $3;
+			`, 180000, user.USAGE_NOTICES_NO_WARNING, u1.ID)
+			Expect(err).To(BeNil())
+
+			u2 = &user.User{
+				Username: "qux2",
+				Password: "123456",
+				Email:    "qux2@example.com",
+			}
+			err = test.WrapInTransaction(db, u2.Insert)
+			Expect(err).To(BeNil())
+			_, err = db.Exec(`
+				UPDATE users SET usage_remaining = $1, usage_notices_sent = $2
+				WHERE id = $3;
+			`, 14400, user.USAGE_NOTICES_NO_WARNING, u2.ID) // 4 hours
+			Expect(err).To(BeNil())
+
+			u3 = &user.User{
+				Username: "qux3",
+				Password: "123456",
+				Email:    "qux3@example.com",
+			}
+			err = test.WrapInTransaction(db, u3.Insert)
+			Expect(err).To(BeNil())
+			_, err = db.Exec(`
+				UPDATE users SET usage_remaining = $1, usage_notices_sent = $2
+				WHERE id = $3;
+			`, 14300, user.USAGE_NOTICES_NO_WARNING, u3.ID) // less than 4 hours
+			Expect(err).To(BeNil())
+
+			u4 = &user.User{
+				Username: "qux4",
+				Password: "123456",
+				Email:    "qux4@example.com",
+			}
+			err = test.WrapInTransaction(db, u4.Insert)
+			Expect(err).To(BeNil())
+			_, err = db.Exec(`
+				UPDATE users SET usage_remaining = $1, usage_notices_sent = $2
+				WHERE id = $3;
+			`, 3500, user.USAGE_NOTICES_FIRST_WARNING, u4.ID) // less than 1 hours
+			Expect(err).To(BeNil())
+
+			u5 = &user.User{
+				Username: "qux5",
+				Password: "123456",
+				Email:    "qux5@example.com",
+			}
+			err = test.WrapInTransaction(db, u5.Insert)
+			Expect(err).To(BeNil())
+			_, err = db.Exec(`
+				UPDATE users SET usage_remaining = $1, usage_notices_sent = $2
+				WHERE id = $3;
+			`, 3400, user.USAGE_NOTICES_FIRST_WARNING, u5.ID) // less than 1 hours
+			Expect(err).To(BeNil())
+		})
+
+		It("returns users that has never receive notice email and usage remaining is less than 5 hours", func() {
+			users, err := user.FindAllByUsageAndNoticeSent(db, 60*60*5, user.USAGE_NOTICES_NO_WARNING)
+			Expect(err).To(BeNil())
+			Expect(users).To(HaveLen(2))
+			Expect(users[0].Email).To(Equal("qux2@example.com"))
+			Expect(users[1].Email).To(Equal("qux3@example.com"))
+		})
+
+		It("returns users that has received one notice email and usage remaining is less than 1 hours", func() {
+			users, err := user.FindAllByUsageAndNoticeSent(db, 3600, user.USAGE_NOTICES_FIRST_WARNING)
+			Expect(err).To(BeNil())
+			Expect(users).To(HaveLen(2))
+			Expect(users[0].Email).To(Equal("qux4@example.com"))
+			Expect(users[1].Email).To(Equal("qux5@example.com"))
+		})
+
+		It("returns no user when user has received more than two notice emails", func() {
+			users, err := user.FindAllByUsageAndNoticeSent(db, 60*50, user.USAGE_NOTICES_SECOND_WARNING)
+			Expect(err).To(BeNil())
+			Expect(users).To(HaveLen(0))
+		})
+	})
+
 	Describe("ConfirmEmail", func() {
 		var (
 			u          *user.User

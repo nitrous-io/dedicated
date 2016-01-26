@@ -32,6 +32,12 @@ const resetPasswordWithin = 4 * time.Hour
 const maxConfirmationHours = 72 * time.Hour
 const maxUnconfirmedDuration = 24 * time.Hour
 
+const (
+	USAGE_NOTICES_NO_WARNING = iota
+	USAGE_NOTICES_FIRST_WARNING
+	USAGE_NOTICES_SECOND_WARNING
+)
+
 var (
 	usernameRe = regexp.MustCompile(`\A[a-z0-9][a-z0-9\-]*\z`)
 	emailRe    = regexp.MustCompile(`\A[^@\s]+@([^@\s]+\.)+[^@\s]+\z`)
@@ -224,6 +230,20 @@ func FindByConfirmationToken(d db.QueryReceiver, token string) (*User, error) {
 		return nil, err
 	}
 	return user, nil
+}
+
+func FindAllByUsageAndNoticeSent(d db.QueryReceiver, usageRemaining, noticeSent int64) ([]*User, error) {
+	users := []*User{}
+	err := d.Select(&users, `
+		SELECT * FROM users
+		WHERE usage_remaining <= $1
+		AND usage_notices_sent = $2
+		ORDER BY id
+	`, usageRemaining, noticeSent)
+	if err != nil {
+		return nil, err
+	}
+	return users, nil
 }
 
 // GetDelay returns a time.Duration based on no. of login attempts made on
