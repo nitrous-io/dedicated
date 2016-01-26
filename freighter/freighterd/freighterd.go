@@ -71,6 +71,9 @@ func main() {
 			logrus.Fatal(err)
 		}
 	}
+	if conf.IdleThreshold == 0 {
+		conf.IdleThreshold = 900 // default to 15 mins
+	}
 
 	// setup data path
 	if _, err := os.Stat(conf.DataPath); err != nil {
@@ -99,6 +102,14 @@ func main() {
 
 	ch := make(chan os.Signal)
 	signal.Notify(ch, os.Interrupt, syscall.SIGTERM, syscall.SIGUSR1, syscall.SIGUSR2)
+
+	go func() {
+		// ping every minute on activity
+		ticker := time.NewTicker(60 * time.Second)
+		for _ = range ticker.C {
+			pingIfActive(svr, prov, conf.IdleThreshold)
+		}
+	}()
 
 	for {
 		s := <-ch
@@ -133,6 +144,24 @@ func main() {
 			return
 		}
 	}
+}
+
+func pingIfActive(svr *server.Server, prov *docker.DockerProvider, threshold int) {
+	active, err := prov.Activity(threshold)
+	if err != nil {
+		logrus.Errorf("pingIfActive: failed to check activity: %v", err)
+	}
+	if !active {
+		return
+	}
+	logrus.Info("activity detected: pinging")
+	if err := svr.NotifyWebhook(map[string]interface{}{
+		"event":  "ping",
+		"source": "freighter",
+	}); err != nil {
+		logrus.Error("pingIfActive: failed to notify nitrousd: %v", err)
+	}
+	return
 }
 
 func setPid(dataPath string) int {

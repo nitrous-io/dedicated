@@ -45,6 +45,7 @@ func init() {
 			{Proto: "unix", Address: "/var/run/freighterd.sock"},
 			{Proto: "tcp", Address: "0.0.0.0:65333"},
 		},
+		IdleThreshold: 900,
 	}
 }
 
@@ -112,7 +113,7 @@ func (s *Server) Start() error {
 			data["docker_version"] = v
 		}
 
-		err := s.notifyWebhook(data)
+		err := s.NotifyWebhook(data)
 		if err != nil {
 			logrus.Errorf("failed to notify webhook, err: %v", err)
 		}
@@ -159,7 +160,7 @@ func (s *Server) tcpListener(addr string) (net.Listener, error) {
 	return l, nil
 }
 
-func (s *Server) notifyWebhook(data map[string]interface{}) error {
+func (s *Server) NotifyWebhook(data map[string]interface{}) error {
 	if s.conf.NotifyURL == "" {
 		logrus.Warn("No notify_url in config")
 		return nil
