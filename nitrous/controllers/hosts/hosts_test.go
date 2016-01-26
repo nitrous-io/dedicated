@@ -1986,6 +1986,26 @@ var _ = Describe("controllers/hosts", func() {
 			Expect(payload.Region).To(Equal("us-east-1"))
 		})
 
+		It("responds with HTTP 403 Forbidden when host is free and user has no more free host quota remaining", func() {
+			// Create a free host.
+			hs2, err := test.CreateHostStack(db, &test.HostStack{
+				H: &host.Host{Free: true, State: host.StateRunning},
+				U: u,
+			})
+			Expect(err).To(BeNil())
+
+			// Reduce usage remaining to 0.
+			err = u.DecrementUsageRemaining(db, u.UsageQuota.Int64)
+			Expect(err).To(BeNil())
+
+			doRequest(hs2.H.Slug, t.Token, nil)
+
+			Expect(res.Code).To(Equal(http.StatusForbidden))
+			errType, errDesc := test.ErrorSlug(res.Body)
+			Expect(errType).To(Equal("forbidden"))
+			Expect(errDesc).To(Equal("you cannot restart this workstation because you've exceeded your quota"))
+		})
+
 		Context("when host is not in the running state", func() {
 			It("responds with HTTP 400 Bad Request", func() {
 				hb := hostbuilderclient.NewHostbuilder("www.example.com")
