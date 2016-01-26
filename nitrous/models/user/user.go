@@ -329,11 +329,11 @@ func (u *User) Update(d db.QueryReceiver) error {
 	nstmt, err := d.PrepareNamed(`UPDATE users
 		SET (name, email, encrypted_password,
 			unconfirmed_email, confirmation_sent_at, confirmation_token,
-			usage_quota_restored_at,
+			usage_quota_restored_at, usage_notices_sent,
 			updated_at)
 		= (:name, :email, :encrypted_password,
 			:unconfirmed_email, :confirmation_sent_at, :confirmation_token,
-			:usage_quota_restored_at,
+			:usage_quota_restored_at, :usage_notices_sent,
 			now())
 		WHERE id = :id
 		RETURNING *;`)
