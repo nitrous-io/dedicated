@@ -164,6 +164,10 @@ type MockProvider struct {
 
 	VersionCalled bool
 	VersionInfo   string
+
+	ActivityCalled bool
+	ActivityActive bool
+	ActivityError  error
 }
 
 func (p *MockProvider) VerifyToken(id, token string, permissions ...string) error {
@@ -451,4 +455,9 @@ func (p *MockProvider) IsNotFoundError(err error) bool {
 func (p *MockProvider) Version() (string, error) {
 	p.VersionCalled = true
 	return p.VersionInfo, nil
+}
+
+func (p *MockProvider) Activity(threshold int) (bool, error) {
+	p.ActivityCalled = true
+	return p.ActivityActive, p.ActivityError
 }
