@@ -241,7 +241,7 @@ func Start(h *host.Host, env *middleware.Env, w http.ResponseWriter, r *http.Req
 	db := env.DB
 
 	origState := h.State
-	if err := hostcontrol.RecordNewState(db, h, host.StateStarting, env.User.ID); err != nil {
+	if err := hostcontrol.UpdateAndRecordState(db, h, host.StateStarting, env.User.ID); err != nil {
 		return err
 	}
 
@@ -256,7 +256,7 @@ func Start(h *host.Host, env *middleware.Env, w http.ResponseWriter, r *http.Req
 
 		// Rollback to previous state, log any errors while rolling back, but
 		// return original hostbuilderclient error.
-		if err := hostcontrol.RecordNewState(db, h, origState, env.User.ID); err != nil {
+		if err := hostcontrol.UpdateAndRecordState(db, h, origState, env.User.ID); err != nil {
 			logrus.Errorf("hosts.Start: Unable to reset host state: %v", err)
 		}
 
@@ -340,7 +340,7 @@ func Restart(h *host.Host, env *middleware.Env, w http.ResponseWriter, r *http.R
 	}
 
 	origState := h.State
-	if err := hostcontrol.RecordNewState(db, h, host.StateRestarting, env.User.ID); err != nil {
+	if err := hostcontrol.UpdateAndRecordState(db, h, host.StateRestarting, env.User.ID); err != nil {
 		return err
 	}
 
@@ -355,7 +355,7 @@ func Restart(h *host.Host, env *middleware.Env, w http.ResponseWriter, r *http.R
 
 		// Rollback to previous state, log any errors while rolling back, but
 		// return original hostbuilderclient error.
-		if err := hostcontrol.RecordNewState(db, h, origState, env.User.ID); err != nil {
+		if err := hostcontrol.UpdateAndRecordState(db, h, origState, env.User.ID); err != nil {
 			logrus.Errorf("hosts.Restart: Unable to restore host state: %v", err)
 		}
 
