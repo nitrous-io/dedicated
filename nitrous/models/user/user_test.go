@@ -903,7 +903,7 @@ var _ = Describe("models/user", func() {
 	})
 
 	Describe("DecrementUsageRemaining()", func() {
-		It("reeduces the usage remaining by the given number of seconds", func() {
+		It("reduces the usage remaining by the given number of seconds", func() {
 			u := &user.User{
 				Username: "aroon",
 				Password: "pathgate",
@@ -926,6 +926,41 @@ var _ = Describe("models/user", func() {
 
 			Expect(updated.UsageRemaining.Int64).To(Equal(origUsageRemaining - 60))
 			Expect(*updated.UpdatedAt).To(BeTemporally(">", *origUpdatedAt))
+		})
+	})
+
+	Describe("HasUsageRemaining()", func() {
+		It("returns true if the usage remaining is greater than 0", func() {
+			u := &user.User{
+				Username:       "aroon",
+				Password:       "pathgate",
+				Email:          "aroon@zerobotlabs.com",
+				UsageRemaining: sql.NullInt64{42, true},
+			}
+			Expect(u.HasUsageRemaining()).To(Equal(true))
+		})
+
+		It("returns false if the usage remaining is 0 or less", func() {
+			u := &user.User{
+				Username:       "aroon",
+				Password:       "pathgate",
+				Email:          "aroon@zerobotlabs.com",
+				UsageRemaining: sql.NullInt64{0, true},
+			}
+			Expect(u.HasUsageRemaining()).To(Equal(false))
+
+			u.UsageRemaining.Int64 = -1
+			Expect(u.HasUsageRemaining()).To(Equal(false))
+		})
+
+		It("returns false if the usage remaining is null", func() {
+			u := &user.User{
+				Username:       "aroon",
+				Password:       "pathgate",
+				Email:          "aroon@zerobotlabs.com",
+				UsageRemaining: sql.NullInt64{},
+			}
+			Expect(u.HasUsageRemaining()).To(Equal(false))
 		})
 	})
 
