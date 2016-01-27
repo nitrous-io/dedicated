@@ -420,6 +420,23 @@ var _ = Describe("controllers/admin", func() {
 				Expect(h.State).To(Equal(host.StateBorn))
 			})
 
+			It("blanks the host's provider_identifier and ip_address columns if new state is stopped", func() {
+				_, err := db.Exec(`UPDATE hosts 
+					SET provider_identifier = 'i-abcdef12', ip_address = '1.2.3.4', state = $1
+					WHERE slug = $2
+				`, host.StateStopping, hostSlug)
+				Expect(err).To(BeNil())
+
+				res := doRequest(hostSlug, "stopping", "stopped")
+				Expect(res.Code).To(Equal(http.StatusOK))
+
+				h, err := host.Find(db, u, hostSlug)
+				Expect(err).To(BeNil())
+				Expect(h.State).To(Equal(host.StateStopped))
+				Expect(h.ProviderIdentifier.String).To(BeEmpty())
+				Expect(h.IPAddress.Valid).To(BeFalse())
+			})
+
 			It("should return 404 for invalid host", func() {
 				res := doRequest("non-existence-host", "stopped", "running")
 				Expect(res.Code).To(Equal(http.StatusNotFound))

@@ -365,7 +365,7 @@ func FindShared(db *db.Database, user *user.User, identifier string) (*Host, err
 // FindByIdentifier returns a host identified by its ID or slug.
 // It does not scope to a user and includes pre-provisioned hosts.
 // It also returns some data about the host's provider template
-func FindByIdentifier(db *db.Database, identifier string) (*Host, error) {
+func FindByIdentifier(db db.QueryReceiver, identifier string) (*Host, error) {
 	host := &Host{}
 
 	id, err := strconv.ParseInt(identifier, 10, 64)
