@@ -8,6 +8,7 @@ import (
 	"net/mail"
 	"net/url"
 	"regexp"
+	"strconv"
 	"strings"
 	"time"
 
@@ -31,6 +32,12 @@ import (
 const resetPasswordWithin = 4 * time.Hour
 const maxConfirmationHours = 72 * time.Hour
 const maxUnconfirmedDuration = 24 * time.Hour
+
+const (
+	USAGE_NOTICES_NO_WARNING = iota
+	USAGE_NOTICES_FIRST_WARNING
+	USAGE_NOTICES_SECOND_WARNING
+)
 
 var (
 	usernameRe = regexp.MustCompile(`\A[a-z0-9][a-z0-9\-]*\z`)
@@ -116,6 +123,7 @@ type User struct {
 	UsageQuotaPeriod     sql.NullInt64 `db:"usage_quota_period"`
 	UsageRemaining       sql.NullInt64 `db:"usage_remaining"`
 	UsageQuotaRestoredAt pq.NullTime   `db:"usage_quota_restored_at"`
+	UsageNoticesSent     sql.NullInt64 `db:"usage_notices_sent"`
 
 	CreatedByClientID sql.NullInt64 `db:"created_by_client_id"`
 
@@ -148,7 +156,8 @@ func RestoreUsageQuotas(d db.QueryReceiver, when time.Time) (int64, error) {
 	res, err := d.Exec(`UPDATE users
 		SET
 			usage_remaining = usage_quota,
-			usage_quota_restored_at = now()
+			usage_quota_restored_at = now(),
+			usage_notices_sent = 0
 		WHERE id IN (
 			SELECT users.id FROM
 			users JOIN hosts
@@ -223,6 +232,20 @@ func FindByConfirmationToken(d db.QueryReceiver, token string) (*User, error) {
 		return nil, err
 	}
 	return user, nil
+}
+
+func FindAllByUsageAndNoticeSent(d db.QueryReceiver, usageRemaining, noticeSent int64) ([]*User, error) {
+	users := []*User{}
+	err := d.Select(&users, `
+		SELECT * FROM users
+		WHERE usage_remaining <= $1
+		AND usage_notices_sent = $2
+		ORDER BY id
+	`, usageRemaining, noticeSent)
+	if err != nil {
+		return nil, err
+	}
+	return users, nil
 }
 
 // GetDelay returns a time.Duration based on no. of login attempts made on
@@ -307,11 +330,11 @@ func (u *User) Update(d db.QueryReceiver) error {
 	nstmt, err := d.PrepareNamed(`UPDATE users
 		SET (name, email, encrypted_password,
 			unconfirmed_email, confirmation_sent_at, confirmation_token,
-			usage_quota_restored_at,
+			usage_quota_restored_at, usage_notices_sent,
 			updated_at)
 		= (:name, :email, :encrypted_password,
 			:unconfirmed_email, :confirmation_sent_at, :confirmation_token,
-			:usage_quota_restored_at,
+			:usage_quota_restored_at, :usage_notices_sent,
 			now())
 		WHERE id = :id
 		RETURNING *;`)
@@ -580,6 +603,50 @@ func (u *User) GenerateConfirmationURL(d db.QueryReceiver) (*url.URL, error) {
 		Path:     "/app/",
 		Fragment: fmt.Sprintf("/confirm-email?token=%s", u.ConfirmationToken.String),
 	}, nil
+}
+
+func (u *User) SendUsageNoticeEmail(d db.QueryReceiver, hour int64) error {
+	var hoursRemaining string
+	if hour > 1 {
+		hoursRemaining = strconv.FormatInt(hour, 10) + " hours"
+	} else {
+		hoursRemaining = strconv.FormatInt(hour, 10) + " hour"
+	}
+	usageQuotaInHour := u.UsageQuota.Int64 / 60 / 60
+	hoursUsed := usageQuotaInHour - hour
+	usageQuotaNextRestoredAt := u.UsageQuotaRestoredAt.Time.Add(time.Duration(u.UsageQuotaPeriod.Int64) * time.Second)
+	tmplData := struct {
+		Name                     string
+		HoursRemaining           string
+		HoursUsed                int64
+		UsageQuotaNextRestoredAt string
+		UsageQuotaInHour         int64
+		UsageQuotaPeriod         int64
+	}{
+		u.DisplayName(),
+		hoursRemaining,
+		hoursUsed,
+		usageQuotaNextRestoredAt.Format("2 Jan 3:04PM GMT"),
+		usageQuotaInHour,
+		u.UsageQuotaPeriod.Int64 / 60 / 60 / 24,
+	}
+
+	htmlTmpl := usageNoticeEmailHtmlTemplate
+	txtTmpl := usageNoticeEmailTxtTemplate
+	subject := fmt.Sprintf("Your free Nitrous workstation: %s remaining this month", hoursRemaining)
+	from := envvars.SupportEmail
+	to := (&mail.Address{Name: u.DisplayName(), Address: u.Email}).String()
+
+	htmlBuf := bytes.NewBuffer(nil)
+	if err := htmlTmpl.Execute(htmlBuf, tmplData); err != nil {
+		return err
+	}
+	txtBuf := bytes.NewBuffer(nil)
+	if err := txtTmpl.Execute(txtBuf, tmplData); err != nil {
+		return err
+	}
+
+	return Mailer.SendMail(from, []string{to}, []string{from}, nil, from, subject, txtBuf.String(), htmlBuf.String())
 }
 
 func (u *User) SendConfirmationEmail(d db.QueryReceiver, newUser bool) error {
