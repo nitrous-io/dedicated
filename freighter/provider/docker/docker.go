@@ -841,11 +841,13 @@ func (p *DockerProvider) RemoveImage(imageIDOrName string) error {
 		}
 	}
 
-	if strings.Contains(err.Error(), "tagged in multiple repositories") {
+	if strings.Contains(err.Error(), "tagged in multiple repositories") || // < 1.9.0, "Conflict, cannot delete image %s because it is tagged in multiple repositories, use -f to force"
+		strings.Contains(err.Error(), "referenced in one or more repositories") { // >= 1.9.0, "conflict: unable to delete %s (must be forced) - image is referenced in one or more repositories"
 		return provider.ErrImageShared
 	}
 
-	if strings.Contains(err.Error(), "Conflict, cannot delete") {
+	if strings.Contains(err.Error(), "Conflict, cannot delete") || // < 1.9.0, "Conflict, cannot delete image %s because it is tagged in multiple repositories, use -f to force""
+		strings.Contains(err.Error(), "conflict: unable to remove repository") { // >= 1.9.0, "conflict: unable to remove repository reference %q (must force) - container %s is using its referenced image %s"
 		// TODO: this is retarded, we should patch go-dockerclient to report a proper error
 		// if status code == 409
 		return provider.ErrImageInUse
