@@ -199,6 +199,7 @@ func (s *Server) drawRoutes() {
 				"/user/verify_phone":                       r("users.VerifyPhone", users.VerifyPhone),
 				"/user/profile":                            r("userprofiles.Update", userprofiles.Update),
 				"/user/settings":                           r("usersettings.Update", usersettings.Update),
+				"/user/bonus":                              r("users.IncrementUsageQuota", users.IncrementUsageQuota),
 				"/coupons":                                 r("coupon.Create", coupons.Create),
 				"/user/dismiss_first_time":                 r("users.DismissFirstTime", users.DismissFirstTime),
 				"/hosts":                                   r("hosts.Create", hosts.Create, EventHostCreated),
