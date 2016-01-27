@@ -6,6 +6,8 @@ import (
 	"net/url"
 	"strconv"
 
+	"github.com/Sirupsen/logrus"
+
 	"github.com/nitrous-io/dedicated/nitrous/middleware"
 	"github.com/nitrous-io/dedicated/nitrous/models/credit"
 	"github.com/nitrous-io/dedicated/nitrous/models/credittype"
@@ -160,27 +162,46 @@ func changeHostState(env *middleware.Env, w http.ResponseWriter, r *http.Request
 	if err != nil {
 		return err
 	}
+	defer tx.Rollback()
 
-	h := &host.Host{}
-
-	err = tx.QueryRowx(`UPDATE hosts
-		SET state=$1 WHERE slug=$2 AND state=$3
-		RETURNING *;`,
-		newState, slug, oldState,
-	).StructScan(h)
-
+	h, err := host.FindByIdentifier(tx, slug)
 	if err != nil {
-		tx.Rollback()
 		if err == sql.ErrNoRows {
 			return errHostNotFound
 		} else {
 			return err
 		}
 	}
+	if h.State != oldState {
+		return errHostNotFound
+	}
 
-	err = hosttransition.Record(tx, h, oldState, *h.UpdatedAt, env.User.ID)
+	if newState == host.StateStopped {
+		logrus.WithFields(logrus.Fields{
+			"slug": h.Slug,
+			"old_provider_identifier": h.ProviderIdentifier,
+			"old_ip_address":          h.IPAddress,
+		}).Infof("Updating host state")
+		// healthy hotswap hosts in stopped state should not have a
+		// provider_identifier or ip_address
+		err = tx.QueryRowx(`UPDATE hosts
+			SET state=$1, provider_identifier = '', ip_address = null
+			WHERE slug=$2
+			RETURNING *;`,
+			newState, slug,
+		).StructScan(h)
+	} else {
+		err = tx.QueryRowx(`UPDATE hosts
+			SET state=$1 WHERE slug=$2
+			RETURNING *;`,
+			newState, slug,
+		).StructScan(h)
+	}
 	if err != nil {
-		tx.Rollback()
+		return err
+	}
+
+	if err := hosttransition.Record(tx, h, oldState, *h.UpdatedAt, env.User.ID); err != nil {
 		return err
 	}
 
