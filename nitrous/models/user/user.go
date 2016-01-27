@@ -156,7 +156,8 @@ func RestoreUsageQuotas(d db.QueryReceiver, when time.Time) (int64, error) {
 	res, err := d.Exec(`UPDATE users
 		SET
 			usage_remaining = usage_quota,
-			usage_quota_restored_at = now()
+			usage_quota_restored_at = now(),
+			usage_notices_sent = 0
 		WHERE id IN (
 			SELECT users.id FROM
 			users JOIN hosts

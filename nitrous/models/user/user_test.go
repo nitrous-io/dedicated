@@ -116,6 +116,27 @@ var _ = Describe("models/user", func() {
 			Expect(updated.UsageQuotaRestoredAt.Time).To(BeTemporally("~", now, time.Second))
 		})
 
+		It("sets usage_notices_sent to 0 when it was last restored earlier than usage_quota_period ago", func() {
+			quotaPeriod := time.Duration(u.UsageQuotaPeriod.Int64) * time.Second
+			Expect(quotaPeriod > 0).To(Equal(true))
+			now := time.Now()
+			lastRestoredAt := now.Add(-quotaPeriod).Add(-time.Second)
+			u.UsageQuotaRestoredAt = pq.NullTime{lastRestoredAt, true}
+			Expect(u.Update(db)).To(BeNil())
+
+			Expect(u.UsageNoticesSent.Int64).To(Equal(int64(0)))
+			u.UsageNoticesSent = sql.NullInt64{user.USAGE_NOTICES_SECOND_WARNING, true}
+			Expect(u.Update(db)).To(BeNil())
+			Expect(u.UsageNoticesSent.Int64).To(Equal(int64(2)))
+
+			_, err := user.RestoreUsageQuotas(db, now)
+			Expect(err).To(BeNil())
+
+			updated, err := user.FindByID(db, u.ID)
+			Expect(err).To(BeNil())
+			Expect(updated.UsageNoticesSent.Int64).To(Equal(int64(0)))
+		})
+
 		It("does not do anything if the usage was restored less than usage_quota_period ago", func() {
 			// Decrement user's usage_remaining to simulate usage of quota.
 			err := u.DecrementUsageRemaining(db, 60)
