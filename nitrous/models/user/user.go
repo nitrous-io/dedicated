@@ -632,7 +632,7 @@ func (u *User) SendUsageNoticeEmail(d db.QueryReceiver, hoursRemaining int64) er
 		u.UsageQuotaPeriod.Int64 / 60 / 60 / 24,
 	}
 
-	subject := fmt.Sprintf("Your free Nitrous workstation: %s remaining this month", hoursRemaining)
+	subject := fmt.Sprintf("Your free Nitrous workstation: %s remaining this month", hoursRemainingStr)
 	from := envvars.SupportEmail
 	to := (&mail.Address{Name: u.DisplayName(), Address: u.Email}).String()
 
