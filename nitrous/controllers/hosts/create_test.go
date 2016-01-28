@@ -684,7 +684,7 @@ var _ = Describe("POST /api/v0/hosts", func() {
 			Expect(j.Host.TerminatedAt).To(BeNil())
 		})
 
-		It("publishes events for the created host", func() {
+		It("publishes 'host creating' events for the created host", func() {
 			ch := svr.Events.Subscribe(u.Topic())
 			defer svr.Events.Unsubscribe(ch, u.Topic())
 
@@ -698,25 +698,25 @@ var _ = Describe("POST /api/v0/hosts", func() {
 			msgs := []pubsub.Message{}
 			finished := make(chan struct{})
 			go func() {
-				msgs = append(msgs, <-ch, <-ch, <-ch, <-ch)
+				msgs = append(msgs, <-ch, <-ch, <-ch)
 				close(finished)
 			}()
 
 			select {
 			case <-time.After(100 * time.Millisecond):
-				Fail("timedout while waiting for events")
+				Fail("timed out waiting for events")
 			case <-finished:
 				Expect(msgs[0]).To(Equal(&controllers.Event{
 					Name: controllers.EventHostCreating,
 					Data: &controllers.ProgressEvent{Slug: h.Slug,
 						Progress: `{"stream":"starting: create the droplet"}`},
-				}), "unexpected event, wanted EventHostCreating")
+				}))
 
 				Expect(msgs[1]).To(Equal(&controllers.Event{
 					Name: controllers.EventHostCreating,
 					Data: &controllers.ProgressEvent{Slug: h.Slug,
 						Progress: `{"stream":"finished: create the droplet"}`},
-				}), "unexpected event, wanted EventHostCreating")
+				}))
 
 				Expect(msgs[2]).To(Equal(&controllers.Event{
 					Name: controllers.EventHostCreating,
@@ -725,14 +725,7 @@ var _ = Describe("POST /api/v0/hosts", func() {
 							`{"id":"abcd1234", "ip_address":"0.0.0.0", "provider":"%s", "freighterd_port":65333}`,
 							hs.PT.Name,
 						)},
-				}), "unexpected event, wanted EventHostCreating")
-
-				Expect(msgs[3]).To(Equal(&controllers.Event{
-					Name: controllers.EventHostCreated,
-					Data: map[string]*serializers.Host{
-						"host": serializers.SerializeHost(h),
-					},
-				}), "unexpected event, wanted EventHostCreated")
+				}))
 			}
 		})
 
@@ -1239,44 +1232,30 @@ var _ = Describe("POST /api/v0/hosts", func() {
 				hosts.HostbuilderClient = hb
 			})
 
-			It("publishes host events with the created host", func() {
+			It("publishes a 'host creating' event with the created host", func() {
 				ch := svr.Events.Subscribe(u.Topic())
 				defer svr.Events.Unsubscribe(ch, u.Topic())
 
 				res := doRequest(params)
 				Expect(res.Code).To(Equal(http.StatusAccepted))
 
-				msgs := []pubsub.Message{}
-				finished := make(chan struct{})
-				go func() {
-					msgs = append(msgs, <-ch, <-ch)
-					close(finished)
-				}()
-
 				select {
 				case <-time.After(100 * time.Millisecond):
-					Fail("timeout while waiting for EventHostCreated")
-				case <-finished:
+					Fail("timed out waiting for EventHostCreating")
+				case msg := <-ch:
 					hosts, err := host.FindAllByUser(db, u.ID)
 					Expect(err).To(BeNil())
 					Expect(hosts).To(HaveLen(1))
 					h := hosts[0]
 
-					Expect(msgs[0]).To(Equal(&controllers.Event{
+					Expect(msg).To(Equal(&controllers.Event{
 						Name: controllers.EventHostCreating,
 						Data: &controllers.ProgressEvent{
 							Slug: h.Slug,
 							Progress: fmt.Sprintf(
 								`{"id":"abcd1234","ip_address":"0.0.0.0","provider":"%s","freighterd_port":65333}`, hs.PT.Name),
 						},
-					}), "unexpected event, wanted EventHostCreating")
-
-					Expect(msgs[1]).To(Equal(&controllers.Event{
-						Name: controllers.EventHostCreated,
-						Data: map[string]*serializers.Host{
-							"host": serializers.SerializeHost(h),
-						},
-					}), "unexpected event, wanted EventHostCreated")
+					}))
 				}
 			})
 
@@ -1304,44 +1283,21 @@ var _ = Describe("POST /api/v0/hosts", func() {
 					_, err := db.Exec(`UPDATE plans SET price=0;`)
 					Expect(err).To(BeNil())
 
-					ch := svr.Events.Subscribe(u.Topic())
-					defer svr.Events.Unsubscribe(ch, u.Topic())
-
 					res := doRequest(params)
 					Expect(res.Code).To(Equal(http.StatusAccepted))
 
-					// Wait for host to be created by listening for the "host
-					// created" event.
-					finished := make(chan struct{})
-					go func() {
-						for msg := range ch {
-							evt, ok := msg.(*controllers.Event)
-							if !ok {
-								continue
-							}
-							if evt.Name == controllers.EventHostCreated {
-								close(finished)
-							}
-						}
-					}()
+					u, err := user.FindByID(db, u.ID)
+					Expect(err).To(BeNil())
 
-					select {
-					case <-time.After(100 * time.Millisecond):
-						Fail("timeout while waiting for EventHostCreated")
-					case <-finished:
-						u, err := user.FindByID(db, u.ID)
-						Expect(err).To(BeNil())
+					Expect(u.UsageQuotaRestoredAt.Valid).To(BeTrue())
 
-						Expect(u.UsageQuotaRestoredAt.Valid).To(BeTrue())
+					hosts, err := host.FindAllByUser(db, u.ID)
+					Expect(err).To(BeNil())
+					Expect(hosts).To(HaveLen(1))
+					h := hosts[0]
+					Expect(h.Free).To(BeTrue())
 
-						hosts, err := host.FindAllByUser(db, u.ID)
-						Expect(err).To(BeNil())
-						Expect(hosts).To(HaveLen(1))
-						h := hosts[0]
-						Expect(h.Free).To(BeTrue())
-
-						Expect(u.UsageQuotaRestoredAt.Time).To(Equal(*h.CreatedAt))
-					}
+					Expect(u.UsageQuotaRestoredAt.Time).To(Equal(*h.CreatedAt))
 				})
 
 				It("responds with error if paid plan is selected", func() {

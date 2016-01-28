@@ -326,10 +326,6 @@ func Create(env *middleware.Env, w http.ResponseWriter, r *http.Request) error {
 	}
 
 	if options.Async {
-		go func() {
-			h := <-provisioned
-			PublishHostEvent(env, controllers.EventHostCreated, h)
-		}()
 		env.Status = http.StatusAccepted
 	} else {
 		PublishHostEvent(env, controllers.EventHostCreated, h)

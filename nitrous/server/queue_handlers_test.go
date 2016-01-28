@@ -148,7 +148,7 @@ var _ = Describe("HostQueueHandler", func() {
 
 				select {
 				case <-time.After(50 * time.Millisecond):
-					Fail("Timeout while getting image created event")
+					Fail("Timeout while getting host creating event")
 				case evt := <-evtCh:
 					Expect(evt.Name).To(Equal(controllers.EventName(event.HostCreating)))
 					evtData, ok := evt.Data.(*controllers.ProgressEvent)
@@ -232,7 +232,7 @@ var _ = Describe("HostQueueHandler", func() {
 
 				select {
 				case <-time.After(50 * time.Millisecond):
-					Fail("Timeout while getting image created event")
+					Fail("Timeout while getting host created event")
 				case evt := <-evtCh:
 					Expect(evt.Name).To(Equal(controllers.EventName(event.HostCreated)))
 					evtData, ok := evt.Data.(map[string]*serializers.Host)
