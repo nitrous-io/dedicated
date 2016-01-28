@@ -59,6 +59,34 @@ var _ = Describe("models/user", func() {
 		}
 	})
 
+	Describe("IncrementUsageQuota()", func() {
+		var (
+			u *user.User
+		)
+
+		BeforeEach(func() {
+			u = &user.User{
+				Username: "aroon",
+				Password: "123456",
+				Email:    "aroon@zerobotlabs.com",
+			}
+			Expect(test.WrapInTransaction(db, u.Insert)).To(BeNil())
+		})
+
+		It("increments usage_quota with the amount provided", func() {
+			// Decrement user's usage_remaining to simulate usage of quota.
+
+			origUsageQuota := u.UsageQuota.Int64
+			additionalQuota := int64(5 * 24 * 60 * 60)
+			err := u.IncrementUsageQuota(db, additionalQuota)
+			Expect(err).To(BeNil())
+
+			updatedUsageQuota := u.UsageQuota.Int64
+			expectedUsageQuota := origUsageQuota + additionalQuota
+			Expect(updatedUsageQuota).To(Equal(expectedUsageQuota))
+		})
+	})
+
 	Describe("RestoreUsageQuotas()", func() {
 		var (
 			u  *user.User

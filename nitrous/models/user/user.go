@@ -134,6 +134,19 @@ type User struct {
 	PreviousPromoCode sql.NullString `db:"previous_promo_code"`
 }
 
+func (u *User) IncrementUsageQuota(d db.QueryReceiver, amount int64) error {
+	u.UsageQuota.Int64 += amount
+	nstmt, err := d.PrepareNamed(`UPDATE users
+		SET (usage_quota, updated_at)
+		= (:usage_quota, now())
+		WHERE id = :id
+		RETURNING *;`)
+	if err != nil {
+		return err
+	}
+	return nstmt.QueryRowx(u).StructScan(u)
+}
+
 func (u *User) BillingProfile(d db.QueryReceiver) (*billingprofile.BillingProfile, error) {
 	if u.billingProfile == nil {
 		bp, err := billingprofile.Find(d, u.ID)
