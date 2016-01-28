@@ -21,6 +21,7 @@ import (
 	"github.com/nitrous-io/dedicated/nitrous/db"
 	"github.com/nitrous-io/dedicated/nitrous/envvars"
 	"github.com/nitrous-io/dedicated/nitrous/models/billingprofile"
+	"github.com/nitrous-io/dedicated/nitrous/models/bonus"
 	"github.com/nitrous-io/dedicated/nitrous/models/container"
 	"github.com/nitrous-io/dedicated/nitrous/models/containercollab"
 	"github.com/nitrous-io/dedicated/nitrous/models/oauthclient"
@@ -1182,6 +1183,112 @@ var _ = Describe("controllers/users", func() {
 			Expect(err).To(BeNil())
 			Expect(u2.PhoneAuthed).To(BeTrue())
 			Expect(u2.Phone.String).To(Equal("5551231234"))
+		})
+	})
+
+	Describe("POST /api/v0/user/bonus", func() {
+		doRequest := func(params *url.Values) {
+			var err error
+			req, err = test.NewAuthedFormRequest(t, "POST", "/api/v0/user/bonus", params)
+			Expect(err).To(BeNil())
+			handler.ServeHTTP(res, req)
+		}
+
+		It("updates the user's usage quota", func() {
+			bp, err := u.BillingProfile(db)
+			Expect(err).To(BeNil())
+			bp.State = billingprofile.StateFree
+			err = bp.Update(db)
+			Expect(err).To(BeNil())
+
+			bonuses := [][]interface{}{
+				{"follow-twitter", int64(3 * 24 * 60 * 60)},
+				{"tweet", int64(5 * 24 * 60 * 60)},
+				{"like-facebook", int64(3 * 24 * 60 * 60)},
+				{"post-facebook", int64(5 * 24 * 60 * 60)},
+			}
+
+			for _, bonus := range bonuses {
+				_, err := db.Exec("INSERT INTO bonus (slug, amount) VALUES ($1, $2);", bonus[0].(string), bonus[1].(int64))
+				Expect(err).To(BeNil())
+			}
+
+			params := &url.Values{}
+			params.Set("action", "follow-twitter")
+
+			doRequest(params)
+			Expect(res.Code).To(Equal(http.StatusOK))
+
+			//			var j struct {
+			//				User *serializers.User `json:"user"`
+			//			}
+			//			err = json.Unmarshal(res.Body.Bytes(), &j)
+			//			Expect(err).To(BeNil())
+			//
+			//			serialized := j.User
+			//			Expect(serialized.UsageQuota).To(Equal(123))
+		})
+
+		It("should return forbidden if billing profile state is not free", func() {
+			params := &url.Values{}
+			params.Set("action", "follow-twitter")
+
+			doRequest(params)
+			Expect(res.Code).To(Equal(http.StatusForbidden))
+
+			errType, errDesc := test.ErrorSlug(res.Body)
+			Expect(errType).To(Equal("forbidden"))
+			Expect(errDesc).To(Equal("usage quota does not apply to you"))
+		})
+
+		It("should return not found if the bonus type is not valid", func() {
+			bp, err := u.BillingProfile(db)
+			Expect(err).To(BeNil())
+			bp.State = billingprofile.StateFree
+			err = bp.Update(db)
+			Expect(err).To(BeNil())
+
+			params := &url.Values{}
+			params.Set("action", "tweeter")
+
+			doRequest(params)
+			Expect(res.Code).To(Equal(http.StatusNotFound))
+
+			errType, errDesc := test.ErrorSlug(res.Body)
+			Expect(errType).To(Equal("bonus_not_found"))
+			Expect(errDesc).To(Equal("the bonus type is invalid"))
+		})
+
+		It("should return forbidden if the user has already used the bonus", func() {
+			bp, err := u.BillingProfile(db)
+			Expect(err).To(BeNil())
+			bp.State = billingprofile.StateFree
+			err = bp.Update(db)
+			Expect(err).To(BeNil())
+
+			_, err = db.Exec("INSERT INTO bonus (slug, amount) VALUES ($1, $2);", "follow-twitter", int64(3*24*60*60))
+			Expect(err).To(BeNil())
+
+			bn, err := bonus.FindBySlug(db, "follow-twitter")
+			Expect(err).To(BeNil())
+
+			bnu := &bonus.BonusUse{
+				UserID:  u.ID,
+				BonusID: bn.ID,
+			}
+
+			err = bnu.Add(db)
+			Expect(err).To(BeNil())
+
+			params := &url.Values{}
+			params.Set("action", "follow-twitter")
+
+			doRequest(params)
+			Expect(res.Code).To(Equal(http.StatusForbidden))
+
+			errType, errDesc := test.ErrorSlug(res.Body)
+			Expect(errType).To(Equal("forbidden"))
+			Expect(errDesc).To(Equal("you have already used up this bonus"))
 		})
 	})
 

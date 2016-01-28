@@ -9,6 +9,7 @@ import (
 	"time"
 
 	"github.com/Sirupsen/logrus"
+	"github.com/jmoiron/sqlx"
 	"github.com/lib/pq"
 	"github.com/nitrous-io/dedicated/nitrous/controllers"
 	"github.com/nitrous-io/dedicated/nitrous/controllers/containers"
@@ -16,6 +17,7 @@ import (
 	"github.com/nitrous-io/dedicated/nitrous/envvars"
 	"github.com/nitrous-io/dedicated/nitrous/middleware"
 	"github.com/nitrous-io/dedicated/nitrous/models/billingprofile"
+	"github.com/nitrous-io/dedicated/nitrous/models/bonus"
 	"github.com/nitrous-io/dedicated/nitrous/models/container"
 	"github.com/nitrous-io/dedicated/nitrous/models/emailcapture"
 	"github.com/nitrous-io/dedicated/nitrous/models/token"
@@ -41,6 +43,9 @@ var (
 	errExistsForbidden         = httperror.New(http.StatusForbidden, "forbidden", "forbidden")
 	errUserNotFound            = httperror.New(http.StatusNotFound, "user_not_found", "not found")
 	errExistingPasswordNoMatch = httperror.New(http.StatusBadRequest, "incorrect_existing_password", "your existing passsword is incorrect")
+	errQuotaIneligible         = httperror.New(http.StatusForbidden, "forbidden", "usage quota does not apply to you")
+	errInvalidBonusAction      = httperror.New(http.StatusNotFound, "bonus_not_found", "the bonus type is invalid")
+	errBonusAlreadyUsed        = httperror.New(http.StatusForbidden, "forbidden", "you have already used up this bonus")
 )
 
 func EmailCapture(env *middleware.Env, w http.ResponseWriter, r *http.Request) error {
@@ -152,6 +157,59 @@ func Update(env *middleware.Env, w http.ResponseWriter, r *http.Request) error {
 	})
 
 	return setUserResponse(env, u)
+}
+
+func IncrementUsageQuota(env *middleware.Env, w http.ResponseWriter, r *http.Request) error {
+	u := env.User
+
+	bp, err := u.BillingProfile(env.DB)
+	if err != nil {
+		return err
+	}
+	if !bp.IsFreeTier() {
+		return errQuotaIneligible
+	}
+
+	action := r.PostFormValue("action")
+	if action == "" {
+		return errInvalidBonusAction
+	}
+
+	bn, err := bonus.FindBySlug(env.DB, action)
+	if err != nil {
+		if err == sql.ErrNoRows {
+			return errInvalidBonusAction
+		}
+		return err
+	}
+
+	err = env.DB.WithTransaction(func(tx *sqlx.Tx) error {
+		if err := u.IncrementUsageQuota(tx, bn.Amount); err != nil {
+			return err
+		}
+
+		bnu := &bonus.BonusUse{
+			BonusID: bn.ID,
+			UserID:  u.ID,
+		}
+		if err := bnu.Add(tx); err != nil {
+			if e, ok := err.(*pq.Error); ok && e.Code.Name() == "unique_violation" {
+				return errBonusAlreadyUsed
+			}
+			return err
+		}
+		return nil
+	})
+	if err != nil {
+		return err
+	}
+
+	env.Status = http.StatusOK
+	env.Data = map[string]interface{}{
+		"user": serializers.SerializeUser(u),
+		//		"user": serializers.SerializeUserWithBonus(usr),
+	}
+	return nil
 }
 
 func UpdatePhone(env *middleware.Env, w http.ResponseWriter, r *http.Request) error {
