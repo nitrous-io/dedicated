@@ -15,8 +15,8 @@ const usageNoticeEmailHtmlTmpl = `
     <p>You are allowed {{ .UsageQuotaInHour }} hours of usage every {{ .UsageQuotaPeriod }} days, so you will next be able to access your Nitrous workstation again on {{ .UsageQuotaNextRestoredAt }}.</p>
     <p>If you find yourself consistently exceeding the {{ .UsageQuotaInHour }}-hour limit, you should evaluate our paid plans - they grant unlimited usage of your workstation and it never suspends when you stop using it.</p>
     <br />
-    <p>Have fun building things,</p>
-    <p>The Nitrous team</p>
+    <p>Have fun building things,<br />
+    The Nitrous team</p>
   </body>
 </html>
 `

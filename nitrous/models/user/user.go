@@ -8,7 +8,6 @@ import (
 	"net/mail"
 	"net/url"
 	"regexp"
-	"strconv"
 	"strings"
 	"time"
 
@@ -605,16 +604,18 @@ func (u *User) GenerateConfirmationURL(d db.QueryReceiver) (*url.URL, error) {
 	}, nil
 }
 
-func (u *User) SendUsageNoticeEmail(d db.QueryReceiver, hour int64) error {
-	var hoursRemaining string
-	if hour > 1 {
-		hoursRemaining = strconv.FormatInt(hour, 10) + " hours"
+func (u *User) SendUsageNoticeEmail(d db.QueryReceiver, hoursRemaining int64) error {
+	var hoursRemainingStr string
+	if hoursRemaining == 1 {
+		hoursRemainingStr = fmt.Sprintf("%d hour", hoursRemaining)
 	} else {
-		hoursRemaining = strconv.FormatInt(hour, 10) + " hour"
+		hoursRemainingStr = fmt.Sprintf("%d hours", hoursRemaining)
 	}
-	usageQuotaInHour := u.UsageQuota.Int64 / 60 / 60
-	hoursUsed := usageQuotaInHour - hour
+
+	usageQuotaInHours := u.UsageQuota.Int64 / 60 / 60
+	hoursUsed := usageQuotaInHours - u.UsageRemaining.Int64/60/60
 	usageQuotaNextRestoredAt := u.UsageQuotaRestoredAt.Time.Add(time.Duration(u.UsageQuotaPeriod.Int64) * time.Second)
+
 	tmplData := struct {
 		Name                     string
 		HoursRemaining           string
@@ -624,25 +625,23 @@ func (u *User) SendUsageNoticeEmail(d db.QueryReceiver, hour int64) error {
 		UsageQuotaPeriod         int64
 	}{
 		u.DisplayName(),
-		hoursRemaining,
+		hoursRemainingStr,
 		hoursUsed,
 		usageQuotaNextRestoredAt.Format("2 Jan 3:04PM GMT"),
-		usageQuotaInHour,
+		usageQuotaInHours,
 		u.UsageQuotaPeriod.Int64 / 60 / 60 / 24,
 	}
 
-	htmlTmpl := usageNoticeEmailHtmlTemplate
-	txtTmpl := usageNoticeEmailTxtTemplate
 	subject := fmt.Sprintf("Your free Nitrous workstation: %s remaining this month", hoursRemaining)
 	from := envvars.SupportEmail
 	to := (&mail.Address{Name: u.DisplayName(), Address: u.Email}).String()
 
 	htmlBuf := bytes.NewBuffer(nil)
-	if err := htmlTmpl.Execute(htmlBuf, tmplData); err != nil {
+	if err := usageNoticeEmailHtmlTemplate.Execute(htmlBuf, tmplData); err != nil {
 		return err
 	}
 	txtBuf := bytes.NewBuffer(nil)
-	if err := txtTmpl.Execute(txtBuf, tmplData); err != nil {
+	if err := usageNoticeEmailTxtTemplate.Execute(txtBuf, tmplData); err != nil {
 		return err
 	}
 
