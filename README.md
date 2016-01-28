@@ -207,4 +207,4 @@ Please shutdown the server or switch to original setting after you finish the te
 
 * Add `GOOGLE_RECAPTCHA_PUBLIC_KEY` and `GOOGLE_RECAPTCHA_SECRET_KEY` to your '.env' file
 - - -
-Copyright (c) 2012-2015 Nitrous, Inc. All Rights Reserved.
+Copyright (c) 2012-2016 Nitrous, Inc. All Rights Reserved.
