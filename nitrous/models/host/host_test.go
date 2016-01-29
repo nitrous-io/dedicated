@@ -925,6 +925,19 @@ var _ = Describe("models/host", func() {
 			Expect(hosts).To(HaveLen(0))
 		})
 
+		It("should include hosts where subscriptions have been recently cancelled if user is deleted", func() {
+			_, err := db.Exec(`UPDATE subscriptions SET cancelled_at = now() - interval '12 hours' WHERE id = $1`, s.ID)
+			Expect(err).To(BeNil())
+
+			_, err = db.Exec(`UPDATE users SET deleted_at = now() WHERE id = $1`, u1.ID)
+			Expect(err).To(BeNil())
+
+			hosts, err := host.FindAllForTermination(db)
+			Expect(err).To(BeNil())
+
+			Expect(hosts).To(HaveLen(1))
+		})
+
 		It("should not include hosts where subscriptions have not been cancelled", func() {
 			_, err := db.Exec(`UPDATE subscriptions SET state = 'active', cancelled_at  = NULL WHERE id = $1`, s.ID)
 			Expect(err).To(BeNil())
