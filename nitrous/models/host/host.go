@@ -240,7 +240,7 @@ func FindAllWithoutOrphaned(db *db.Database, userID int64) ([]*Host, error) {
 	return hosts, nil
 }
 
-func FindAllIdleAndFree(db *db.Database) ([]*Host, error) {
+func FindAllIdleForAutoShutdown(db *db.Database) ([]*Host, error) {
 	hosts := []*Host{}
 	err := db.Select(&hosts, `SELECT hosts.*, pts.provider, pts.config
 		FROM hosts
@@ -253,7 +253,7 @@ func FindAllIdleAndFree(db *db.Database) ([]*Host, error) {
 				OR
 				last_pinged_at IS NULL
 			)
-			-- if host has been running for less than 2700 seconds = 45 minutes; not idle
+			-- if host has been running for less than 2700 seconds = 45 minutes within the hour; not idle
 			AND
 			  (last_running_at IS NULL OR MOD(CAST(EXTRACT(EPOCH FROM now() - last_running_at) as numeric), 3600) > 2700)
 			AND terminated_at IS NULL
@@ -450,12 +450,14 @@ func (h *Host) Insert(d db.QueryReceiver) error {
 			user_id, org_id, region_id, plan_id, provider_template_id, slug, name, secret,
 			state, ip_address, static_ip, provider_identifier, max_containers, size, freighterd_port,
 			hourly_price, free, preprovisioned,
-			region_identifier, last_pinged_at, auto_shutdown, subscription_id
+			region_identifier, last_pinged_at, last_running_at, auto_shutdown,
+			subscription_id
 		) VALUES (
 			:user_id, :org_id, :region_id, :plan_id, :provider_template_id, :slug, :name, :secret,
 			:state, :ip_address, :static_ip, :provider_identifier, :max_containers, :size, :freighterd_port,
 			:hourly_price, :free, :preprovisioned,
-			:region_identifier, :last_pinged_at, :auto_shutdown, :subscription_id
+			:region_identifier, :last_pinged_at, :last_running_at, :auto_shutdown,
+			:subscription_id
 		)
 		RETURNING *;`)
 	if err != nil {
@@ -632,7 +634,7 @@ func (h *Host) IsIdle(db *db.Database) (bool, error) {
 				OR
 				last_pinged_at IS NULL
 			)
-			-- if host has been running for less than 2700 seconds = 45 minutes; not idle
+			-- if host has been running for less than 2700 seconds = 45 minutes within the hour; not idle
 			AND
 			  (last_running_at IS NULL OR MOD(CAST(EXTRACT(EPOCH FROM now() - last_running_at) as numeric), 3600) > 2700)
 			AND terminated_at IS NULL
