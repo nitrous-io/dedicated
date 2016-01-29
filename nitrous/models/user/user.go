@@ -377,6 +377,30 @@ func (u *User) DecrementUsageRemaining(d db.QueryReceiver, secondsUsed int64) er
 		RETURNING *`, secondsUsed, u.ID).StructScan(u)
 }
 
+func (u *User) FreeHostUsage(d db.QueryReceiver, endTime time.Time) (int64, error) {
+	var seconds int64
+	err := d.QueryRowx(`
+		SELECT COALESCE(SUM(
+			CAST(EXTRACT(
+				EPOCH FROM (
+					COALESCE(ht.ended_at, $1) - GREATEST(ht.created_at, u.usage_quota_restored_at)
+				)
+			) AS INTEGER)
+		), 0)
+		FROM host_transitions AS ht
+			JOIN hosts AS h on ht.host_id = h.id
+			JOIN users AS u on h.user_id = u.id
+		WHERE u.id = $2
+			AND ht.state = 'running'
+			AND h.free = true
+			AND (ht.ended_at > u.usage_quota_restored_at OR ht.ended_at IS NULL);
+	`, endTime, u.ID).Scan(&seconds)
+	if err != nil {
+		return 0, err
+	}
+	return seconds, nil
+}
+
 func (u *User) HasUsageRemaining() bool {
 	return u.UsageRemaining.Valid && u.UsageRemaining.Int64 > 0
 }

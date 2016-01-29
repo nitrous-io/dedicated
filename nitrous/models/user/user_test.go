@@ -950,6 +950,176 @@ var _ = Describe("models/user", func() {
 		})
 	})
 
+	Describe("FreeHostUsage()", func() {
+		var (
+			hs              *test.HostStack
+			err             error
+			quotaRestoredAt time.Time
+		)
+
+		BeforeEach(func() {
+			hs, err = test.CreateHostStack(db, nil)
+			Expect(err).To(BeNil())
+
+			_, err = db.Exec(`UPDATE hosts SET free = true WHERE id = $1`, hs.H.ID)
+			Expect(err).To(BeNil())
+
+			quotaRestoredAt = time.Date(2014, 1, 1, 0, 0, 0, 0, time.Local)
+			_, err = db.Exec(`UPDATE users SET usage_quota_restored_at = $1 ;`, quotaRestoredAt)
+			Expect(err).To(BeNil())
+		})
+
+		It(`returns sum of 'running' host transitions in seconds
+			started at time before usage_quota_restored_at and
+			ended at time after usage_quota_restored_at`, func() {
+			startTime := quotaRestoredAt.Add(-1 * time.Hour)
+			endTime := quotaRestoredAt.Add(1 * time.Hour)
+			_, err = db.Exec(`
+				INSERT INTO host_transitions (
+					host_id, previous_state, state, created_at, ended_at
+				) values ($1, $2, $3, $4, $5);
+			`, hs.H.ID, "starting", "running", startTime, endTime)
+			Expect(err).To(BeNil())
+
+			seconds, err := hs.U.FreeHostUsage(db, time.Now())
+			Expect(err).To(BeNil())
+			Expect(seconds).To(Equal(int64(3600)))
+		})
+
+		It(`returns 'running' host transition in seconds
+			started at time before usage_quota_restored_at and still running`, func() {
+			startTime := quotaRestoredAt.Add(-1 * time.Hour)
+			_, err = db.Exec(`
+				INSERT INTO host_transitions (
+					host_id, previous_state, state, created_at
+				) values ($1, $2, $3, $4);
+			`, hs.H.ID, "starting", "running", startTime)
+			Expect(err).To(BeNil())
+
+			fakeCurrentTime := quotaRestoredAt.Add(1000 * time.Hour)
+			seconds, err := hs.U.FreeHostUsage(db, fakeCurrentTime)
+			Expect(err).To(BeNil())
+			Expect(seconds).To(Equal(int64(fakeCurrentTime.Sub(quotaRestoredAt).Seconds())))
+		})
+
+		It(`returns 'running' host transition in seconds
+			started at time after usage_quota_restored_at and
+			ended at sometime after started at`, func() {
+			startTime := quotaRestoredAt.Add(2 * time.Hour)
+			endTime := quotaRestoredAt.Add(3 * time.Hour)
+			_, err = db.Exec(`
+				INSERT INTO host_transitions (
+					host_id, previous_state, state, created_at, ended_at
+				) values ($1, $2, $3, $4, $5);
+			`, hs.H.ID, "starting", "running", startTime, endTime)
+			Expect(err).To(BeNil())
+
+			seconds, err := hs.U.FreeHostUsage(db, time.Now())
+			Expect(err).To(BeNil())
+			Expect(seconds).To(Equal(int64(3600)))
+		})
+
+		It(`returns 'running' host transtion in seconds
+			started at time after usage_quota_restored_at and still running`, func() {
+			startTime := quotaRestoredAt.Add(2 * time.Hour)
+			_, err = db.Exec(`
+				INSERT INTO host_transitions (
+					host_id, previous_state, state, created_at
+				) values ($1, $2, $3, $4);
+			`, hs.H.ID, "starting", "running", startTime)
+			Expect(err).To(BeNil())
+
+			fakeCurrentTime := quotaRestoredAt.Add(1000 * time.Hour)
+			seconds, err := hs.U.FreeHostUsage(db, fakeCurrentTime)
+			Expect(err).To(BeNil())
+			Expect(seconds).To(Equal(int64(fakeCurrentTime.Sub(startTime).Seconds())))
+		})
+
+		It(`returns sum of a few 'running' host transtions in seconds
+			started at time before usage_quota_restored_at`, func() {
+			startTime := quotaRestoredAt.Add(-1 * time.Hour)
+			endTime := quotaRestoredAt.Add(1 * time.Hour)
+			_, err = db.Exec(`
+				INSERT INTO host_transitions (
+					host_id, previous_state, state, created_at, ended_at
+				) values ($1, $2, $3, $4, $5);
+			`, hs.H.ID, "born", "running", startTime, endTime)
+
+			startTime = quotaRestoredAt.Add(2 * time.Hour)
+			endTime = quotaRestoredAt.Add(3 * time.Hour)
+			_, err = db.Exec(`
+				INSERT INTO host_transitions (
+					host_id, previous_state, state, created_at, ended_at
+				) values ($1, $2, $3, $4, $5);
+			`, hs.H.ID, "starting", "running", startTime, endTime)
+
+			startTime = quotaRestoredAt.Add(5 * time.Hour)
+			endTime = quotaRestoredAt.Add(7 * time.Hour)
+			_, err = db.Exec(`
+				INSERT INTO host_transitions (
+					host_id, previous_state, state, created_at, ended_at
+				) values ($1, $2, $3, $4, $5);
+			`, hs.H.ID, "starting", "running", startTime, endTime)
+
+			seconds, err := hs.U.FreeHostUsage(db, time.Now())
+			Expect(err).To(BeNil())
+			Expect(seconds).To(Equal(int64(14400)))
+		})
+
+		It(`returns sum of a few 'running' host transtions of different hosts in seconds
+			started at time before usage_quota_restored_at`, func() {
+			startTime := quotaRestoredAt.Add(-1 * time.Hour)
+			endTime := quotaRestoredAt.Add(1 * time.Hour)
+			_, err = db.Exec(`
+				INSERT INTO host_transitions (
+					host_id, previous_state, state, created_at, ended_at
+				) values ($1, $2, $3, $4, $5);
+			`, hs.H.ID, "born", "running", startTime, endTime)
+
+			startTime = quotaRestoredAt.Add(2 * time.Hour)
+			endTime = quotaRestoredAt.Add(3 * time.Hour)
+			_, err = db.Exec(`
+				INSERT INTO host_transitions (
+					host_id, previous_state, state, created_at, ended_at
+				) values ($1, $2, $3, $4, $5);
+			`, hs.H.ID, "starting", "running", startTime, endTime)
+
+			startTime = quotaRestoredAt.Add(5 * time.Hour)
+			endTime = quotaRestoredAt.Add(7 * time.Hour)
+			_, err = db.Exec(`
+				INSERT INTO host_transitions (
+					host_id, previous_state, state, created_at, ended_at
+				) values ($1, $2, $3, $4, $5);
+			`, hs.H.ID, "starting", "running", startTime, endTime)
+
+			// Add a terminated host to user with 3 hours usage
+			_, err = db.Exec(`
+				INSERT INTO hosts (
+					user_id, slug, region_id, plan_id, provider_template_id
+				) VALUES ($1, $2, $3, $4, $5);
+			`, hs.U.ID, "second-host", hs.R.ID, hs.P.ID, hs.PT.ID)
+			Expect(err).To(BeNil())
+			secondHost, err := host.Find(db, hs.U, "second-host")
+			secondHost.Delete(db)
+			Expect(err).To(BeNil())
+
+			startTime = quotaRestoredAt.Add(5 * time.Hour)
+			endTime = quotaRestoredAt.Add(8 * time.Hour)
+			_, err = db.Exec(`
+				INSERT INTO host_transitions (
+					host_id, previous_state, state, created_at, ended_at
+				) values ($1, $2, $3, $4, $5);
+			`, secondHost.ID, "starting", "running", startTime, endTime)
+
+			_, err = db.Exec(`UPDATE hosts SET free = true WHERE user_id = $1`, hs.U.ID)
+			Expect(err).To(BeNil())
+
+			seconds, err := hs.U.FreeHostUsage(db, time.Now())
+			Expect(err).To(BeNil())
+			Expect(seconds).To(Equal(int64(25200)))
+		})
+	})
+
 	Describe("HasUsageRemaining()", func() {
 		It("returns true if the usage remaining is greater than 0", func() {
 			u := &user.User{
