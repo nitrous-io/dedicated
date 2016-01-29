@@ -244,7 +244,7 @@ func Start(h *host.Host, env *middleware.Env, w http.ResponseWriter, r *http.Req
 	u := env.User
 
 	// If this is a free host, ensure user has remaining usage quota.
-	if h.Free && !u.HasUsageRemaining() {
+	if h.Free && !u.HasUsageRemaining(db) {
 		return errFreeUsageExceededForStart
 	}
 
@@ -338,7 +338,7 @@ func Restart(h *host.Host, env *middleware.Env, w http.ResponseWriter, r *http.R
 	}
 
 	// If this is a free host, ensure user has remaining usage quota.
-	if h.Free && !u.HasUsageRemaining() {
+	if h.Free && !u.HasUsageRemaining(db) {
 		return errFreeUsageExceededForRestart
 	}
 

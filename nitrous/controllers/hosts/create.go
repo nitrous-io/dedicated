@@ -141,7 +141,7 @@ func Create(env *middleware.Env, w http.ResponseWriter, r *http.Request) error {
 	// If user is trying to create a free host (i.e. the plan is free), ensure
 	// they have free usage quota remaining.
 	if pl != nil && pl.IsFree() {
-		if !u.HasUsageRemaining() {
+		if !u.HasUsageRemaining(db) {
 			return errFreeUsageExceededForCreate
 		}
 	}

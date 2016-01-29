@@ -401,8 +401,12 @@ func (u *User) FreeHostUsage(d db.QueryReceiver, endTime time.Time) (int64, erro
 	return seconds, nil
 }
 
-func (u *User) HasUsageRemaining() bool {
-	return u.UsageRemaining.Valid && u.UsageRemaining.Int64 > 0
+func (u *User) HasUsageRemaining(d db.QueryReceiver) bool {
+	seconds, err := u.FreeHostUsage(d, time.Now())
+	if err != nil {
+		return false
+	}
+	return seconds < u.UsageQuota.Int64
 }
 
 func (u *User) Validate() error {

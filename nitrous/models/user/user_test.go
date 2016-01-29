@@ -1121,37 +1121,40 @@ var _ = Describe("models/user", func() {
 	})
 
 	Describe("HasUsageRemaining()", func() {
-		It("returns true if the usage remaining is greater than 0", func() {
-			u := &user.User{
-				Username:       "aroon",
-				Password:       "pathgate",
-				Email:          "aroon@zerobotlabs.com",
-				UsageRemaining: sql.NullInt64{42, true},
-			}
-			Expect(u.HasUsageRemaining()).To(Equal(true))
+		var (
+			hs              *test.HostStack
+			err             error
+			quotaRestoredAt time.Time
+		)
+
+		BeforeEach(func() {
+			hs, err = test.CreateHostStack(db, nil)
+			Expect(err).To(BeNil())
+
+			_, err = db.Exec(`UPDATE hosts SET free = true WHERE id = $1`, hs.H.ID)
+			Expect(err).To(BeNil())
+
+			quotaRestoredAt = time.Date(2014, 1, 1, 0, 0, 0, 0, time.Local)
+			_, err = db.Exec(`UPDATE users SET usage_quota_restored_at = $1 ;`, quotaRestoredAt)
+			Expect(err).To(BeNil())
+
+			hs.U.UsageQuota = sql.NullInt64{180000, true}
 		})
 
-		It("returns false if the usage remaining is 0 or less", func() {
-			u := &user.User{
-				Username:       "aroon",
-				Password:       "pathgate",
-				Email:          "aroon@zerobotlabs.com",
-				UsageRemaining: sql.NullInt64{0, true},
-			}
-			Expect(u.HasUsageRemaining()).To(Equal(false))
-
-			u.UsageRemaining.Int64 = -1
-			Expect(u.HasUsageRemaining()).To(Equal(false))
+		It("returns true if the free host usage is less than usage quota", func() {
+			startTime := quotaRestoredAt.Add(5 * time.Hour)
+			endTime := quotaRestoredAt.Add(7 * time.Hour)
+			_, err = db.Exec("INSERT INTO host_transitions (host_id, previous_state, state, created_at, ended_at) values ($1, $2, $3, $4, $5);", hs.H.ID, "starting", "running", startTime, endTime)
+			Expect(err).To(BeNil())
+			Expect(hs.U.HasUsageRemaining(db)).To(Equal(true))
 		})
 
-		It("returns false if the usage remaining is null", func() {
-			u := &user.User{
-				Username:       "aroon",
-				Password:       "pathgate",
-				Email:          "aroon@zerobotlabs.com",
-				UsageRemaining: sql.NullInt64{},
-			}
-			Expect(u.HasUsageRemaining()).To(Equal(false))
+		It("returns false if the free host usage is greater than usage quota", func() {
+			startTime := quotaRestoredAt.Add(1 * time.Hour)
+			endTime := quotaRestoredAt.Add(52 * time.Hour)
+			_, err = db.Exec("INSERT INTO host_transitions (host_id, previous_state, state, created_at, ended_at) values ($1, $2, $3, $4, $5);", hs.H.ID, "starting", "running", startTime, endTime)
+			Expect(err).To(BeNil())
+			Expect(hs.U.HasUsageRemaining(db)).To(Equal(false))
 		})
 	})
 
