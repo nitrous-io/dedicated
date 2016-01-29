@@ -370,13 +370,6 @@ func (u *User) UpdatePhoneAuthed(d db.QueryReceiver, b bool) error {
 		RETURNING *`, b, u.ID).StructScan(u)
 }
 
-func (u *User) DecrementUsageRemaining(d db.QueryReceiver, secondsUsed int64) error {
-	return d.QueryRowx(`UPDATE users
-		SET usage_remaining = usage_remaining - $1, updated_at = now()
-		WHERE id = $2
-		RETURNING *`, secondsUsed, u.ID).StructScan(u)
-}
-
 func (u *User) FreeHostUsage(d db.QueryReceiver, endTime time.Time) (int64, error) {
 	var seconds int64
 	err := d.QueryRowx(`

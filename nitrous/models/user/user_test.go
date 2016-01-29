@@ -923,33 +923,6 @@ var _ = Describe("models/user", func() {
 		})
 	})
 
-	Describe("DecrementUsageRemaining()", func() {
-		It("reduces the usage remaining by the given number of seconds", func() {
-			u := &user.User{
-				Username: "aroon",
-				Password: "pathgate",
-				Email:    "aroon@zerobotlabs.com",
-			}
-			Expect(test.WrapInTransaction(db, u.Insert)).To(BeNil())
-
-			origUsageRemaining := u.UsageRemaining.Int64
-			Expect(origUsageRemaining).NotTo(BeZero())
-			origUpdatedAt := u.UpdatedAt
-
-			err := u.DecrementUsageRemaining(db, 60)
-			Expect(err).To(BeNil())
-
-			Expect(u.UsageRemaining.Int64).To(Equal(origUsageRemaining - 60))
-			Expect(*u.UpdatedAt).To(BeTemporally(">", *origUpdatedAt))
-
-			updated, err := user.FindByID(db, u.ID)
-			Expect(err).To(BeNil())
-
-			Expect(updated.UsageRemaining.Int64).To(Equal(origUsageRemaining - 60))
-			Expect(*updated.UpdatedAt).To(BeTemporally(">", *origUpdatedAt))
-		})
-	})
-
 	Describe("FreeHostUsage()", func() {
 		var (
 			hs              *test.HostStack

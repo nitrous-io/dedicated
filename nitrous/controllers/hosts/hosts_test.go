@@ -1443,8 +1443,14 @@ var _ = Describe("controllers/hosts", func() {
 			})
 			Expect(err).To(BeNil())
 
-			// Reduce usage remaining to 0.
-			err = u.DecrementUsageRemaining(db, u.UsageQuota.Int64)
+			// Add host transitions with state 'running' to use up user free quota
+			quotaRestoredAt := time.Date(2014, 1, 1, 0, 0, 0, 0, time.Local)
+			_, err = db.Exec(`UPDATE users SET usage_quota_restored_at = $1 ;`, quotaRestoredAt)
+			Expect(err).To(BeNil())
+
+			startTime := quotaRestoredAt.Add(1 * time.Hour)
+			endTime := quotaRestoredAt.Add(52 * time.Hour)
+			_, err = db.Exec("INSERT INTO host_transitions (host_id, previous_state, state, created_at, ended_at) values ($1, $2, $3, $4, $5);", hs2.H.ID, "starting", "running", startTime, endTime)
 			Expect(err).To(BeNil())
 
 			doRequest(hs2.H.Slug)
@@ -1994,8 +2000,14 @@ var _ = Describe("controllers/hosts", func() {
 			})
 			Expect(err).To(BeNil())
 
-			// Reduce usage remaining to 0.
-			err = u.DecrementUsageRemaining(db, u.UsageQuota.Int64)
+			// Add host transitions with state 'running' to use up user free quota
+			quotaRestoredAt := time.Date(2014, 1, 1, 0, 0, 0, 0, time.Local)
+			_, err = db.Exec(`UPDATE users SET usage_quota_restored_at = $1 ;`, quotaRestoredAt)
+			Expect(err).To(BeNil())
+
+			startTime := quotaRestoredAt.Add(1 * time.Hour)
+			endTime := quotaRestoredAt.Add(52 * time.Hour)
+			_, err = db.Exec("INSERT INTO host_transitions (host_id, previous_state, state, created_at, ended_at) values ($1, $2, $3, $4, $5);", hs2.H.ID, "starting", "running", startTime, endTime)
 			Expect(err).To(BeNil())
 
 			doRequest(hs2.H.Slug, t.Token, nil)
