@@ -571,26 +571,26 @@ var _ = Describe("models/billingprofile", func() {
 		})
 	})
 
-	Describe("IsCardRequired()", func() {
+	Describe("IsNoCard()", func() {
 		It("should be false if the state is Exempt", func() {
 			bp := &billingprofile.BillingProfile{
 				State: billingprofile.StateExempt,
 			}
-			Expect(bp.IsCardRequired()).To(BeFalse())
+			Expect(bp.IsNoCard()).To(BeFalse())
 		})
 
 		It("should be true if the state is NoCard", func() {
 			bp := &billingprofile.BillingProfile{
 				State: billingprofile.StateNoCard,
 			}
-			Expect(bp.IsCardRequired()).To(BeTrue())
+			Expect(bp.IsNoCard()).To(BeTrue())
 		})
 
 		It("should be false otherwise", func() {
 			bp := &billingprofile.BillingProfile{
 				State: billingprofile.StatePaid,
 			}
-			Expect(bp.IsCardRequired()).To(BeFalse())
+			Expect(bp.IsNoCard()).To(BeFalse())
 		})
 	})
 

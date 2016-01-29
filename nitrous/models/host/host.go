@@ -225,16 +225,56 @@ func FindAllWithTerminated(db *db.Database, userID int64) ([]*Host, error) {
 	return hosts, nil
 }
 
+func FindAllWithoutOrphaned(db *db.Database, userID int64) ([]*Host, error) {
+	hosts := []*Host{}
+	err := db.Select(&hosts, `SELECT * FROM hosts
+		WHERE user_id = $1
+			AND state != $2
+			AND preprovisioned = FALSE
+			AND terminated_at IS NULL
+		ORDER BY id;`,
+		userID, StateOrphan)
+	if err != nil {
+		return nil, err
+	}
+	return hosts, nil
+}
+
+func FindAllIdleAndFree(db *db.Database) ([]*Host, error) {
+	hosts := []*Host{}
+	err := db.Select(&hosts, `SELECT hosts.*, pts.provider, pts.config
+		FROM hosts
+		INNER JOIN provider_templates AS pts on hosts.provider_template_id = pts.id
+		WHERE auto_shutdown = $1
+			AND state = $2
+			AND (
+				EXTRACT(EPOCH FROM (now() - last_pinged_at)) > idle_timeout
+				-- if host started but IDE is never started, last_pinged_at will be null
+				OR
+				last_pinged_at IS NULL
+			)
+			-- if host has been running for less than 2700 seconds = 45 minutes; not idle
+			AND
+			  (last_running_at IS NULL OR MOD(CAST(EXTRACT(EPOCH FROM now() - last_running_at) as numeric), 3600) > 2700)
+			AND terminated_at IS NULL
+		ORDER BY last_pinged_at ASC
+	`, true, StateRunning)
+	if err != nil {
+		return nil, err
+	}
+	return hosts, nil
+}
+
 func FindAllForTermination(db *db.Database) ([]*Host, error) {
 	hosts := []*Host{}
 	err := db.Select(&hosts, `SELECT hosts.*, pt.provider, pt.config, sub.slug AS subscription_slug
 			FROM hosts
 			INNER JOIN provider_templates AS pt ON hosts.provider_template_id = pt.id
-                        INNER JOIN subscriptions AS sub ON hosts.subscription_id = sub.id
-                        WHERE sub.state = $1
-                        AND sub.cancel_pending IS FALSE
-                        AND hosts.terminated_at IS NULL
-                        AND sub.cancelled_at < (now() - interval '48 hours');`, // 48hrs gives a grace period in case of any bugs (so we don't immediately term)
+			INNER JOIN subscriptions AS sub ON hosts.subscription_id = sub.id
+			WHERE sub.state = $1
+			AND sub.cancel_pending IS FALSE
+			AND hosts.terminated_at IS NULL
+			AND sub.cancelled_at < (now() - interval '48 hours');`, // 48hrs gives a grace period in case of any bugs (so we don't immediately term)
 		subscription.StateDeleted)
 	if err != nil {
 		return nil, err
@@ -325,7 +365,7 @@ func FindShared(db *db.Database, user *user.User, identifier string) (*Host, err
 // FindByIdentifier returns a host identified by its ID or slug.
 // It does not scope to a user and includes pre-provisioned hosts.
 // It also returns some data about the host's provider template
-func FindByIdentifier(db *db.Database, identifier string) (*Host, error) {
+func FindByIdentifier(db db.QueryReceiver, identifier string) (*Host, error) {
 	host := &Host{}
 
 	id, err := strconv.ParseInt(identifier, 10, 64)
@@ -517,7 +557,45 @@ func (h *Host) Delete(d db.QueryReceiver) error {
 }
 
 func (h *Host) Touch(d db.QueryReceiver) error {
-	return h.UpdateColumn(d, "last_pinged_at", pq.NullTime{time.Now(), true})
+	now := time.Now()
+
+	if !h.Free || !h.LastPingedAt.Valid {
+		return h.UpdateColumn(d, "last_pinged_at", pq.NullTime{now, true})
+	}
+
+	// At this point, the host is free and has previously been pinged.
+	// We count the time the host was used since the last ping, and decrement
+	// the user's usage remaining time.
+	var secondsUsed int64
+	if err := d.QueryRowx(`SELECT SUM(
+		CEILING(
+			CAST(
+				EXTRACT(
+					EPOCH FROM
+						LEAST(COALESCE(ended_at, $3), $3) - GREATEST(created_at, $2)
+				)
+				AS integer
+			)
+		))
+		FROM host_transitions
+		WHERE host_id = $1
+			AND state = 'running'
+			AND (created_at, COALESCE(ended_at, $3)) OVERLAPS ($2, $3);
+		`, h.ID, h.LastPingedAt.Time, now).Scan(&secondsUsed); err != nil {
+		return err
+	}
+
+	if secondsUsed > 0 {
+		u, err := user.FindByID(d, h.UserID)
+		if err != nil {
+			return err
+		}
+		if err := u.DecrementUsageRemaining(d, secondsUsed); err != nil {
+			return err
+		}
+	}
+
+	return h.UpdateColumn(d, "last_pinged_at", pq.NullTime{now, true})
 }
 
 func (h *Host) CanCreateMoreContainers(d db.QueryReceiver, u *user.User) (bool, error) {
@@ -539,6 +617,31 @@ func (h *Host) CanCreateMoreContainers(d db.QueryReceiver, u *user.User) (bool, 
 		return false, err
 	}
 	return count < containerLimit.Int64, nil
+}
+
+func (h *Host) IsIdle(db *db.Database) (bool, error) {
+	var count int
+	err := db.QueryRow(`
+		SELECT count(*) FROM hosts
+		WHERE id = $1
+			AND auto_shutdown = $2
+			AND state = $3
+			AND (
+				EXTRACT(EPOCH FROM (now() - last_pinged_at)) > idle_timeout
+				-- if host started but IDE is never started, last_pinged_at will be null
+				OR
+				last_pinged_at IS NULL
+			)
+			-- if host has been running for less than 2700 seconds = 45 minutes; not idle
+			AND
+			  (last_running_at IS NULL OR MOD(CAST(EXTRACT(EPOCH FROM now() - last_running_at) as numeric), 3600) > 2700)
+			AND terminated_at IS NULL
+		`, h.ID, true, StateRunning).Scan(&count)
+	if err != nil {
+		return false, err
+	}
+
+	return (count == 1), nil
 }
 
 func (h *Host) Validate() error {

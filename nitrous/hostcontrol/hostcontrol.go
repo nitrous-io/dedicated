@@ -38,8 +38,7 @@ var (
 
 func StopWithQueue(db *db.Database, h *host.Host, headers http.Header, ev EventFunc, initiatorID int64) error {
 	origState := h.State
-	err := beforeStop(db, h, ev, initiatorID, origState)
-	if err != nil {
+	if err := beforeStop(db, h, ev, initiatorID, origState); err != nil {
 		return err
 	}
 
@@ -53,7 +52,7 @@ func StopWithQueue(db *db.Database, h *host.Host, headers http.Header, ev EventF
 }
 
 func beforeStop(db *db.Database, h *host.Host, ev EventFunc, initiatorID int64, origState string) error {
-	if err := RecordNewState(db, h, host.StateStopping, initiatorID); err != nil {
+	if err := UpdateAndRecordState(db, h, host.StateStopping, initiatorID); err != nil {
 		return err
 	}
 
@@ -65,11 +64,11 @@ func beforeStop(db *db.Database, h *host.Host, ev EventFunc, initiatorID int64, 
 }
 
 func OnStopFailed(db *db.Database, h *host.Host, initiatorID int64, origState string) error {
-	err := RecordNewState(db, h, origState, initiatorID)
-	if err != nil {
+	if err := UpdateAndRecordState(db, h, origState, initiatorID); err != nil {
 		logrus.Errorf("hosts.Stop: Unable to restore host state: %v", err)
+		return err
 	}
-	return err
+	return nil
 }
 
 func OnStopped(db *db.Database, h *host.Host, info *HostInfo, initiatorID int64) error {
@@ -120,7 +119,7 @@ func Terminate(tx *sqlx.Tx, h *host.Host, headers http.Header, initiatorID int64
 	return nil
 }
 
-func RecordNewState(db *db.Database, h *host.Host, newState string, initiatorID int64) error {
+func UpdateAndRecordState(db *db.Database, h *host.Host, newState string, initiatorID int64) error {
 	return db.WithTransaction(func(tx *sqlx.Tx) error {
 		origState := h.State
 		if err := h.UpdateState(tx, newState); err != nil {

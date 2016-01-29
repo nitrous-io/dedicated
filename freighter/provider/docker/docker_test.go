@@ -280,6 +280,33 @@ var _ = Describe("provider/docker", func() {
 				}
 			})
 
+			Describe(".Activity()", func() {
+				It("returns false when there is no activity", func() {
+					active, err := prov.Activity(900)
+					Expect(err).To(BeNil())
+					Expect(active).To(BeFalse())
+				})
+
+				It("returns true when there is activity", func() {
+					// obtain a tty
+					cmd := exec.Command("docker", "exec", "-t", id,
+						"script", "-q", "-c",
+						fmt.Sprintf("/bin/login -f %s", DfileEnvUser), "/dev/null")
+					err := cmd.Start()
+					Expect(err).To(BeNil())
+
+					// give some time for above to run
+					time.Sleep(1 * time.Second)
+
+					active, err := prov.Activity(10)
+					Expect(err).To(BeNil())
+					Expect(active).To(BeTrue())
+
+					// we do not `cmd.Wait()` because it is interactive and
+					// will stall the tests.
+				})
+			})
+
 			Describe(".List()", func() {
 				It("returns a list of all containers", func() {
 					// Create another container.

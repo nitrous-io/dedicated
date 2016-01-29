@@ -15,6 +15,7 @@ import (
 	"github.com/nitrous-io/dedicated/nitrous/models/billingprofile"
 	"github.com/nitrous-io/dedicated/nitrous/models/container"
 	"github.com/nitrous-io/dedicated/nitrous/models/containercollab"
+	"github.com/nitrous-io/dedicated/nitrous/models/host"
 	"github.com/nitrous-io/dedicated/nitrous/models/org"
 	"github.com/nitrous-io/dedicated/nitrous/models/user"
 	"github.com/nitrous-io/dedicated/nitrous/models/userprofile"
@@ -56,6 +57,214 @@ var _ = Describe("models/user", func() {
 		if db != nil {
 			db.Close()
 		}
+	})
+
+	Describe("RestoreUsageQuotas()", func() {
+		var (
+			u  *user.User
+			hs *test.HostStack
+		)
+
+		BeforeEach(func() {
+			u = &user.User{
+				Username: "aroon",
+				Password: "123456",
+				Email:    "aroon@zerobotlabs.com",
+			}
+			Expect(test.WrapInTransaction(db, u.Insert)).To(BeNil())
+
+			// Create a free host belonging to the user.
+			var err error
+			hs, err = test.CreateHostStack(db, &test.HostStack{
+				U: u,
+				H: &host.Host{
+					Slug: "free-host",
+					Free: true,
+				},
+			})
+			Expect(err).To(BeNil())
+		})
+
+		It("sets usage_remaining to the usage_quota when it was last restored earlier than usage_quota_period ago", func() {
+			// Decrement user's usage_remaining to simulate usage of quota.
+			err := u.DecrementUsageRemaining(db, 60)
+			Expect(err).To(BeNil())
+
+			origUsageRemaining := u.UsageRemaining.Int64
+			Expect(origUsageRemaining > 0).To(Equal(true))
+			Expect(origUsageRemaining < u.UsageQuota.Int64).To(Equal(true))
+
+			// Set usage_quota_restored_at to earlier than usage_quota_period ago.
+			quotaPeriod := time.Duration(u.UsageQuotaPeriod.Int64) * time.Second
+			Expect(quotaPeriod > 0).To(Equal(true))
+			now := time.Now()
+			lastRestoredAt := now.Add(-quotaPeriod).Add(-time.Second)
+			u.UsageQuotaRestoredAt = pq.NullTime{lastRestoredAt, true}
+			Expect(u.Update(db)).To(BeNil())
+
+			numRestored, err := user.RestoreUsageQuotas(db, now)
+			Expect(err).To(BeNil())
+			Expect(numRestored).To(Equal(int64(1)))
+
+			updated, err := user.FindByID(db, u.ID)
+			Expect(err).To(BeNil())
+
+			Expect(updated.UsageRemaining.Int64).To(Equal(updated.UsageQuota.Int64))
+			Expect(updated.UsageRemaining.Int64 > origUsageRemaining).To(Equal(true))
+
+			// The usage_quota_restored_at should be set.
+			Expect(updated.UsageQuotaRestoredAt.Time).To(BeTemporally("~", now, time.Second))
+		})
+
+		It("sets usage_notices_sent to 0 when it was last restored earlier than usage_quota_period ago", func() {
+			quotaPeriod := time.Duration(u.UsageQuotaPeriod.Int64) * time.Second
+			Expect(quotaPeriod > 0).To(Equal(true))
+			now := time.Now()
+			lastRestoredAt := now.Add(-quotaPeriod).Add(-time.Second)
+			u.UsageQuotaRestoredAt = pq.NullTime{lastRestoredAt, true}
+			Expect(u.Update(db)).To(BeNil())
+
+			Expect(u.UsageNoticesSent.Int64).To(Equal(int64(0)))
+			u.UsageNoticesSent = sql.NullInt64{user.USAGE_NOTICES_SECOND_WARNING, true}
+			Expect(u.Update(db)).To(BeNil())
+			Expect(u.UsageNoticesSent.Int64).To(Equal(int64(2)))
+
+			_, err := user.RestoreUsageQuotas(db, now)
+			Expect(err).To(BeNil())
+
+			updated, err := user.FindByID(db, u.ID)
+			Expect(err).To(BeNil())
+			Expect(updated.UsageNoticesSent.Int64).To(Equal(int64(0)))
+		})
+
+		It("does not do anything if the usage was restored less than usage_quota_period ago", func() {
+			// Decrement user's usage_remaining to simulate usage of quota.
+			err := u.DecrementUsageRemaining(db, 60)
+			Expect(err).To(BeNil())
+
+			origUsageRemaining := u.UsageRemaining.Int64
+			Expect(origUsageRemaining > 0).To(Equal(true))
+			Expect(origUsageRemaining < u.UsageQuota.Int64).To(Equal(true))
+
+			// Set usage_quota_restored_at to later than usage_quota_period ago.
+			quotaPeriod := time.Duration(u.UsageQuotaPeriod.Int64) * time.Second
+			Expect(quotaPeriod > 0).To(Equal(true))
+			now := time.Now()
+			lastRestoredAt := now.Add(-quotaPeriod).Add(time.Second)
+			u.UsageQuotaRestoredAt = pq.NullTime{lastRestoredAt, true}
+			Expect(u.Update(db)).To(BeNil())
+
+			numRestored, err := user.RestoreUsageQuotas(db, now)
+			Expect(err).To(BeNil())
+			Expect(numRestored).To(Equal(int64(0)))
+
+			updated, err := user.FindByID(db, u.ID)
+			Expect(err).To(BeNil())
+
+			Expect(updated.UsageRemaining.Int64).To(Equal(origUsageRemaining))
+
+			// The usage_quota_restored_at should be unchanged.
+			Expect(updated.UsageQuotaRestoredAt.Time).To(BeTemporally("~", lastRestoredAt))
+			Expect(*updated.UpdatedAt).To(BeTemporally("~", *u.UpdatedAt))
+		})
+
+		It("does not do anything if user's host is not free", func() {
+			// Set user's host to "not free".
+			_, err := db.Exec(`UPDATE hosts SET free = false WHERE ID = $1;`, hs.H.ID)
+			Expect(err).To(BeNil())
+
+			// Decrement user's usage_remaining to simulate usage of quota.
+			err = u.DecrementUsageRemaining(db, 60)
+			Expect(err).To(BeNil())
+
+			origUsageRemaining := u.UsageRemaining.Int64
+			Expect(origUsageRemaining > 0).To(Equal(true))
+			Expect(origUsageRemaining < u.UsageQuota.Int64).To(Equal(true))
+
+			// Set usage_quota_restored_at to earlier than usage_quota_period ago.
+			quotaPeriod := time.Duration(u.UsageQuotaPeriod.Int64) * time.Second
+			Expect(quotaPeriod > 0).To(Equal(true))
+			now := time.Now()
+			lastRestoredAt := now.Add(-quotaPeriod).Add(-time.Second)
+			u.UsageQuotaRestoredAt = pq.NullTime{lastRestoredAt, true}
+			Expect(u.Update(db)).To(BeNil())
+
+			numRestored, err := user.RestoreUsageQuotas(db, now)
+			Expect(err).To(BeNil())
+			Expect(numRestored).To(Equal(int64(0)))
+
+			updated, err := user.FindByID(db, u.ID)
+			Expect(err).To(BeNil())
+
+			Expect(updated.UsageRemaining.Int64).To(Equal(origUsageRemaining))
+
+			// The usage_quota_restored_at should be unchanged.
+			Expect(updated.UsageQuotaRestoredAt.Time).To(BeTemporally("~", lastRestoredAt))
+			Expect(*updated.UpdatedAt).To(BeTemporally("~", *u.UpdatedAt))
+		})
+
+		It("does not do anything if user does not have any hosts", func() {
+			// Terminate user's free host.
+			err := hs.H.Delete(db)
+			Expect(err).To(BeNil())
+
+			// Decrement user's usage_remaining to simulate usage of quota.
+			err = u.DecrementUsageRemaining(db, 60)
+			Expect(err).To(BeNil())
+
+			origUsageRemaining := u.UsageRemaining.Int64
+			Expect(origUsageRemaining > 0).To(Equal(true))
+			Expect(origUsageRemaining < u.UsageQuota.Int64).To(Equal(true))
+
+			// Set usage_quota_restored_at to earlier than usage_quota_period ago.
+			quotaPeriod := time.Duration(u.UsageQuotaPeriod.Int64) * time.Second
+			Expect(quotaPeriod > 0).To(Equal(true))
+			now := time.Now()
+			lastRestoredAt := now.Add(-quotaPeriod).Add(-time.Second)
+			u.UsageQuotaRestoredAt = pq.NullTime{lastRestoredAt, true}
+			Expect(u.Update(db)).To(BeNil())
+
+			numRestored, err := user.RestoreUsageQuotas(db, now)
+			Expect(err).To(BeNil())
+			Expect(numRestored).To(Equal(int64(0)))
+
+			updated, err := user.FindByID(db, u.ID)
+			Expect(err).To(BeNil())
+
+			Expect(updated.UsageRemaining.Int64).To(Equal(origUsageRemaining))
+
+			// The usage_quota_restored_at should be unchanged.
+			Expect(updated.UsageQuotaRestoredAt.Time).To(BeTemporally("~", lastRestoredAt))
+			Expect(*updated.UpdatedAt).To(BeTemporally("~", *u.UpdatedAt))
+		})
+
+		It("does not do anything if the usage_quota_restored_at is empty", func() {
+			// Decrement user's usage_remaining to simulate usage of quota.
+			err := u.DecrementUsageRemaining(db, 60)
+			Expect(err).To(BeNil())
+
+			origUsageRemaining := u.UsageRemaining.Int64
+			Expect(origUsageRemaining > 0).To(Equal(true))
+			Expect(origUsageRemaining < u.UsageQuota.Int64).To(Equal(true))
+
+			// Set usage_quota_restored_at to null.
+			u.UsageQuotaRestoredAt = pq.NullTime{}
+			Expect(u.Update(db)).To(BeNil())
+
+			now := time.Now()
+			numRestored, err := user.RestoreUsageQuotas(db, now)
+			Expect(err).To(BeNil())
+			Expect(numRestored).To(Equal(int64(0)))
+
+			updated, err := user.FindByID(db, u.ID)
+			Expect(err).To(BeNil())
+
+			Expect(updated.UsageRemaining.Int64).To(Equal(origUsageRemaining))
+
+			// The usage_quota_restored_at should be unchanged.
+			Expect(updated.UsageQuotaRestoredAt.Valid).To(Equal(false))
+			Expect(*updated.UpdatedAt).To(BeTemporally("~", *u.UpdatedAt))
+		})
 	})
 
 	Describe("FindByID()", func() {
@@ -581,6 +790,7 @@ var _ = Describe("models/user", func() {
 			u.UnconfirmedEmail = sql.NullString{String: "un@example.com", Valid: true}
 			u.ConfirmationSentAt = pq.NullTime{uTime, true}
 			u.ConfirmationToken = sql.NullString{"hello", true}
+			u.UsageQuotaRestoredAt = pq.NullTime{uTime.Add(time.Hour), true}
 			oldCreated, oldUpdated := u.CreatedAt, u.UpdatedAt
 			t := time.Now()
 			u.CreatedAt = &t
@@ -595,8 +805,9 @@ var _ = Describe("models/user", func() {
 			Expect(updated.Password).To(BeEmpty())
 			Expect(bcrypt.Verify(updated.EncryptedPassword, "abcdef")).To(BeTrue())
 			Expect(updated.ConfirmationSentAt.Valid).To(BeTrue())
-			Expect(updated.ConfirmationSentAt.Time.Unix()).To(BeNumerically(">=", uTime.Unix()))
+			Expect(updated.ConfirmationSentAt.Time.Unix()).To(Equal(uTime.Unix()))
 			Expect(updated.ConfirmationToken).To(Equal(sql.NullString{"hello", true}))
+			Expect(updated.UsageQuotaRestoredAt.Time.Unix()).To(Equal(uTime.Add(time.Hour).Unix()))
 			Expect(updated.CreatedAt).To(Equal(oldCreated))
 			Expect(*updated.UpdatedAt).To(BeTemporally(">", *oldUpdated))
 		})
@@ -709,6 +920,68 @@ var _ = Describe("models/user", func() {
 			updated, err := user.FindByID(db, u.ID)
 			Expect(err).To(BeNil())
 			Expect(updated.PhoneAuthed).To(BeTrue())
+		})
+	})
+
+	Describe("DecrementUsageRemaining()", func() {
+		It("reduces the usage remaining by the given number of seconds", func() {
+			u := &user.User{
+				Username: "aroon",
+				Password: "pathgate",
+				Email:    "aroon@zerobotlabs.com",
+			}
+			Expect(test.WrapInTransaction(db, u.Insert)).To(BeNil())
+
+			origUsageRemaining := u.UsageRemaining.Int64
+			Expect(origUsageRemaining).NotTo(BeZero())
+			origUpdatedAt := u.UpdatedAt
+
+			err := u.DecrementUsageRemaining(db, 60)
+			Expect(err).To(BeNil())
+
+			Expect(u.UsageRemaining.Int64).To(Equal(origUsageRemaining - 60))
+			Expect(*u.UpdatedAt).To(BeTemporally(">", *origUpdatedAt))
+
+			updated, err := user.FindByID(db, u.ID)
+			Expect(err).To(BeNil())
+
+			Expect(updated.UsageRemaining.Int64).To(Equal(origUsageRemaining - 60))
+			Expect(*updated.UpdatedAt).To(BeTemporally(">", *origUpdatedAt))
+		})
+	})
+
+	Describe("HasUsageRemaining()", func() {
+		It("returns true if the usage remaining is greater than 0", func() {
+			u := &user.User{
+				Username:       "aroon",
+				Password:       "pathgate",
+				Email:          "aroon@zerobotlabs.com",
+				UsageRemaining: sql.NullInt64{42, true},
+			}
+			Expect(u.HasUsageRemaining()).To(Equal(true))
+		})
+
+		It("returns false if the usage remaining is 0 or less", func() {
+			u := &user.User{
+				Username:       "aroon",
+				Password:       "pathgate",
+				Email:          "aroon@zerobotlabs.com",
+				UsageRemaining: sql.NullInt64{0, true},
+			}
+			Expect(u.HasUsageRemaining()).To(Equal(false))
+
+			u.UsageRemaining.Int64 = -1
+			Expect(u.HasUsageRemaining()).To(Equal(false))
+		})
+
+		It("returns false if the usage remaining is null", func() {
+			u := &user.User{
+				Username:       "aroon",
+				Password:       "pathgate",
+				Email:          "aroon@zerobotlabs.com",
+				UsageRemaining: sql.NullInt64{},
+			}
+			Expect(u.HasUsageRemaining()).To(Equal(false))
 		})
 	})
 
@@ -1362,6 +1635,101 @@ var _ = Describe("models/user", func() {
 		})
 	})
 
+	Describe("FindAllByUsageAndNoticeSent()", func() {
+		var (
+			u1, u2, u3, u4, u5 *user.User
+		)
+
+		BeforeEach(func() {
+			u1 = &user.User{
+				Username: "qux1",
+				Password: "123456",
+				Email:    "qux1@example.com",
+			}
+			err := test.WrapInTransaction(db, u1.Insert)
+			Expect(err).To(BeNil())
+			_, err = db.Exec(`
+				UPDATE users SET usage_remaining = $1, usage_notices_sent = $2
+				WHERE id = $3;
+			`, 180000, user.USAGE_NOTICES_NO_WARNING, u1.ID)
+			Expect(err).To(BeNil())
+
+			u2 = &user.User{
+				Username: "qux2",
+				Password: "123456",
+				Email:    "qux2@example.com",
+			}
+			err = test.WrapInTransaction(db, u2.Insert)
+			Expect(err).To(BeNil())
+			_, err = db.Exec(`
+				UPDATE users SET usage_remaining = $1, usage_notices_sent = $2
+				WHERE id = $3;
+			`, 14400, user.USAGE_NOTICES_NO_WARNING, u2.ID) // 4 hours
+			Expect(err).To(BeNil())
+
+			u3 = &user.User{
+				Username: "qux3",
+				Password: "123456",
+				Email:    "qux3@example.com",
+			}
+			err = test.WrapInTransaction(db, u3.Insert)
+			Expect(err).To(BeNil())
+			_, err = db.Exec(`
+				UPDATE users SET usage_remaining = $1, usage_notices_sent = $2
+				WHERE id = $3;
+			`, 14300, user.USAGE_NOTICES_NO_WARNING, u3.ID) // less than 4 hours
+			Expect(err).To(BeNil())
+
+			u4 = &user.User{
+				Username: "qux4",
+				Password: "123456",
+				Email:    "qux4@example.com",
+			}
+			err = test.WrapInTransaction(db, u4.Insert)
+			Expect(err).To(BeNil())
+			_, err = db.Exec(`
+				UPDATE users SET usage_remaining = $1, usage_notices_sent = $2
+				WHERE id = $3;
+			`, 3500, user.USAGE_NOTICES_FIRST_WARNING, u4.ID) // less than 1 hours
+			Expect(err).To(BeNil())
+
+			u5 = &user.User{
+				Username: "qux5",
+				Password: "123456",
+				Email:    "qux5@example.com",
+			}
+			err = test.WrapInTransaction(db, u5.Insert)
+			Expect(err).To(BeNil())
+			_, err = db.Exec(`
+				UPDATE users SET usage_remaining = $1, usage_notices_sent = $2
+				WHERE id = $3;
+			`, 3400, user.USAGE_NOTICES_FIRST_WARNING, u5.ID) // less than 1 hours
+			Expect(err).To(BeNil())
+		})
+
+		It("returns users that has never receive notice email and usage remaining is less than 5 hours", func() {
+			users, err := user.FindAllByUsageAndNoticeSent(db, 60*60*5, user.USAGE_NOTICES_NO_WARNING)
+			Expect(err).To(BeNil())
+			Expect(users).To(HaveLen(2))
+			Expect(users[0].Email).To(Equal("qux2@example.com"))
+			Expect(users[1].Email).To(Equal("qux3@example.com"))
+		})
+
+		It("returns users that has received one notice email and usage remaining is less than 1 hours", func() {
+			users, err := user.FindAllByUsageAndNoticeSent(db, 3600, user.USAGE_NOTICES_FIRST_WARNING)
+			Expect(err).To(BeNil())
+			Expect(users).To(HaveLen(2))
+			Expect(users[0].Email).To(Equal("qux4@example.com"))
+			Expect(users[1].Email).To(Equal("qux5@example.com"))
+		})
+
+		It("returns no user when user has received more than two notice emails", func() {
+			users, err := user.FindAllByUsageAndNoticeSent(db, 60*50, user.USAGE_NOTICES_SECOND_WARNING)
+			Expect(err).To(BeNil())
+			Expect(users).To(HaveLen(0))
+		})
+	})
+
 	Describe("ConfirmEmail", func() {
 		var (
 			u          *user.User
@@ -1603,6 +1971,60 @@ var _ = Describe("models/user", func() {
 			err = db.Get(&found, `SELECT COUNT(*) = 1 FROM container_collabs WHERE user_id = $1 AND container_id = $2`, u.ID, cnr.ID)
 			Expect(err).To(BeNil())
 			Expect(found).To(BeTrue())
+		})
+	})
+
+	Describe("SendUsageNoticeEmail", func() {
+		var (
+			u          *user.User
+			fakeMailer *test.FakeMailer
+			origMailer mailer.Mailer
+		)
+
+		BeforeEach(func() {
+			origMailer = user.Mailer
+			fakeMailer = &test.FakeMailer{}
+			user.Mailer = fakeMailer
+
+			u = &user.User{
+				Username: "qux",
+				Name:     "quxboy",
+				Password: "123456",
+				Email:    "qux@example.com",
+			}
+			err := test.WrapInTransaction(db, u.Insert)
+			Expect(err).To(BeNil())
+			envvars.WebHostname = "nitrous.example"
+		})
+
+		AfterEach(func() {
+			user.Mailer = origMailer
+		})
+
+		It("sends 5 hours usage remaining notice email", func() {
+			err := u.SendUsageNoticeEmail(db, 5)
+			Expect(err).To(BeNil())
+
+			Expect(fakeMailer.SendMailCalled).To(BeTrue())
+			Expect(fakeMailer.From).To(Equal(envvars.SupportEmail))
+			Expect(fakeMailer.Tos).To(Equal([]string{"\"quxboy\" <qux@example.com>"}))
+			Expect(fakeMailer.ReplyTo).To(Equal(envvars.SupportEmail))
+			Expect(fakeMailer.Subject).To(Equal("Your free Nitrous workstation: 5 hours remaining this month"))
+			Expect(fakeMailer.Body).To(ContainSubstring("Hello quxboy!"))
+			Expect(fakeMailer.HTML).To(ContainSubstring("<h3>Hello quxboy!</h3>"))
+		})
+
+		It("sends 1 hour usage remaining notice email", func() {
+			err := u.SendUsageNoticeEmail(db, 1)
+			Expect(err).To(BeNil())
+
+			Expect(fakeMailer.SendMailCalled).To(BeTrue())
+			Expect(fakeMailer.From).To(Equal(envvars.SupportEmail))
+			Expect(fakeMailer.Tos).To(Equal([]string{"\"quxboy\" <qux@example.com>"}))
+			Expect(fakeMailer.ReplyTo).To(Equal(envvars.SupportEmail))
+			Expect(fakeMailer.Subject).To(Equal("Your free Nitrous workstation: 1 hour remaining this month"))
+			Expect(fakeMailer.Body).To(ContainSubstring("Hello quxboy!"))
+			Expect(fakeMailer.HTML).To(ContainSubstring("<h3>Hello quxboy!</h3>"))
 		})
 	})
 

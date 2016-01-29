@@ -121,3 +121,65 @@ var _ = Describe("parsePortSpec", func() {
 		}
 	})
 })
+
+var _ = Describe("ParseWOutput", func() {
+	Context("parses output of `w --no-header <user>` command", func() {
+		testCases := []struct {
+			expected         bool
+			expectedErrStr   string
+			threshold        int
+			username, output string
+		}{
+			// error handling of unexpected input
+			{false, "did not match expected format", 900, "nitrous", "bad format"},
+			{false, "not match username action", 900, "action",
+				`nitrous  pts/1                     03:11    2:25m  0.08s  0.08s -zsh`},
+			{false, "unexpected idle string", 900, "nitrous",
+				`nitrous  pts/1                     03:11    ????  0.08s  0.08s -zsh`},
+			{false, "must be less than 3600", 9999, "nitrous",
+				`nitrous  pts/1                     03:11    ????  0.08s  0.08s -zsh`},
+			// no output means user not signed in and is idle
+			{false, "", 900, "nitrous", ""},
+			// idle for days means idle
+			{false, "", 900, "nitrous",
+				`nitrous  pts/1                     03:11    25days 0.08s  0.08s -zsh`},
+			// idle for hours means idle
+			{false, "", 900, "nitrous",
+				`nitrous  pts/1                     03:11    2:25m  0.08s  0.08s -zsh`},
+			// idle for 40 minutes means idle
+			{false, "", 900, "nitrous",
+				`nitrous  pts/1                     03:11    40:00  0.08s  0.08s -zsh`},
+			// idle for 10 minutes means active
+			{true, "", 900, "nitrous",
+				`nitrous  pts/1                     03:11    10:00  0.08s  0.08s -zsh`},
+			// idle for 39 seconds means active
+			{true, "", 900, "nitrous",
+				`nitrous  pts/1                     03:11    39.12s  0.08s  0.08s -zsh`},
+			// with a FROM column populated
+			{true, "", 900, "nitrous",
+				`nitrous  pts/0    123.234.123.234   06:49    7.00s  0.08s  0.08s -zsh`},
+			// multiple lines, only one active
+			{true, "", 900, "nitrous",
+				`nitrous  pts/1                     03:11    2days  0.08s  0.08s -zsh
+				 nitrous  pts/1                     03:11    2:49m  0.08s  0.08s -zsh
+				 nitrous  pts/1                     03:11    39.12s  0.08s  0.08s -zsh`},
+			// multiple lines, none active
+			{false, "", 900, "nitrous",
+				`nitrous  pts/1                     03:11    2days  0.08s  0.08s -zsh
+				 nitrous  pts/1                     03:11    2:49m  0.08s  0.08s -zsh`},
+		}
+
+		for _, tc0 := range testCases {
+			tc := tc0
+			It(fmt.Sprintf("is %t with error %s for threshold %d, username %s, output %s", tc.expected, tc.expectedErrStr, tc.threshold, tc.username, tc.output), func() {
+				active, err := ParseWOutput(tc.output, tc.username, tc.threshold)
+				if tc.expectedErrStr == "" {
+					Expect(err).To(BeNil())
+				} else {
+					Expect(err.Error()).To(ContainSubstring(tc.expectedErrStr))
+				}
+				Expect(active).To(Equal(tc.expected))
+			})
+		}
+	})
+})

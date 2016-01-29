@@ -252,7 +252,18 @@ func mapHosts(db *ndb.Database, liveHosts []*hostbuilder.Response, dbHosts []*ho
 	}
 	list.DanglingHosts = danglingHosts
 
+	// index may potentially have two entries for a single db host (one from
+	// instance id and one from volume id). We use this to dedupe
+	seenDB := make(map[int64]struct{})
+
 	for _, entry := range index {
+		if entry.DBHost != nil {
+			key := entry.DBHost.ID
+			if _, ok := seenDB[key]; ok {
+				continue
+			}
+			seenDB[key] = struct{}{}
+		}
 		mapHost(db, list, entry)
 	}
 

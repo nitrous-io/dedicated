@@ -59,12 +59,12 @@ var _ = Describe("models/hosttransition", func() {
 	})
 
 	Describe(".Record", func() {
-
 		Context("with no existing transition for host", func() {
 			var (
 				exId int64
 				oH   *host.Host
 			)
+
 			BeforeEach(func() {
 				oHs, err := CreateHostStack(db, &HostStack{
 					H: &host.Host{
@@ -114,7 +114,7 @@ var _ = Describe("models/hosttransition", func() {
 				Expect(created.InitiatorID).To(Equal(sql.NullInt64{u.ID, true}))
 			})
 
-			It("should update the host running if the state becomes running", func() {
+			It("updates the host's last_running_at if the state becomes running", func() {
 				Expect(h1.LastRunningAt.Valid).To(BeFalse())
 				tx, err := db.Beginx()
 				Expect(err).To(BeNil())
@@ -130,7 +130,26 @@ var _ = Describe("models/hosttransition", func() {
 				Expect(h.LastRunningAt.Valid).To(BeTrue())
 			})
 
-			It("should flush out idle_notices_sent and idle_next_check if the state becomes running", func() {
+			It("records host metadata if present", func() {
+				tx, err := db.Beginx()
+				Expect(err).To(BeNil())
+
+				t := time.Now()
+				h1.State = "running"
+				h1.ProviderIdentifier = sql.NullString{"i-12345", true}
+				h1.IPAddress = sql.NullString{"", false}
+				err = hosttransition.Record(tx, h1, "born", t, u.ID)
+				Expect(err).To(BeNil())
+				Expect(tx.Commit()).To(BeNil())
+
+				ht, err := hosttransition.FindMostRecentForHost(db, h1.ID)
+				Expect(err).To(BeNil())
+
+				Expect(ht.Metadata.Map["provider_identifier"].String).To(Equal("i-12345"))
+				Expect(ht.Metadata.Map).NotTo(HaveKey("ip_address"))
+			})
+
+			It("resets the host's idle_notices_sent and idle_next_check if the state becomes running", func() {
 				_, err := db.Exec("UPDATE hosts SET idle_next_check = now(), idle_notices_sent = 2 WHERE id = $1", h1.ID)
 				Expect(err).To(BeNil())
 
@@ -152,7 +171,7 @@ var _ = Describe("models/hosttransition", func() {
 				Expect(h.IdleNoticesSent).To(BeZero())
 			})
 
-			It("should not update the host running if the state becomes running", func() {
+			It("should not update the host's last_running_at time if the state doesn't become running", func() {
 				Expect(h1.LastRunningAt.Valid).To(BeFalse())
 				tx, err := db.Beginx()
 				Expect(err).To(BeNil())

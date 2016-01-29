@@ -2,7 +2,7 @@
   .container
     .left
       p
-        | &copy; 2012-2015 Nitrous, Inc.
+        | &copy; 2012-2016 Nitrous, Inc.
       ul
         li
           a href='https://community.nitrous.io/docs/terms-of-use' Terms

@@ -352,18 +352,14 @@ func GetLoginToken(env *middleware.Env, w http.ResponseWriter, r *http.Request) 
 }
 
 func Confirm(env *middleware.Env, w http.ResponseWriter, r *http.Request) error {
+	db := env.DB
+
 	token := r.FormValue("token")
 	if token == "" {
 		return httperror.New(http.StatusBadRequest, "validation_failed", "`token` must be provided")
 	}
 
-	tx, err := env.DB.Beginx()
-	if err != nil {
-		return err
-	}
-	defer tx.Rollback()
-
-	u, err := user.FindByConfirmationToken(tx, token)
+	u, err := user.FindByConfirmationToken(db, token)
 	if err != nil {
 		if err == sql.ErrNoRows {
 			return httperror.New(http.StatusBadRequest, "validation_failed", "specified user does not exist")
@@ -371,7 +367,7 @@ func Confirm(env *middleware.Env, w http.ResponseWriter, r *http.Request) error 
 		return err
 	}
 
-	if err := u.ConfirmEmail(tx); err != nil {
+	if err := u.ConfirmEmail(db); err != nil {
 		if err == user.ErrConfirmationLapsed {
 			return httperror.New(http.StatusBadRequest, "confirmation_expired", err.Error())
 		} else if err == user.ErrConfirmationAlreadyCompleted {
@@ -382,19 +378,15 @@ func Confirm(env *middleware.Env, w http.ResponseWriter, r *http.Request) error 
 
 	// Update user's billing profile state to "free" so that user becomes
 	// eligible for free plans.
-	bp, err := u.BillingProfile(tx)
+	bp, err := u.BillingProfile(db)
 	if err != nil {
 		return err
 	}
 	if bp.State == billingprofile.StateNoCard {
 		bp.State = billingprofile.StateFree
-		if err := bp.Update(tx); err != nil {
+		if err := bp.Update(db); err != nil {
 			return err
 		}
-	}
-
-	if err := tx.Commit(); err != nil {
-		return err
 	}
 
 	if u.ConfirmedAt.Valid {

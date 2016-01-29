@@ -97,6 +97,8 @@ type Provider interface {
 	CopyFromHost(id string, location string, input map[string]io.Reader) error
 
 	Version() (string, error)
+
+	Activity(threshold int) (bool, error)
 }
 
 // StartFailedError is returned when a container is created successfully but

@@ -36,26 +36,27 @@ import (
 )
 
 var (
-	errSizeRequired             = httperror.New(http.StatusBadRequest, "invalid_request", "size is required")
-	errNameRequired             = httperror.New(http.StatusBadRequest, "invalid_request", "name is required")
-	errRegionRequired           = httperror.New(http.StatusBadRequest, "invalid_request", "region is required")
-	errPlanNotFound             = httperror.New(http.StatusBadRequest, "invalid_request", "no matching plan found")
-	errRegionNotFound           = httperror.New(http.StatusBadRequest, "invalid_request", "no matching region found for the given name")
-	errProvidertemplateNotFound = httperror.New(http.StatusBadRequest, "invalid_request", "no matching templates found for the given plan and region combination")
-	errHostStartInvalidState    = httperror.New(http.StatusBadRequest, "invalid_state", "workspace is not stopped")
-	errHostStopInvalidState     = httperror.New(http.StatusBadRequest, "invalid_state", "workspace is not running")
-	errHostRespecInvalidState   = httperror.New(http.StatusBadRequest, "invalid_state", "workspace must be running or stopped to upgrade")
-	errHostUpdateInvalidState   = httperror.New(http.StatusBadRequest, "invalid_state", "workspace is not running")
-	errHostRestartInvalidState  = httperror.New(http.StatusBadRequest, "invalid_state", "workspace is not running")
-	errHostNotRunning           = httperror.New(http.StatusBadRequest, "invalid_state", "workspace is not running")
-	errHostCreationNotAllowed   = httperror.New(http.StatusForbidden, "request_not_allowed", "not allowed to create more workspaces")
-	errMultipleRequests         = httperror.New(http.StatusConflict, "conflict", "another workspace creation request is currently being processed")
-	errHostSlugTaken            = httperror.New(http.StatusBadRequest, "validation_failed", "slug is taken")
-	errHostNoPendingRespec      = httperror.New(http.StatusBadRequest, "invalid_request", "workspace has no upgrades available")
-	errRegionDisabled           = httperror.New(http.StatusBadRequest, "region_disabled", "region is disabled")
-	errBasicAuthFailed          = httperror.New(http.StatusUnauthorized, "unauthorized", "")
-	errFreeTimeLimitExceeded    = httperror.New(http.StatusForbidden, "free_time_limit_exceeded", "You have exceeded your daily usage")
-	errSubscriptionStillActive  = httperror.New(http.StatusBadRequest, "invalid_request", "cannot terminate a workspace with an active subscription")
+	errSizeRequired                = httperror.New(http.StatusBadRequest, "invalid_request", "size is required")
+	errNameRequired                = httperror.New(http.StatusBadRequest, "invalid_request", "name is required")
+	errRegionRequired              = httperror.New(http.StatusBadRequest, "invalid_request", "region is required")
+	errPlanNotFound                = httperror.New(http.StatusBadRequest, "invalid_request", "no matching plan found")
+	errRegionNotFound              = httperror.New(http.StatusBadRequest, "invalid_request", "no matching region found for the given name")
+	errProvidertemplateNotFound    = httperror.New(http.StatusBadRequest, "invalid_request", "no matching templates found for the given plan and region combination")
+	errHostStartInvalidState       = httperror.New(http.StatusBadRequest, "invalid_state", "workstation is not stopped")
+	errHostStopInvalidState        = httperror.New(http.StatusBadRequest, "invalid_state", "workstation is not running")
+	errHostRespecInvalidState      = httperror.New(http.StatusBadRequest, "invalid_state", "workstation must be running or stopped to upgrade")
+	errHostUpdateInvalidState      = httperror.New(http.StatusBadRequest, "invalid_state", "workstation is not running")
+	errHostRestartInvalidState     = httperror.New(http.StatusBadRequest, "invalid_state", "workstation is not running")
+	errHostNotRunning              = httperror.New(http.StatusBadRequest, "invalid_state", "workstation is not running")
+	errHostCreationNotAllowed      = httperror.New(http.StatusForbidden, "request_not_allowed", "not allowed to create more workstations")
+	errMultipleRequests            = httperror.New(http.StatusConflict, "conflict", "another workstation creation request is currently being processed")
+	errHostSlugTaken               = httperror.New(http.StatusBadRequest, "validation_failed", "slug is taken")
+	errHostNoPendingRespec         = httperror.New(http.StatusBadRequest, "invalid_request", "workstation has no upgrades available")
+	errRegionDisabled              = httperror.New(http.StatusBadRequest, "region_disabled", "region is disabled")
+	errBasicAuthFailed             = httperror.New(http.StatusUnauthorized, "unauthorized", "")
+	errSubscriptionStillActive     = httperror.New(http.StatusBadRequest, "invalid_request", "cannot terminate a workstation with an active subscription")
+	errFreeUsageExceededForStart   = httperror.New(http.StatusForbidden, "forbidden", "you cannot start this workstation because you've exceeded your quota")
+	errFreeUsageExceededForRestart = httperror.New(http.StatusForbidden, "forbidden", "you cannot restart this workstation because you've exceeded your quota")
 )
 
 var (
@@ -240,9 +241,15 @@ func Start(h *host.Host, env *middleware.Env, w http.ResponseWriter, r *http.Req
 	}
 
 	db := env.DB
+	u := env.User
+
+	// If this is a free host, ensure user has remaining usage quota.
+	if h.Free && !u.HasUsageRemaining() {
+		return errFreeUsageExceededForStart
+	}
 
 	origState := h.State
-	if err := hostcontrol.RecordNewState(db, h, host.StateStarting, env.User.ID); err != nil {
+	if err := hostcontrol.UpdateAndRecordState(db, h, host.StateStarting, u.ID); err != nil {
 		return err
 	}
 
@@ -257,7 +264,7 @@ func Start(h *host.Host, env *middleware.Env, w http.ResponseWriter, r *http.Req
 
 		// Rollback to previous state, log any errors while rolling back, but
 		// return original hostbuilderclient error.
-		if err := hostcontrol.RecordNewState(db, h, origState, env.User.ID); err != nil {
+		if err := hostcontrol.UpdateAndRecordState(db, h, origState, u.ID); err != nil {
 			logrus.Errorf("hosts.Start: Unable to reset host state: %v", err)
 		}
 
@@ -274,7 +281,7 @@ func Start(h *host.Host, env *middleware.Env, w http.ResponseWriter, r *http.Req
 		if err := h.UpdateSpecifiedColumns(tx, columnsToUpdate); err != nil {
 			return err
 		}
-		return hosttransition.Record(tx, h, host.StateStarting, *h.UpdatedAt, env.User.ID)
+		return hosttransition.Record(tx, h, host.StateStarting, *h.UpdatedAt, u.ID)
 	}); err != nil {
 		return err
 	}
@@ -323,9 +330,16 @@ func Stop(h *host.Host, env *middleware.Env, w http.ResponseWriter, r *http.Requ
 
 func Restart(h *host.Host, env *middleware.Env, w http.ResponseWriter, r *http.Request) error {
 	db := env.DB
+	u := env.User
+
 	force, _ := strconv.ParseBool(r.FormValue("force"))
 	if !force && h.State != host.StateRunning {
 		return errHostRestartInvalidState
+	}
+
+	// If this is a free host, ensure user has remaining usage quota.
+	if h.Free && !u.HasUsageRemaining() {
+		return errFreeUsageExceededForRestart
 	}
 
 	cns, err := container.FindAllByHostID(db, h.ID)
@@ -341,7 +355,7 @@ func Restart(h *host.Host, env *middleware.Env, w http.ResponseWriter, r *http.R
 	}
 
 	origState := h.State
-	if err := hostcontrol.RecordNewState(db, h, host.StateRestarting, env.User.ID); err != nil {
+	if err := hostcontrol.UpdateAndRecordState(db, h, host.StateRestarting, u.ID); err != nil {
 		return err
 	}
 
@@ -356,7 +370,7 @@ func Restart(h *host.Host, env *middleware.Env, w http.ResponseWriter, r *http.R
 
 		// Rollback to previous state, log any errors while rolling back, but
 		// return original hostbuilderclient error.
-		if err := hostcontrol.RecordNewState(db, h, origState, env.User.ID); err != nil {
+		if err := hostcontrol.UpdateAndRecordState(db, h, origState, u.ID); err != nil {
 			logrus.Errorf("hosts.Restart: Unable to restore host state: %v", err)
 		}
 
@@ -369,10 +383,11 @@ func Restart(h *host.Host, env *middleware.Env, w http.ResponseWriter, r *http.R
 	h.FreighterdPort = sql.NullInt64{int64(info.FreighterdPort), true}
 
 	if err := db.WithTransaction(func(tx *sqlx.Tx) error {
-		if err := h.Update(tx); err != nil {
+		columnsToUpdate := []string{"state", "ip_address", "freighterd_port"}
+		if err := h.UpdateSpecifiedColumns(tx, columnsToUpdate); err != nil {
 			return err
 		}
-		return hosttransition.Record(tx, h, host.StateRestarting, *h.UpdatedAt, env.User.ID)
+		return hosttransition.Record(tx, h, host.StateRestarting, *h.UpdatedAt, u.ID)
 	}); err != nil {
 		return err
 	}

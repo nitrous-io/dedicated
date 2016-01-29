@@ -32,6 +32,12 @@ const resetPasswordWithin = 4 * time.Hour
 const maxConfirmationHours = 72 * time.Hour
 const maxUnconfirmedDuration = 24 * time.Hour
 
+const (
+	USAGE_NOTICES_NO_WARNING = iota
+	USAGE_NOTICES_FIRST_WARNING
+	USAGE_NOTICES_SECOND_WARNING
+)
+
 var (
 	usernameRe = regexp.MustCompile(`\A[a-z0-9][a-z0-9\-]*\z`)
 	emailRe    = regexp.MustCompile(`\A[^@\s]+@([^@\s]+\.)+[^@\s]+\z`)
@@ -108,8 +114,15 @@ type User struct {
 	BannedAt   pq.NullTime   `db:"banned_at"`
 	BannedByID sql.NullInt64 `db:"banned_by_id"`
 
-	MaxRunningTime sql.NullInt64 `db:"max_running_time"` // FIXME: DEPRECATED
-	RefreshPeriod  sql.NullInt64 `db:"refresh_period"`   // FIXME: DEPRECATED
+	// UsageQuota is the number of seconds that a user is allowed to use a free
+	// host.
+	UsageQuota sql.NullInt64 `db:"usage_quota"`
+	// UsageQuotaPeriod is the number of seconds after which the free host usage
+	// quota is reset to full.
+	UsageQuotaPeriod     sql.NullInt64 `db:"usage_quota_period"`
+	UsageRemaining       sql.NullInt64 `db:"usage_remaining"`
+	UsageQuotaRestoredAt pq.NullTime   `db:"usage_quota_restored_at"`
+	UsageNoticesSent     sql.NullInt64 `db:"usage_notices_sent"`
 
 	CreatedByClientID sql.NullInt64 `db:"created_by_client_id"`
 
@@ -131,6 +144,35 @@ func (u *User) BillingProfile(d db.QueryReceiver) (*billingprofile.BillingProfil
 	}
 
 	return u.billingProfile, nil
+}
+
+// RestoreUsageQuotas restores the usage_remaining (to the usage_quota value)
+// for all users who:
+// 1. have a free host, and
+// 2. had their free usage quota last restored earlier than their usage quota
+//    period.
+func RestoreUsageQuotas(d db.QueryReceiver, when time.Time) (int64, error) {
+	res, err := d.Exec(`UPDATE users
+		SET
+			usage_remaining = usage_quota,
+			usage_quota_restored_at = now(),
+			usage_notices_sent = 0
+		WHERE id IN (
+			SELECT users.id FROM
+			users JOIN hosts
+				ON users.id = hosts.user_id
+			WHERE
+				hosts.free = true
+				AND hosts.terminated_at IS NULL
+				AND (usage_quota_restored_at
+					+ (INTERVAL '1 second' * usage_quota_period))
+						<= $1 -- (last restore date + quota period) is before "now"
+		)`, when)
+	if err != nil {
+		return 0, err
+	}
+	rowsAffected, _ := res.RowsAffected()
+	return rowsAffected, nil
 }
 
 func FindByID(d db.QueryReceiver, id int64) (*User, error) {
@@ -189,6 +231,20 @@ func FindByConfirmationToken(d db.QueryReceiver, token string) (*User, error) {
 		return nil, err
 	}
 	return user, nil
+}
+
+func FindAllByUsageAndNoticeSent(d db.QueryReceiver, usageRemaining, noticeSent int64) ([]*User, error) {
+	users := []*User{}
+	err := d.Select(&users, `
+		SELECT * FROM users
+		WHERE usage_remaining <= $1
+		AND usage_notices_sent = $2
+		ORDER BY id
+	`, usageRemaining, noticeSent)
+	if err != nil {
+		return nil, err
+	}
+	return users, nil
 }
 
 // GetDelay returns a time.Duration based on no. of login attempts made on
@@ -271,10 +327,14 @@ func (u *User) Update(d db.QueryReceiver) error {
 		return err
 	}
 	nstmt, err := d.PrepareNamed(`UPDATE users
-		SET (name, email, encrypted_password, unconfirmed_email, confirmation_sent_at,
-			confirmation_token, updated_at)
-		= (:name, :email, :encrypted_password, :unconfirmed_email, :confirmation_sent_at,
-			:confirmation_token, now())
+		SET (name, email, encrypted_password,
+			unconfirmed_email, confirmation_sent_at, confirmation_token,
+			usage_quota_restored_at, usage_notices_sent,
+			updated_at)
+		= (:name, :email, :encrypted_password,
+			:unconfirmed_email, :confirmation_sent_at, :confirmation_token,
+			:usage_quota_restored_at, :usage_notices_sent,
+			now())
 		WHERE id = :id
 		RETURNING *;`)
 	if err != nil {
@@ -309,6 +369,17 @@ func (u *User) UpdatePhoneAuthed(d db.QueryReceiver, b bool) error {
 		SET phone_authed = $1, updated_at = now()
 		WHERE id = $2
 		RETURNING *`, b, u.ID).StructScan(u)
+}
+
+func (u *User) DecrementUsageRemaining(d db.QueryReceiver, secondsUsed int64) error {
+	return d.QueryRowx(`UPDATE users
+		SET usage_remaining = usage_remaining - $1, updated_at = now()
+		WHERE id = $2
+		RETURNING *`, secondsUsed, u.ID).StructScan(u)
+}
+
+func (u *User) HasUsageRemaining() bool {
+	return u.UsageRemaining.Valid && u.UsageRemaining.Int64 > 0
 }
 
 func (u *User) Validate() error {
@@ -531,6 +602,50 @@ func (u *User) GenerateConfirmationURL(d db.QueryReceiver) (*url.URL, error) {
 		Path:     "/app/",
 		Fragment: fmt.Sprintf("/confirm-email?token=%s", u.ConfirmationToken.String),
 	}, nil
+}
+
+func (u *User) SendUsageNoticeEmail(d db.QueryReceiver, hoursRemaining int64) error {
+	var hoursRemainingStr string
+	if hoursRemaining == 1 {
+		hoursRemainingStr = fmt.Sprintf("%d hour", hoursRemaining)
+	} else {
+		hoursRemainingStr = fmt.Sprintf("%d hours", hoursRemaining)
+	}
+
+	usageQuotaInHours := u.UsageQuota.Int64 / 60 / 60
+	hoursUsed := usageQuotaInHours - u.UsageRemaining.Int64/60/60
+	usageQuotaNextRestoredAt := u.UsageQuotaRestoredAt.Time.Add(time.Duration(u.UsageQuotaPeriod.Int64) * time.Second)
+
+	tmplData := struct {
+		Name                     string
+		HoursRemaining           string
+		HoursUsed                int64
+		UsageQuotaNextRestoredAt string
+		UsageQuotaInHour         int64
+		UsageQuotaPeriod         int64
+	}{
+		u.DisplayName(),
+		hoursRemainingStr,
+		hoursUsed,
+		usageQuotaNextRestoredAt.Format("2 Jan 3:04PM GMT"),
+		usageQuotaInHours,
+		u.UsageQuotaPeriod.Int64 / 60 / 60 / 24,
+	}
+
+	subject := fmt.Sprintf("Your free Nitrous workstation: %s remaining this month", hoursRemainingStr)
+	from := envvars.SupportEmail
+	to := (&mail.Address{Name: u.DisplayName(), Address: u.Email}).String()
+
+	htmlBuf := bytes.NewBuffer(nil)
+	if err := usageNoticeEmailHtmlTemplate.Execute(htmlBuf, tmplData); err != nil {
+		return err
+	}
+	txtBuf := bytes.NewBuffer(nil)
+	if err := usageNoticeEmailTxtTemplate.Execute(txtBuf, tmplData); err != nil {
+		return err
+	}
+
+	return Mailer.SendMail(from, []string{to}, []string{from}, nil, from, subject, txtBuf.String(), htmlBuf.String())
 }
 
 func (u *User) SendConfirmationEmail(d db.QueryReceiver, newUser bool) error {

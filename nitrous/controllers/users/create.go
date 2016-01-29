@@ -9,6 +9,7 @@ import (
 	"github.com/jmoiron/sqlx"
 	"github.com/lib/pq"
 	"github.com/nitrous-io/dedicated/nitrous/controllers/github"
+	"github.com/nitrous-io/dedicated/nitrous/envvars"
 	"github.com/nitrous-io/dedicated/nitrous/middleware"
 	"github.com/nitrous-io/dedicated/nitrous/models/containercollab"
 	"github.com/nitrous-io/dedicated/nitrous/models/oauthclient"
@@ -16,6 +17,7 @@ import (
 	"github.com/nitrous-io/dedicated/nitrous/models/promocode"
 	"github.com/nitrous-io/dedicated/nitrous/models/user"
 	"github.com/nitrous-io/dedicated/nitrous/pkg/cidrblacklist"
+	"github.com/nitrous-io/dedicated/nitrous/pkg/googlerecaptcha"
 	"github.com/nitrous-io/dedicated/nitrous/pkg/httperror"
 	"github.com/nitrous-io/dedicated/nitrous/serializers"
 )
@@ -32,7 +34,15 @@ var (
 	bannedPhone        = httperror.New(http.StatusBadRequest, "phone_banned", "this phone number is banned")
 
 	phoneAlreadyAuthed = httperror.New(http.StatusBadRequest, "phone_authed", "phone number has already been verified")
+
+	invalidCaptchaToken = httperror.New(http.StatusBadRequest, "invalid_captcha_token", "failed to verify captcha token")
+
+	CVerifier googlerecaptcha.CaptchaVerifier
 )
+
+func init() {
+	CVerifier = googlerecaptcha.NewVerifier(envvars.CaptchaSecretKey)
+}
 
 func Create(env *middleware.Env, w http.ResponseWriter, r *http.Request) error {
 	db := env.DB
@@ -45,12 +55,21 @@ func Create(env *middleware.Env, w http.ResponseWriter, r *http.Request) error {
 	invitecode := r.FormValue("invite_code")
 	distinctID := r.FormValue("distinct_id")
 	gitHubUserName := r.FormValue("github_username")
+	captchaToken := r.FormValue("captcha_token")
 
 	u := &user.User{
 		Email:    email,
 		Username: username,
 		Name:     name,
 		Password: password,
+	}
+
+	// It only verifies captcha token when CaptchaSecret is specified
+	if envvars.IsCaptchaAvailable() {
+		if err := CVerifier.Verify(captchaToken); err != nil {
+			logrus.Errorf("Error verifying captcha token for user %+v, err: %s, uuid=%d", u, err, env.UUID)
+			return invalidCaptchaToken
+		}
 	}
 
 	err := u.Validate()
