@@ -1505,6 +1505,7 @@ var _ = Describe("controllers/orgs", func() {
 				Expect(j.Org.Slug).To(Equal(o.Slug))
 				Expect(j.Org.Name).To(Equal(o.Name))
 				Expect(j.Org.Email).To(Equal(o.Email))
+				Expect(j.Org.Role).To(Equal("member"))
 				Expect(j.Org.BillingProfile).To(BeNil())
 			})
 

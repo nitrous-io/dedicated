@@ -219,7 +219,10 @@ func Show(env *middleware.Env, w http.ResponseWriter, r *http.Request) error {
 		return err
 	}
 
-	ser := serializers.SerializeOrg(o)
+	orgWithRole := &org.OrgWithRole{Org: o, Role: mem.Role}
+
+	ser := serializers.SerializeOrgWithRole(orgWithRole)
+
 	if mem.IsAdmin() {
 		bp, err := billingprofile.FindForOrg(db, o.ID)
 		if err != nil {
