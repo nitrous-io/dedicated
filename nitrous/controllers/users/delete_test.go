@@ -84,7 +84,7 @@ var _ = Describe("controllers/users", func() {
 		}
 	})
 
-	sharedCanCreateExamples := func(doRequest func()) {
+	sharedCanDeleteExamples := func(doRequest func()) {
 		It("should return an error if running hosts are present", func() {
 			doRequest()
 			Expect(res.Code).To(Equal(http.StatusBadRequest))
@@ -195,7 +195,7 @@ var _ = Describe("controllers/users", func() {
 			handler.ServeHTTP(res, req)
 		}
 
-		sharedCanCreateExamples(doRequest)
+		sharedCanDeleteExamples(doRequest)
 
 		It("should be OK if the account can be deleted", func() {
 			_, err := db.Exec("UPDATE hosts SET terminated_at = now() WHERE id = $1", hs1.H.ID)
@@ -240,7 +240,7 @@ var _ = Describe("controllers/users", func() {
 			handler.ServeHTTP(res, req)
 		}
 
-		sharedCanCreateExamples(doRequest)
+		sharedCanDeleteExamples(doRequest)
 
 		Context("with terminated hosts", func() {
 			BeforeEach(func() {
