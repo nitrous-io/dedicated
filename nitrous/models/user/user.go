@@ -120,7 +120,6 @@ type User struct {
 	// UsageQuotaPeriod is the number of seconds after which the free host usage
 	// quota is reset to full.
 	UsageQuotaPeriod     sql.NullInt64 `db:"usage_quota_period"`
-	UsageRemaining       sql.NullInt64 `db:"usage_remaining"`
 	UsageQuotaRestoredAt pq.NullTime   `db:"usage_quota_restored_at"`
 	UsageNoticesSent     sql.NullInt64 `db:"usage_notices_sent"`
 
@@ -146,7 +145,7 @@ func (u *User) BillingProfile(d db.QueryReceiver) (*billingprofile.BillingProfil
 	return u.billingProfile, nil
 }
 
-// RestoreUsageQuotas restores the usage_remaining (to the usage_quota value)
+// RestoreUsageQuotas restores the usage_quota_restored_at and usage_notices_sent
 // for all users who:
 // 1. have a free host, and
 // 2. had their free usage quota last restored earlier than their usage quota
@@ -154,7 +153,6 @@ func (u *User) BillingProfile(d db.QueryReceiver) (*billingprofile.BillingProfil
 func RestoreUsageQuotas(d db.QueryReceiver, when time.Time) (int64, error) {
 	res, err := d.Exec(`UPDATE users
 		SET
-			usage_remaining = usage_quota,
 			usage_quota_restored_at = now(),
 			usage_notices_sent = 0
 		WHERE id IN (
@@ -233,14 +231,15 @@ func FindByConfirmationToken(d db.QueryReceiver, token string) (*User, error) {
 	return user, nil
 }
 
-func FindAllByUsageAndNoticeSent(d db.QueryReceiver, usageRemaining, noticeSent int64) ([]*User, error) {
+func FindAllByNoticeSent(d db.QueryReceiver, noticeSent int64) ([]*User, error) {
 	users := []*User{}
 	err := d.Select(&users, `
-		SELECT * FROM users
-		WHERE usage_remaining <= $1
-		AND usage_notices_sent = $2
-		ORDER BY id
-	`, usageRemaining, noticeSent)
+		SELECT u.* FROM users u
+		INNER JOIN hosts AS h ON h.user_id = u.id
+		WHERE h.free = true
+		AND u.usage_notices_sent = $1
+		ORDER BY u.id
+	`, noticeSent)
 	if err != nil {
 		return nil, err
 	}
@@ -371,15 +370,36 @@ func (u *User) UpdatePhoneAuthed(d db.QueryReceiver, b bool) error {
 		RETURNING *`, b, u.ID).StructScan(u)
 }
 
-func (u *User) DecrementUsageRemaining(d db.QueryReceiver, secondsUsed int64) error {
-	return d.QueryRowx(`UPDATE users
-		SET usage_remaining = usage_remaining - $1, updated_at = now()
-		WHERE id = $2
-		RETURNING *`, secondsUsed, u.ID).StructScan(u)
+func (u *User) FreeHostUsage(d db.QueryReceiver, endTime time.Time) (int64, error) {
+	var seconds int64
+	err := d.QueryRowx(`
+		SELECT COALESCE(SUM(
+			CAST(EXTRACT(
+				EPOCH FROM (
+					COALESCE(ht.ended_at, $1) - GREATEST(ht.created_at, u.usage_quota_restored_at)
+				)
+			) AS INTEGER)
+		), 0)
+		FROM host_transitions AS ht
+			JOIN hosts AS h on ht.host_id = h.id
+			JOIN users AS u on h.user_id = u.id
+		WHERE u.id = $2
+			AND ht.state = 'running'
+			AND h.free = true
+			AND (ht.ended_at > u.usage_quota_restored_at OR ht.ended_at IS NULL);
+	`, endTime, u.ID).Scan(&seconds)
+	if err != nil {
+		return 0, err
+	}
+	return seconds, nil
 }
 
-func (u *User) HasUsageRemaining() bool {
-	return u.UsageRemaining.Valid && u.UsageRemaining.Int64 > 0
+func (u *User) HasUsageRemaining(d db.QueryReceiver) bool {
+	seconds, err := u.FreeHostUsage(d, time.Now())
+	if err != nil {
+		return false
+	}
+	return seconds < u.UsageQuota.Int64
 }
 
 func (u *User) Validate() error {
@@ -613,7 +633,10 @@ func (u *User) SendUsageNoticeEmail(d db.QueryReceiver, hoursRemaining int64) er
 	}
 
 	usageQuotaInHours := u.UsageQuota.Int64 / 60 / 60
-	hoursUsed := usageQuotaInHours - u.UsageRemaining.Int64/60/60
+	secondsUsed, err := u.FreeHostUsage(d, time.Now())
+	if err != nil {
+		return err
+	}
 	usageQuotaNextRestoredAt := u.UsageQuotaRestoredAt.Time.Add(time.Duration(u.UsageQuotaPeriod.Int64) * time.Second)
 
 	tmplData := struct {
@@ -626,7 +649,7 @@ func (u *User) SendUsageNoticeEmail(d db.QueryReceiver, hoursRemaining int64) er
 	}{
 		u.DisplayName(),
 		hoursRemainingStr,
-		hoursUsed,
+		secondsUsed / 60 / 60,
 		usageQuotaNextRestoredAt.Format("2 Jan 3:04PM GMT"),
 		usageQuotaInHours,
 		u.UsageQuotaPeriod.Int64 / 60 / 60 / 24,

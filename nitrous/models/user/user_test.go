@@ -85,37 +85,6 @@ var _ = Describe("models/user", func() {
 			Expect(err).To(BeNil())
 		})
 
-		It("sets usage_remaining to the usage_quota when it was last restored earlier than usage_quota_period ago", func() {
-			// Decrement user's usage_remaining to simulate usage of quota.
-			err := u.DecrementUsageRemaining(db, 60)
-			Expect(err).To(BeNil())
-
-			origUsageRemaining := u.UsageRemaining.Int64
-			Expect(origUsageRemaining > 0).To(Equal(true))
-			Expect(origUsageRemaining < u.UsageQuota.Int64).To(Equal(true))
-
-			// Set usage_quota_restored_at to earlier than usage_quota_period ago.
-			quotaPeriod := time.Duration(u.UsageQuotaPeriod.Int64) * time.Second
-			Expect(quotaPeriod > 0).To(Equal(true))
-			now := time.Now()
-			lastRestoredAt := now.Add(-quotaPeriod).Add(-time.Second)
-			u.UsageQuotaRestoredAt = pq.NullTime{lastRestoredAt, true}
-			Expect(u.Update(db)).To(BeNil())
-
-			numRestored, err := user.RestoreUsageQuotas(db, now)
-			Expect(err).To(BeNil())
-			Expect(numRestored).To(Equal(int64(1)))
-
-			updated, err := user.FindByID(db, u.ID)
-			Expect(err).To(BeNil())
-
-			Expect(updated.UsageRemaining.Int64).To(Equal(updated.UsageQuota.Int64))
-			Expect(updated.UsageRemaining.Int64 > origUsageRemaining).To(Equal(true))
-
-			// The usage_quota_restored_at should be set.
-			Expect(updated.UsageQuotaRestoredAt.Time).To(BeTemporally("~", now, time.Second))
-		})
-
 		It("sets usage_notices_sent to 0 when it was last restored earlier than usage_quota_period ago", func() {
 			quotaPeriod := time.Duration(u.UsageQuotaPeriod.Int64) * time.Second
 			Expect(quotaPeriod > 0).To(Equal(true))
@@ -138,14 +107,6 @@ var _ = Describe("models/user", func() {
 		})
 
 		It("does not do anything if the usage was restored less than usage_quota_period ago", func() {
-			// Decrement user's usage_remaining to simulate usage of quota.
-			err := u.DecrementUsageRemaining(db, 60)
-			Expect(err).To(BeNil())
-
-			origUsageRemaining := u.UsageRemaining.Int64
-			Expect(origUsageRemaining > 0).To(Equal(true))
-			Expect(origUsageRemaining < u.UsageQuota.Int64).To(Equal(true))
-
 			// Set usage_quota_restored_at to later than usage_quota_period ago.
 			quotaPeriod := time.Duration(u.UsageQuotaPeriod.Int64) * time.Second
 			Expect(quotaPeriod > 0).To(Equal(true))
@@ -161,8 +122,6 @@ var _ = Describe("models/user", func() {
 			updated, err := user.FindByID(db, u.ID)
 			Expect(err).To(BeNil())
 
-			Expect(updated.UsageRemaining.Int64).To(Equal(origUsageRemaining))
-
 			// The usage_quota_restored_at should be unchanged.
 			Expect(updated.UsageQuotaRestoredAt.Time).To(BeTemporally("~", lastRestoredAt))
 			Expect(*updated.UpdatedAt).To(BeTemporally("~", *u.UpdatedAt))
@@ -172,14 +131,6 @@ var _ = Describe("models/user", func() {
 			// Set user's host to "not free".
 			_, err := db.Exec(`UPDATE hosts SET free = false WHERE ID = $1;`, hs.H.ID)
 			Expect(err).To(BeNil())
-
-			// Decrement user's usage_remaining to simulate usage of quota.
-			err = u.DecrementUsageRemaining(db, 60)
-			Expect(err).To(BeNil())
-
-			origUsageRemaining := u.UsageRemaining.Int64
-			Expect(origUsageRemaining > 0).To(Equal(true))
-			Expect(origUsageRemaining < u.UsageQuota.Int64).To(Equal(true))
 
 			// Set usage_quota_restored_at to earlier than usage_quota_period ago.
 			quotaPeriod := time.Duration(u.UsageQuotaPeriod.Int64) * time.Second
@@ -195,8 +146,6 @@ var _ = Describe("models/user", func() {
 
 			updated, err := user.FindByID(db, u.ID)
 			Expect(err).To(BeNil())
-
-			Expect(updated.UsageRemaining.Int64).To(Equal(origUsageRemaining))
 
 			// The usage_quota_restored_at should be unchanged.
 			Expect(updated.UsageQuotaRestoredAt.Time).To(BeTemporally("~", lastRestoredAt))
@@ -208,14 +157,6 @@ var _ = Describe("models/user", func() {
 			err := hs.H.Delete(db)
 			Expect(err).To(BeNil())
 
-			// Decrement user's usage_remaining to simulate usage of quota.
-			err = u.DecrementUsageRemaining(db, 60)
-			Expect(err).To(BeNil())
-
-			origUsageRemaining := u.UsageRemaining.Int64
-			Expect(origUsageRemaining > 0).To(Equal(true))
-			Expect(origUsageRemaining < u.UsageQuota.Int64).To(Equal(true))
-
 			// Set usage_quota_restored_at to earlier than usage_quota_period ago.
 			quotaPeriod := time.Duration(u.UsageQuotaPeriod.Int64) * time.Second
 			Expect(quotaPeriod > 0).To(Equal(true))
@@ -231,22 +172,12 @@ var _ = Describe("models/user", func() {
 			updated, err := user.FindByID(db, u.ID)
 			Expect(err).To(BeNil())
 
-			Expect(updated.UsageRemaining.Int64).To(Equal(origUsageRemaining))
-
 			// The usage_quota_restored_at should be unchanged.
 			Expect(updated.UsageQuotaRestoredAt.Time).To(BeTemporally("~", lastRestoredAt))
 			Expect(*updated.UpdatedAt).To(BeTemporally("~", *u.UpdatedAt))
 		})
 
 		It("does not do anything if the usage_quota_restored_at is empty", func() {
-			// Decrement user's usage_remaining to simulate usage of quota.
-			err := u.DecrementUsageRemaining(db, 60)
-			Expect(err).To(BeNil())
-
-			origUsageRemaining := u.UsageRemaining.Int64
-			Expect(origUsageRemaining > 0).To(Equal(true))
-			Expect(origUsageRemaining < u.UsageQuota.Int64).To(Equal(true))
-
 			// Set usage_quota_restored_at to null.
 			u.UsageQuotaRestoredAt = pq.NullTime{}
 			Expect(u.Update(db)).To(BeNil())
@@ -258,8 +189,6 @@ var _ = Describe("models/user", func() {
 
 			updated, err := user.FindByID(db, u.ID)
 			Expect(err).To(BeNil())
-
-			Expect(updated.UsageRemaining.Int64).To(Equal(origUsageRemaining))
 
 			// The usage_quota_restored_at should be unchanged.
 			Expect(updated.UsageQuotaRestoredAt.Valid).To(Equal(false))
@@ -923,65 +852,211 @@ var _ = Describe("models/user", func() {
 		})
 	})
 
-	Describe("DecrementUsageRemaining()", func() {
-		It("reduces the usage remaining by the given number of seconds", func() {
-			u := &user.User{
-				Username: "aroon",
-				Password: "pathgate",
-				Email:    "aroon@zerobotlabs.com",
-			}
-			Expect(test.WrapInTransaction(db, u.Insert)).To(BeNil())
+	Describe("FreeHostUsage()", func() {
+		var (
+			hs              *test.HostStack
+			err             error
+			quotaRestoredAt time.Time
+		)
 
-			origUsageRemaining := u.UsageRemaining.Int64
-			Expect(origUsageRemaining).NotTo(BeZero())
-			origUpdatedAt := u.UpdatedAt
-
-			err := u.DecrementUsageRemaining(db, 60)
+		BeforeEach(func() {
+			hs, err = test.CreateHostStack(db, nil)
 			Expect(err).To(BeNil())
 
-			Expect(u.UsageRemaining.Int64).To(Equal(origUsageRemaining - 60))
-			Expect(*u.UpdatedAt).To(BeTemporally(">", *origUpdatedAt))
-
-			updated, err := user.FindByID(db, u.ID)
+			_, err = db.Exec(`UPDATE hosts SET free = true WHERE id = $1`, hs.H.ID)
 			Expect(err).To(BeNil())
 
-			Expect(updated.UsageRemaining.Int64).To(Equal(origUsageRemaining - 60))
-			Expect(*updated.UpdatedAt).To(BeTemporally(">", *origUpdatedAt))
+			quotaRestoredAt = time.Date(2014, 1, 1, 0, 0, 0, 0, time.Local)
+			_, err = db.Exec(`UPDATE users SET usage_quota_restored_at = $1 ;`, quotaRestoredAt)
+			Expect(err).To(BeNil())
+		})
+
+		It(`returns sum of 'running' host transitions in seconds
+			started at time before usage_quota_restored_at and
+			ended at time after usage_quota_restored_at`, func() {
+			startTime := quotaRestoredAt.Add(-1 * time.Hour)
+			endTime := quotaRestoredAt.Add(1 * time.Hour)
+			_, err = db.Exec(`
+				INSERT INTO host_transitions (
+					host_id, previous_state, state, created_at, ended_at
+				) values ($1, $2, $3, $4, $5);
+			`, hs.H.ID, "starting", "running", startTime, endTime)
+			Expect(err).To(BeNil())
+
+			seconds, err := hs.U.FreeHostUsage(db, time.Now())
+			Expect(err).To(BeNil())
+			Expect(seconds).To(Equal(int64(3600)))
+		})
+
+		It(`returns 'running' host transition in seconds
+			started at time before usage_quota_restored_at and still running`, func() {
+			startTime := quotaRestoredAt.Add(-1 * time.Hour)
+			_, err = db.Exec(`
+				INSERT INTO host_transitions (
+					host_id, previous_state, state, created_at
+				) values ($1, $2, $3, $4);
+			`, hs.H.ID, "starting", "running", startTime)
+			Expect(err).To(BeNil())
+
+			fakeCurrentTime := quotaRestoredAt.Add(1000 * time.Hour)
+			seconds, err := hs.U.FreeHostUsage(db, fakeCurrentTime)
+			Expect(err).To(BeNil())
+			Expect(seconds).To(Equal(int64(fakeCurrentTime.Sub(quotaRestoredAt).Seconds())))
+		})
+
+		It(`returns 'running' host transition in seconds
+			started at time after usage_quota_restored_at and
+			ended at sometime after started at`, func() {
+			startTime := quotaRestoredAt.Add(2 * time.Hour)
+			endTime := quotaRestoredAt.Add(3 * time.Hour)
+			_, err = db.Exec(`
+				INSERT INTO host_transitions (
+					host_id, previous_state, state, created_at, ended_at
+				) values ($1, $2, $3, $4, $5);
+			`, hs.H.ID, "starting", "running", startTime, endTime)
+			Expect(err).To(BeNil())
+
+			seconds, err := hs.U.FreeHostUsage(db, time.Now())
+			Expect(err).To(BeNil())
+			Expect(seconds).To(Equal(int64(3600)))
+		})
+
+		It(`returns 'running' host transtion in seconds
+			started at time after usage_quota_restored_at and still running`, func() {
+			startTime := quotaRestoredAt.Add(2 * time.Hour)
+			_, err = db.Exec(`
+				INSERT INTO host_transitions (
+					host_id, previous_state, state, created_at
+				) values ($1, $2, $3, $4);
+			`, hs.H.ID, "starting", "running", startTime)
+			Expect(err).To(BeNil())
+
+			fakeCurrentTime := quotaRestoredAt.Add(1000 * time.Hour)
+			seconds, err := hs.U.FreeHostUsage(db, fakeCurrentTime)
+			Expect(err).To(BeNil())
+			Expect(seconds).To(Equal(int64(fakeCurrentTime.Sub(startTime).Seconds())))
+		})
+
+		It(`returns sum of a few 'running' host transtions in seconds
+			started at time before usage_quota_restored_at`, func() {
+			startTime := quotaRestoredAt.Add(-1 * time.Hour)
+			endTime := quotaRestoredAt.Add(1 * time.Hour)
+			_, err = db.Exec(`
+				INSERT INTO host_transitions (
+					host_id, previous_state, state, created_at, ended_at
+				) values ($1, $2, $3, $4, $5);
+			`, hs.H.ID, "born", "running", startTime, endTime)
+
+			startTime = quotaRestoredAt.Add(2 * time.Hour)
+			endTime = quotaRestoredAt.Add(3 * time.Hour)
+			_, err = db.Exec(`
+				INSERT INTO host_transitions (
+					host_id, previous_state, state, created_at, ended_at
+				) values ($1, $2, $3, $4, $5);
+			`, hs.H.ID, "starting", "running", startTime, endTime)
+
+			startTime = quotaRestoredAt.Add(5 * time.Hour)
+			endTime = quotaRestoredAt.Add(7 * time.Hour)
+			_, err = db.Exec(`
+				INSERT INTO host_transitions (
+					host_id, previous_state, state, created_at, ended_at
+				) values ($1, $2, $3, $4, $5);
+			`, hs.H.ID, "starting", "running", startTime, endTime)
+
+			seconds, err := hs.U.FreeHostUsage(db, time.Now())
+			Expect(err).To(BeNil())
+			Expect(seconds).To(Equal(int64(14400)))
+		})
+
+		It(`returns sum of a few 'running' host transtions of different hosts in seconds
+			started at time before usage_quota_restored_at`, func() {
+			startTime := quotaRestoredAt.Add(-1 * time.Hour)
+			endTime := quotaRestoredAt.Add(1 * time.Hour)
+			_, err = db.Exec(`
+				INSERT INTO host_transitions (
+					host_id, previous_state, state, created_at, ended_at
+				) values ($1, $2, $3, $4, $5);
+			`, hs.H.ID, "born", "running", startTime, endTime)
+
+			startTime = quotaRestoredAt.Add(2 * time.Hour)
+			endTime = quotaRestoredAt.Add(3 * time.Hour)
+			_, err = db.Exec(`
+				INSERT INTO host_transitions (
+					host_id, previous_state, state, created_at, ended_at
+				) values ($1, $2, $3, $4, $5);
+			`, hs.H.ID, "starting", "running", startTime, endTime)
+
+			startTime = quotaRestoredAt.Add(5 * time.Hour)
+			endTime = quotaRestoredAt.Add(7 * time.Hour)
+			_, err = db.Exec(`
+				INSERT INTO host_transitions (
+					host_id, previous_state, state, created_at, ended_at
+				) values ($1, $2, $3, $4, $5);
+			`, hs.H.ID, "starting", "running", startTime, endTime)
+
+			// Add a terminated host to user with 3 hours usage
+			_, err = db.Exec(`
+				INSERT INTO hosts (
+					user_id, slug, region_id, plan_id, provider_template_id
+				) VALUES ($1, $2, $3, $4, $5);
+			`, hs.U.ID, "second-host", hs.R.ID, hs.P.ID, hs.PT.ID)
+			Expect(err).To(BeNil())
+			secondHost, err := host.Find(db, hs.U, "second-host")
+			secondHost.Delete(db)
+			Expect(err).To(BeNil())
+
+			startTime = quotaRestoredAt.Add(5 * time.Hour)
+			endTime = quotaRestoredAt.Add(8 * time.Hour)
+			_, err = db.Exec(`
+				INSERT INTO host_transitions (
+					host_id, previous_state, state, created_at, ended_at
+				) values ($1, $2, $3, $4, $5);
+			`, secondHost.ID, "starting", "running", startTime, endTime)
+
+			_, err = db.Exec(`UPDATE hosts SET free = true WHERE user_id = $1`, hs.U.ID)
+			Expect(err).To(BeNil())
+
+			seconds, err := hs.U.FreeHostUsage(db, time.Now())
+			Expect(err).To(BeNil())
+			Expect(seconds).To(Equal(int64(25200)))
 		})
 	})
 
 	Describe("HasUsageRemaining()", func() {
-		It("returns true if the usage remaining is greater than 0", func() {
-			u := &user.User{
-				Username:       "aroon",
-				Password:       "pathgate",
-				Email:          "aroon@zerobotlabs.com",
-				UsageRemaining: sql.NullInt64{42, true},
-			}
-			Expect(u.HasUsageRemaining()).To(Equal(true))
+		var (
+			hs              *test.HostStack
+			err             error
+			quotaRestoredAt time.Time
+		)
+
+		BeforeEach(func() {
+			hs, err = test.CreateHostStack(db, nil)
+			Expect(err).To(BeNil())
+
+			_, err = db.Exec(`UPDATE hosts SET free = true WHERE id = $1`, hs.H.ID)
+			Expect(err).To(BeNil())
+
+			quotaRestoredAt = time.Date(2014, 1, 1, 0, 0, 0, 0, time.Local)
+			_, err = db.Exec(`UPDATE users SET usage_quota_restored_at = $1 ;`, quotaRestoredAt)
+			Expect(err).To(BeNil())
+
+			hs.U.UsageQuota = sql.NullInt64{180000, true}
 		})
 
-		It("returns false if the usage remaining is 0 or less", func() {
-			u := &user.User{
-				Username:       "aroon",
-				Password:       "pathgate",
-				Email:          "aroon@zerobotlabs.com",
-				UsageRemaining: sql.NullInt64{0, true},
-			}
-			Expect(u.HasUsageRemaining()).To(Equal(false))
-
-			u.UsageRemaining.Int64 = -1
-			Expect(u.HasUsageRemaining()).To(Equal(false))
+		It("returns true if the free host usage is less than usage quota", func() {
+			startTime := quotaRestoredAt.Add(5 * time.Hour)
+			endTime := quotaRestoredAt.Add(7 * time.Hour)
+			_, err = db.Exec("INSERT INTO host_transitions (host_id, previous_state, state, created_at, ended_at) values ($1, $2, $3, $4, $5);", hs.H.ID, "starting", "running", startTime, endTime)
+			Expect(err).To(BeNil())
+			Expect(hs.U.HasUsageRemaining(db)).To(Equal(true))
 		})
 
-		It("returns false if the usage remaining is null", func() {
-			u := &user.User{
-				Username:       "aroon",
-				Password:       "pathgate",
-				Email:          "aroon@zerobotlabs.com",
-				UsageRemaining: sql.NullInt64{},
-			}
-			Expect(u.HasUsageRemaining()).To(Equal(false))
+		It("returns false if the free host usage is greater than usage quota", func() {
+			startTime := quotaRestoredAt.Add(1 * time.Hour)
+			endTime := quotaRestoredAt.Add(52 * time.Hour)
+			_, err = db.Exec("INSERT INTO host_transitions (host_id, previous_state, state, created_at, ended_at) values ($1, $2, $3, $4, $5);", hs.H.ID, "starting", "running", startTime, endTime)
+			Expect(err).To(BeNil())
+			Expect(hs.U.HasUsageRemaining(db)).To(Equal(false))
 		})
 	})
 
@@ -1635,7 +1710,7 @@ var _ = Describe("models/user", func() {
 		})
 	})
 
-	Describe("FindAllByUsageAndNoticeSent()", func() {
+	Describe("FindAllByNoticeSent()", func() {
 		var (
 			u1, u2, u3, u4, u5 *user.User
 		)
@@ -1648,10 +1723,15 @@ var _ = Describe("models/user", func() {
 			}
 			err := test.WrapInTransaction(db, u1.Insert)
 			Expect(err).To(BeNil())
+
+			_, err = test.CreateHostStack(db, &test.HostStack{
+				U: u1,
+			})
+			Expect(err).To(BeNil())
+
 			_, err = db.Exec(`
-				UPDATE users SET usage_remaining = $1, usage_notices_sent = $2
-				WHERE id = $3;
-			`, 180000, user.USAGE_NOTICES_NO_WARNING, u1.ID)
+				UPDATE users SET usage_notices_sent = $1 WHERE id = $2;
+			`, user.USAGE_NOTICES_NO_WARNING, u1.ID) // 50 hours
 			Expect(err).To(BeNil())
 
 			u2 = &user.User{
@@ -1661,10 +1741,15 @@ var _ = Describe("models/user", func() {
 			}
 			err = test.WrapInTransaction(db, u2.Insert)
 			Expect(err).To(BeNil())
+
+			_, err = test.CreateHostStack(db, &test.HostStack{
+				U: u2,
+			})
+			Expect(err).To(BeNil())
+
 			_, err = db.Exec(`
-				UPDATE users SET usage_remaining = $1, usage_notices_sent = $2
-				WHERE id = $3;
-			`, 14400, user.USAGE_NOTICES_NO_WARNING, u2.ID) // 4 hours
+				UPDATE users SET usage_notices_sent = $1 WHERE id = $2;
+			`, user.USAGE_NOTICES_NO_WARNING, u2.ID) // 4 hours
 			Expect(err).To(BeNil())
 
 			u3 = &user.User{
@@ -1674,10 +1759,15 @@ var _ = Describe("models/user", func() {
 			}
 			err = test.WrapInTransaction(db, u3.Insert)
 			Expect(err).To(BeNil())
+
+			_, err = test.CreateHostStack(db, &test.HostStack{
+				U: u3,
+			})
+			Expect(err).To(BeNil())
+
 			_, err = db.Exec(`
-				UPDATE users SET usage_remaining = $1, usage_notices_sent = $2
-				WHERE id = $3;
-			`, 14300, user.USAGE_NOTICES_NO_WARNING, u3.ID) // less than 4 hours
+				UPDATE users SET usage_notices_sent = $1 WHERE id = $2;
+			`, user.USAGE_NOTICES_NO_WARNING, u3.ID) // less than 4 hours
 			Expect(err).To(BeNil())
 
 			u4 = &user.User{
@@ -1687,10 +1777,15 @@ var _ = Describe("models/user", func() {
 			}
 			err = test.WrapInTransaction(db, u4.Insert)
 			Expect(err).To(BeNil())
+
+			_, err = test.CreateHostStack(db, &test.HostStack{
+				U: u4,
+			})
+			Expect(err).To(BeNil())
+
 			_, err = db.Exec(`
-				UPDATE users SET usage_remaining = $1, usage_notices_sent = $2
-				WHERE id = $3;
-			`, 3500, user.USAGE_NOTICES_FIRST_WARNING, u4.ID) // less than 1 hours
+				UPDATE users SET usage_notices_sent = $1 WHERE id = $2;
+			`, user.USAGE_NOTICES_FIRST_WARNING, u4.ID) // less than 1 hours
 			Expect(err).To(BeNil())
 
 			u5 = &user.User{
@@ -1700,23 +1795,32 @@ var _ = Describe("models/user", func() {
 			}
 			err = test.WrapInTransaction(db, u5.Insert)
 			Expect(err).To(BeNil())
+
+			_, err = test.CreateHostStack(db, &test.HostStack{
+				U: u5,
+			})
+			Expect(err).To(BeNil())
+
 			_, err = db.Exec(`
-				UPDATE users SET usage_remaining = $1, usage_notices_sent = $2
-				WHERE id = $3;
-			`, 3400, user.USAGE_NOTICES_FIRST_WARNING, u5.ID) // less than 1 hours
+				UPDATE users SET usage_notices_sent = $1 WHERE id = $2;
+			`, user.USAGE_NOTICES_FIRST_WARNING, u5.ID) // less than 1 hours
+			Expect(err).To(BeNil())
+
+			_, err = db.Exec(`UPDATE hosts SET free = true`)
 			Expect(err).To(BeNil())
 		})
 
-		It("returns users that has never receive notice email and usage remaining is less than 5 hours", func() {
-			users, err := user.FindAllByUsageAndNoticeSent(db, 60*60*5, user.USAGE_NOTICES_NO_WARNING)
+		It("returns users that has never receive notice email", func() {
+			users, err := user.FindAllByNoticeSent(db, user.USAGE_NOTICES_NO_WARNING)
 			Expect(err).To(BeNil())
-			Expect(users).To(HaveLen(2))
-			Expect(users[0].Email).To(Equal("qux2@example.com"))
-			Expect(users[1].Email).To(Equal("qux3@example.com"))
+			Expect(users).To(HaveLen(3))
+			Expect(users[0].Email).To(Equal("qux1@example.com"))
+			Expect(users[1].Email).To(Equal("qux2@example.com"))
+			Expect(users[2].Email).To(Equal("qux3@example.com"))
 		})
 
-		It("returns users that has received one notice email and usage remaining is less than 1 hours", func() {
-			users, err := user.FindAllByUsageAndNoticeSent(db, 3600, user.USAGE_NOTICES_FIRST_WARNING)
+		It("returns users that has received one notice email", func() {
+			users, err := user.FindAllByNoticeSent(db, user.USAGE_NOTICES_FIRST_WARNING)
 			Expect(err).To(BeNil())
 			Expect(users).To(HaveLen(2))
 			Expect(users[0].Email).To(Equal("qux4@example.com"))
@@ -1724,7 +1828,7 @@ var _ = Describe("models/user", func() {
 		})
 
 		It("returns no user when user has received more than two notice emails", func() {
-			users, err := user.FindAllByUsageAndNoticeSent(db, 60*50, user.USAGE_NOTICES_SECOND_WARNING)
+			users, err := user.FindAllByNoticeSent(db, user.USAGE_NOTICES_SECOND_WARNING)
 			Expect(err).To(BeNil())
 			Expect(users).To(HaveLen(0))
 		})

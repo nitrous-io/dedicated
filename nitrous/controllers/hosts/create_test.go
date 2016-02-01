@@ -14,6 +14,7 @@ import (
 
 	"github.com/gorilla/mux"
 	"github.com/jmoiron/sqlx"
+	"github.com/lib/pq"
 
 	"github.com/nitrous-io/dedicated/freighter/freighterclient"
 	"github.com/nitrous-io/dedicated/nitrous/controllers"
@@ -895,15 +896,29 @@ var _ = Describe("POST /api/v0/hosts", func() {
 			Expect(j.Host.FreighterdPort).To(BeZero())
 		})
 
-		It("responds with HTTP 403 Forbidden when plan is free, and user has no more free host quota remaining", func() {
+		It("responds with HTTP 403 Forbidden when plan is free, and user has no more free host usage remaining", func() {
 			// Create a free plan.
 			hs, err := test.CreateHostStack(db, &test.HostStack{
 				P: &plan.Plan{Name: "Free", Slug: "free", Price: 0},
+				U: u,
 			})
 			Expect(err).To(BeNil())
 
-			// Reduce user's usage remaining to 0.
-			err = u.DecrementUsageRemaining(db, u.UsageQuota.Int64)
+			// Add host transitions with state 'running' to use up user free quota
+			quotaRestoredAt := time.Date(2014, 1, 1, 0, 0, 0, 0, time.Local)
+			hs.U.UsageQuotaRestoredAt = pq.NullTime{quotaRestoredAt, true}
+			_, err = db.Exec(`UPDATE users SET usage_quota_restored_at = $1 WHERE id = $2;`, quotaRestoredAt, hs.U.ID)
+			Expect(err).To(BeNil())
+
+			_, err = db.Exec(`UPDATE hosts SET free = true WHERE user_id = $1`, hs.U.ID)
+			Expect(err).To(BeNil())
+
+			err = hs.H.Delete(db)
+			Expect(err).To(BeNil())
+
+			startTime := quotaRestoredAt.Add(1 * time.Hour)
+			endTime := quotaRestoredAt.Add(52 * time.Hour)
+			_, err = db.Exec("INSERT INTO host_transitions (host_id, previous_state, state, created_at, ended_at) values ($1, $2, $3, $4, $5);", hs.H.ID, "starting", "running", startTime, endTime)
 			Expect(err).To(BeNil())
 
 			params.Set("name", "my host")
