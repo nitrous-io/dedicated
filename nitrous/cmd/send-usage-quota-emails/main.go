@@ -37,17 +37,24 @@ func main() {
 		logrus.Fatalf("failed to connect to database, err: %v", err)
 	}
 
-	logrus.Debug("Send usage notice second warning..")
+	logrus.Debug("Sending quota usage 2nd warning emails...")
 	users, err := user.FindAllByNoticeSent(dbConn, user.USAGE_NOTICES_FIRST_WARNING)
 	for _, u := range users {
-		seconds, err := u.FreeHostUsage(dbConn, time.Now())
+		if !u.UsageQuota.Valid {
+			continue
+		}
+
+		used, err := u.FreeHostUsage(dbConn, time.Now())
 		if err != nil {
 			logrus.Fatalf("failed to get user's free host usage, err: %v", err)
 		}
-		if (u.UsageQuota.Int64 - seconds) <= oneHour {
+
+		if (u.UsageQuota.Int64 - used) <= oneHour {
 			if err := u.SendUsageNoticeEmail(dbConn, 1); err != nil {
 				logrus.Fatalf("failed to send usage notice email, err: %v", err)
 			}
+
+			logrus.Debugf("Sent 2nd warning to user %d at %s", u.ID, u.Email)
 
 			u.UsageNoticesSent = sql.NullInt64{user.USAGE_NOTICES_SECOND_WARNING, true}
 			if err := u.Update(dbConn); err != nil {
@@ -56,17 +63,23 @@ func main() {
 		}
 	}
 
-	logrus.Debug("Send usage notice first warning..")
+	logrus.Debug("Sending quota usage 1st warning emails...")
 	users, err = user.FindAllByNoticeSent(dbConn, user.USAGE_NOTICES_NO_WARNING)
 	for _, u := range users {
-		seconds, err := u.FreeHostUsage(dbConn, time.Now())
+		if !u.UsageQuota.Valid {
+			continue
+		}
+
+		used, err := u.FreeHostUsage(dbConn, time.Now())
 		if err != nil {
 			logrus.Fatalf("failed to get user's free host usage, err: %v", err)
 		}
-		if (u.UsageQuota.Int64 - seconds) <= fiveHours {
+		if (u.UsageQuota.Int64 - used) <= fiveHours {
 			if err := u.SendUsageNoticeEmail(dbConn, 5); err != nil {
 				logrus.Fatalf("failed to send usage notice email, err: %v", err)
 			}
+
+			logrus.Debugf("Sent 1st warning to user %d at %s", u.ID, u.Email)
 
 			u.UsageNoticesSent = sql.NullInt64{user.USAGE_NOTICES_FIRST_WARNING, true}
 			if err := u.Update(dbConn); err != nil {
