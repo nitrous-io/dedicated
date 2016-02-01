@@ -62,7 +62,7 @@ func main() {
 
 	ticker := time.NewTicker(checkInterval)
 	for _ = range ticker.C {
-		hosts, err := host.FindAllIdleAndFree(dbConn)
+		hosts, err := host.FindAllIdleForAutoShutdown(dbConn)
 		if err != nil {
 			logrus.Fatalf("failed to lookup idle and free hosts, err: %v", err)
 		}

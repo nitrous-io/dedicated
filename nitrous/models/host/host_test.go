@@ -107,43 +107,6 @@ var _ = Describe("models/host", func() {
 			Expect(err).To(BeNil())
 			Expect(time.Now().Sub(h.LastPingedAt.Time)).To(BeNumerically("<=", 1*time.Second))
 		})
-
-		It("decrements user's usage remaining by the amount of time that they have used a free host, since the last time the host was pinged", func() {
-			// Make user's host a free host because we only count usage of free hosts.
-			hs.H.Free = true
-			_, err := db.Exec(`UPDATE hosts SET free = true WHERE id = $1`, hs.H.ID)
-			Expect(err).To(BeNil())
-
-			startTime := time.Date(2014, 1, 1, 0, 0, 0, 0, time.Local)
-
-			hs.H.LastPingedAt = pq.NullTime{startTime, true}
-			_, err = db.Exec(`UPDATE hosts SET last_pinged_at = $1 WHERE id = $2`, startTime, hs.H.ID)
-			Expect(err).To(BeNil())
-
-			usageRemaining := hs.U.UsageRemaining.Int64
-
-			// Insert host transitions that count as usage of a free host.
-			_, err = db.Exec("INSERT INTO host_transitions (host_id, previous_state, state, created_at, ended_at) values ($1, $2, $3, $4, $5);", hs.H.ID, "born", "running", startTime, startTime.Add(2*time.Hour))
-			Expect(err).To(BeNil())
-			_, err = db.Exec("INSERT INTO host_transitions (host_id, previous_state, state, created_at) values ($1, $2, $3, $4);", hs.H.ID, "running", "stopped", startTime.Add(2*time.Hour))
-			Expect(err).To(BeNil())
-
-			err = hs.H.Touch(db)
-			Expect(err).To(BeNil())
-
-			u, err := user.FindByID(db, hs.U.ID)
-			Expect(err).To(BeNil())
-
-			Expect(u.UsageRemaining.Int64).To(Equal(usageRemaining - 2*60*60))
-		})
-
-		Context("when some error occurs", func() {
-			It("returns the error", func() {
-				db.Close()
-				err := hs.H.Touch(db)
-				Expect(err).NotTo(BeNil())
-			})
-		})
 	})
 
 	Describe("FindAllByOrgID()", func() {
@@ -638,156 +601,224 @@ var _ = Describe("models/host", func() {
 		})
 	})
 
-	Describe("FindAllIdleAndFree()", func() {
+	Describe("FindAllIdleForAutoShutdown()", func() {
 		var (
-			h4, h8, h9 *host.Host
+			h1, h2, h3, h4, h5, h6, h7, h8, h9, h10, h11, h12, h13, h14 *host.Host
 		)
 
 		BeforeEach(func() {
-			t1 := time.Now()
-			t2 := t1.Add(-900 * time.Second) // 900s = idle_timeout DEFAULT
+			now := time.Now()
+			t2 := now.Add(-900 * time.Second) // 900s = idle_timeout DEFAULT
 			t3 := t2.Add(1 * time.Minute)
 			t4 := t2.Add(-1 * time.Minute)
 
-			u1 := &user.User{
-				Username: "foo",
-				Email:    "foo@example.com",
-				Password: "123456",
-			}
-			err := test.WrapInTransaction(db, u1.Insert)
-			Expect(err).To(BeNil())
-
-			h1 := &host.Host{
-				Slug:         "my-host-1",
+			// auto_shutdown = false; will not be returned.
+			h1 = &host.Host{
+				Slug:         "host-1",
 				State:        host.StateRunning,
 				LastPingedAt: pq.NullTime{Valid: false},
 				AutoShutdown: false,
 			}
 
-			_, err = test.CreateHostStack(db, &test.HostStack{
-				H: h1,
-				U: u1,
-			})
+			hs, err := test.CreateHostStack(db, &test.HostStack{H: h1})
 			Expect(err).To(BeNil())
 
-			h2 := &host.Host{
-				Slug:               "my-host-2",
+			// auto_shutdown = false; will not be returned.
+			h2 = &host.Host{
+				Slug:               "host-2",
 				State:              host.StateRunning,
-				LastPingedAt:       pq.NullTime{t1, true},
+				LastPingedAt:       pq.NullTime{now, true},
 				AutoShutdown:       false,
-				UserID:             u1.ID,
+				UserID:             hs.U.ID,
 				PlanID:             h1.PlanID,
 				RegionID:           h1.RegionID,
 				ProviderTemplateID: h1.ProviderTemplateID,
 			}
 			Expect(h2.Insert(db)).To(BeNil())
 
-			h3 := &host.Host{
-				Slug:               "my-host-3",
+			// recently pinged; will not be returned.
+			h3 = &host.Host{
+				Slug:               "host-3",
 				State:              host.StateRunning,
-				LastPingedAt:       pq.NullTime{t1, true},
+				LastPingedAt:       pq.NullTime{now, true},
 				AutoShutdown:       true,
-				UserID:             u1.ID,
+				UserID:             hs.U.ID,
 				PlanID:             h1.PlanID,
 				RegionID:           h1.RegionID,
 				ProviderTemplateID: h1.ProviderTemplateID,
 			}
 			Expect(h3.Insert(db)).To(BeNil())
 
+			// pinged at exactly idle_timeout ago; will be returned.
 			h4 = &host.Host{
-				Slug:               "my-host-4",
+				Slug:               "host-4",
 				State:              host.StateRunning,
 				LastPingedAt:       pq.NullTime{t2, true},
 				AutoShutdown:       true,
-				UserID:             u1.ID,
+				UserID:             hs.U.ID,
 				PlanID:             h1.PlanID,
 				RegionID:           h1.RegionID,
 				ProviderTemplateID: h1.ProviderTemplateID,
 			}
 			Expect(h4.Insert(db)).To(BeNil())
 
-			h5 := &host.Host{
-				Slug:               "my-host-5",
+			// stopped; will not be returned.
+			h5 = &host.Host{
+				Slug:               "host-5",
 				State:              host.StateStopped,
 				LastPingedAt:       pq.NullTime{t2, true},
 				AutoShutdown:       true,
-				UserID:             u1.ID,
+				UserID:             hs.U.ID,
 				PlanID:             h1.PlanID,
 				RegionID:           h1.RegionID,
 				ProviderTemplateID: h1.ProviderTemplateID,
 			}
 			Expect(h5.Insert(db)).To(BeNil())
 
-			h6 := &host.Host{
-				Slug:               "my-host-6",
+			// auto_shutdown = false; will not be returned.
+			h6 = &host.Host{
+				Slug:               "host-6",
 				State:              host.StateRunning,
 				LastPingedAt:       pq.NullTime{t2, true},
 				AutoShutdown:       false,
-				UserID:             u1.ID,
+				UserID:             hs.U.ID,
 				PlanID:             h1.PlanID,
 				RegionID:           h1.RegionID,
 				ProviderTemplateID: h1.ProviderTemplateID,
 			}
 			Expect(h6.Insert(db)).To(BeNil())
 
-			h7 := &host.Host{
-				Slug:               "my-host-7",
+			// pinged at within idle_timeout; will not be returned.
+			h7 = &host.Host{
+				Slug:               "host-7",
 				State:              host.StateRunning,
 				LastPingedAt:       pq.NullTime{t3, true},
 				AutoShutdown:       true,
-				UserID:             u1.ID,
+				UserID:             hs.U.ID,
 				PlanID:             h1.PlanID,
 				RegionID:           h1.RegionID,
 				ProviderTemplateID: h1.ProviderTemplateID,
 			}
 			Expect(h7.Insert(db)).To(BeNil())
 
+			// pinged at exceeds idle_timeout; will be returned.
 			h8 = &host.Host{
-				Slug:               "my-host-8",
+				Slug:               "host-8",
 				State:              host.StateRunning,
 				LastPingedAt:       pq.NullTime{t4, true},
 				AutoShutdown:       true,
-				UserID:             u1.ID,
+				UserID:             hs.U.ID,
 				PlanID:             h1.PlanID,
 				RegionID:           h1.RegionID,
 				ProviderTemplateID: h1.ProviderTemplateID,
 			}
 			Expect(h8.Insert(db)).To(BeNil())
 
-			// host which was started but has never been pinged (no websockets
-			// support, user didn't open IDE, etc)
+			// started but has never been pinged (no websockets support,
+			// user didn't open IDE, etc); will be returned
 			h9 = &host.Host{
-				Slug:               "my-host-9",
+				Slug:               "host-9",
 				State:              host.StateRunning,
-				LastPingedAt:       pq.NullTime{Valid: false},
+				LastPingedAt:       pq.NullTime{},
 				AutoShutdown:       true,
-				UserID:             u1.ID,
+				UserID:             hs.U.ID,
 				PlanID:             h1.PlanID,
 				RegionID:           h1.RegionID,
 				ProviderTemplateID: h1.ProviderTemplateID,
 			}
 			Expect(h9.Insert(db)).To(BeNil())
+
+			// started but has never been pinged, only recently running; will
+			// not be returned.
+			h10 = &host.Host{
+				Slug:               "host-10",
+				State:              host.StateRunning,
+				LastPingedAt:       pq.NullTime{},
+				LastRunningAt:      pq.NullTime{now, true},
+				AutoShutdown:       true,
+				UserID:             hs.U.ID,
+				PlanID:             h1.PlanID,
+				RegionID:           h1.RegionID,
+				ProviderTemplateID: h1.ProviderTemplateID,
+			}
+			Expect(h10.Insert(db)).To(BeNil())
+
+			// pinged at exceeds idle_timeout, only recently running; will not
+			// be returned.
+			h11 = &host.Host{
+				Slug:               "host-11",
+				State:              host.StateRunning,
+				LastPingedAt:       pq.NullTime{t4, true},
+				LastRunningAt:      pq.NullTime{now.Add(-15 * time.Minute), true},
+				AutoShutdown:       true,
+				UserID:             hs.U.ID,
+				PlanID:             h1.PlanID,
+				RegionID:           h1.RegionID,
+				ProviderTemplateID: h1.ProviderTemplateID,
+			}
+			Expect(h11.Insert(db)).To(BeNil())
+
+			// pinged at exceeds idle_timeout, became running > 45 minutes ago;
+			// will be returned.
+			h12 = &host.Host{
+				Slug:               "host-12",
+				State:              host.StateRunning,
+				LastPingedAt:       pq.NullTime{t4, true},
+				LastRunningAt:      pq.NullTime{now.Add(-46 * time.Minute), true},
+				AutoShutdown:       true,
+				UserID:             hs.U.ID,
+				PlanID:             h1.PlanID,
+				RegionID:           h1.RegionID,
+				ProviderTemplateID: h1.ProviderTemplateID,
+			}
+			Expect(h12.Insert(db)).To(BeNil())
+
+			// pinged at exceeds idle_timeout, became running 1 hour 1 minute
+			// ago (i.e. host has been running within 45 minutes of the hour);
+			// will not be returned.
+			h13 = &host.Host{
+				Slug:               "host-13",
+				State:              host.StateRunning,
+				LastPingedAt:       pq.NullTime{t4, true},
+				LastRunningAt:      pq.NullTime{now.Add(-61 * time.Minute), true},
+				AutoShutdown:       true,
+				UserID:             hs.U.ID,
+				PlanID:             h1.PlanID,
+				RegionID:           h1.RegionID,
+				ProviderTemplateID: h1.ProviderTemplateID,
+			}
+			Expect(h13.Insert(db)).To(BeNil())
+
+			// pinged at exceeds idle_timeout, became running 1 hour 46 minutes
+			// (107 minutes) ago (i.e. host has been running > 45 minutes of the
+			// hour); will be returned.
+			h14 = &host.Host{
+				Slug:               "host-14",
+				State:              host.StateRunning,
+				LastPingedAt:       pq.NullTime{t4, true},
+				LastRunningAt:      pq.NullTime{now.Add(-107 * time.Minute), true},
+				AutoShutdown:       true,
+				UserID:             hs.U.ID,
+				PlanID:             h1.PlanID,
+				RegionID:           h1.RegionID,
+				ProviderTemplateID: h1.ProviderTemplateID,
+			}
+			Expect(h14.Insert(db)).To(BeNil())
 		})
 
 		It("returns a list of idle hosts that are eligible for auto shutdown", func() {
-			res, err := host.FindAllIdleAndFree(db)
+			hosts, err := host.FindAllIdleForAutoShutdown(db)
 			Expect(err).To(BeNil())
-			Expect(res).To(HaveLen(3))
-			Expect([]int64{res[0].ID, res[1].ID, res[2].ID}).To(Equal([]int64{h8.ID, h4.ID, h9.ID}))
 
-			// sanity-check that SQL query populates Provider field (required by hostcontrol)
-			Expect(res[0].Provider).To(Equal("docker"))
-		})
+			slugs := []string{}
+			for _, h := range hosts {
+				slugs = append(slugs, h.Slug)
+			}
+			Expect(slugs).To(ConsistOf(h4.Slug, h8.Slug, h9.Slug, h12.Slug, h14.Slug))
 
-		Context("when db query fails with error", func() {
-			BeforeEach(func() {
-				db.Close()
-			})
-
-			It("returns error", func() {
-				_, err := host.FindAllIdleAndFree(db)
-				Expect(err).NotTo(BeNil())
-			})
+			// Sanity-check that SQL query populates "provider" field
+			// (required by hostcontrol).
+			Expect(hosts[0].Provider).To(Equal(envvars.DefaultProvider))
 		})
 	})
 
@@ -1279,6 +1310,7 @@ var _ = Describe("models/host", func() {
 				HourlyPrice:        int64(634),
 				Free:               true,
 				LastPingedAt:       pq.NullTime{t, true},
+				LastRunningAt:      pq.NullTime{t.Add(-time.Minute), true},
 				AutoShutdown:       true,
 			}
 			err = h.Insert(db)
@@ -1297,6 +1329,7 @@ var _ = Describe("models/host", func() {
 			Expect(hosts[0].CreatedAt).NotTo(BeNil())
 			Expect(hosts[0].UpdatedAt).NotTo(BeNil())
 			Expect(hosts[0].LastPingedAt.Time.Unix()).To(Equal(t.Unix()))
+			Expect(hosts[0].LastRunningAt.Time.Unix()).To(Equal((t.Add(-time.Minute)).Unix()))
 			Expect(hosts[0].AutoShutdown).To(BeTrue())
 		})
 

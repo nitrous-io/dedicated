@@ -240,7 +240,7 @@ func FindAllWithoutOrphaned(db *db.Database, userID int64) ([]*Host, error) {
 	return hosts, nil
 }
 
-func FindAllIdleAndFree(db *db.Database) ([]*Host, error) {
+func FindAllIdleForAutoShutdown(db *db.Database) ([]*Host, error) {
 	hosts := []*Host{}
 	err := db.Select(&hosts, `SELECT hosts.*, pts.provider, pts.config
 		FROM hosts
@@ -253,7 +253,7 @@ func FindAllIdleAndFree(db *db.Database) ([]*Host, error) {
 				OR
 				last_pinged_at IS NULL
 			)
-			-- if host has been running for less than 2700 seconds = 45 minutes; not idle
+			-- if host has been running for less than 2700 seconds = 45 minutes within the hour; not idle
 			AND
 			  (last_running_at IS NULL OR MOD(CAST(EXTRACT(EPOCH FROM now() - last_running_at) as numeric), 3600) > 2700)
 			AND terminated_at IS NULL
@@ -450,12 +450,14 @@ func (h *Host) Insert(d db.QueryReceiver) error {
 			user_id, org_id, region_id, plan_id, provider_template_id, slug, name, secret,
 			state, ip_address, static_ip, provider_identifier, max_containers, size, freighterd_port,
 			hourly_price, free, preprovisioned,
-			region_identifier, last_pinged_at, auto_shutdown, subscription_id
+			region_identifier, last_pinged_at, last_running_at, auto_shutdown,
+			subscription_id
 		) VALUES (
 			:user_id, :org_id, :region_id, :plan_id, :provider_template_id, :slug, :name, :secret,
 			:state, :ip_address, :static_ip, :provider_identifier, :max_containers, :size, :freighterd_port,
 			:hourly_price, :free, :preprovisioned,
-			:region_identifier, :last_pinged_at, :auto_shutdown, :subscription_id
+			:region_identifier, :last_pinged_at, :last_running_at, :auto_shutdown,
+			:subscription_id
 		)
 		RETURNING *;`)
 	if err != nil {
@@ -557,45 +559,7 @@ func (h *Host) Delete(d db.QueryReceiver) error {
 }
 
 func (h *Host) Touch(d db.QueryReceiver) error {
-	now := time.Now()
-
-	if !h.Free || !h.LastPingedAt.Valid {
-		return h.UpdateColumn(d, "last_pinged_at", pq.NullTime{now, true})
-	}
-
-	// At this point, the host is free and has previously been pinged.
-	// We count the time the host was used since the last ping, and decrement
-	// the user's usage remaining time.
-	var secondsUsed int64
-	if err := d.QueryRowx(`SELECT SUM(
-		CEILING(
-			CAST(
-				EXTRACT(
-					EPOCH FROM
-						LEAST(COALESCE(ended_at, $3), $3) - GREATEST(created_at, $2)
-				)
-				AS integer
-			)
-		))
-		FROM host_transitions
-		WHERE host_id = $1
-			AND state = 'running'
-			AND (created_at, COALESCE(ended_at, $3)) OVERLAPS ($2, $3);
-		`, h.ID, h.LastPingedAt.Time, now).Scan(&secondsUsed); err != nil {
-		return err
-	}
-
-	if secondsUsed > 0 {
-		u, err := user.FindByID(d, h.UserID)
-		if err != nil {
-			return err
-		}
-		if err := u.DecrementUsageRemaining(d, secondsUsed); err != nil {
-			return err
-		}
-	}
-
-	return h.UpdateColumn(d, "last_pinged_at", pq.NullTime{now, true})
+	return h.UpdateColumn(d, "last_pinged_at", pq.NullTime{time.Now(), true})
 }
 
 func (h *Host) CanCreateMoreContainers(d db.QueryReceiver, u *user.User) (bool, error) {
@@ -632,7 +596,7 @@ func (h *Host) IsIdle(db *db.Database) (bool, error) {
 				OR
 				last_pinged_at IS NULL
 			)
-			-- if host has been running for less than 2700 seconds = 45 minutes; not idle
+			-- if host has been running for less than 2700 seconds = 45 minutes within the hour; not idle
 			AND
 			  (last_running_at IS NULL OR MOD(CAST(EXTRACT(EPOCH FROM now() - last_running_at) as numeric), 3600) > 2700)
 			AND terminated_at IS NULL
