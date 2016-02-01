@@ -285,13 +285,8 @@ func (s *Server) activateHost(uuid string, u *user.User, h *host.Host, hostInfo 
 }
 
 func (s *Server) recordTransition(u *user.User, h *host.Host) error {
-	timing := h.AssignedAt
-	if timing == nil {
-		timing = h.CreatedAt
-	}
-
 	return s.db.WithTransaction(func(tx *sqlx.Tx) error {
-		if err := hosttransition.Record(tx, h, host.StateBorn, *timing, u.ID); err != nil {
+		if err := hosttransition.Record(tx, h, host.StateBorn, *h.CreatedAt, u.ID); err != nil {
 			return err
 		}
 		return nil

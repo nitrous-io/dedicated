@@ -1752,32 +1752,6 @@ var _ = Describe("models/host", func() {
 		})
 	})
 
-	Describe("Reassign()", func() {
-		It("updates the host's user_id to the given user's ID and the assigned_at timestamp", func() {
-			h := &host.Host{
-				Slug:               "foo",
-				UserID:             hs.U.ID,
-				RegionID:           hs.R.ID,
-				PlanID:             hs.P.ID,
-				ProviderTemplateID: hs.PT.ID,
-			}
-			err := h.Insert(db)
-			Expect(err).To(BeNil())
-			u := &user.User{
-				Username: "foo",
-				Email:    "foo@example.com",
-				Password: "123456",
-			}
-			err = test.WrapInTransaction(db, u.Insert)
-			Expect(err).To(BeNil())
-
-			err = h.Reassign(db, u)
-			Expect(err).To(BeNil())
-			Expect(h.UserID).To(Equal(u.ID))
-			Expect(h.AssignedAt).NotTo(BeNil())
-		})
-	})
-
 	Describe("Delete()", func() {
 		It("sets terminated_at instead of removing the host from the database", func() {
 			h := &host.Host{

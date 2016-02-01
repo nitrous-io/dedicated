@@ -80,9 +80,6 @@ func SerializeHost(h *host.Host) *Host {
 		Free:             h.Free,
 		Shared:           h.Shared,
 	}
-	if h.AssignedAt != nil {
-		serialized.CreatedAt = h.AssignedAt
-	}
 	if h.LastRunningAt.Valid {
 		serialized.LastRunningAt = &(h.LastRunningAt.Time)
 	}
