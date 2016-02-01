@@ -60,7 +60,7 @@ PUBLISH:
 				DeliveryMode: amqp.Persistent,
 				Timestamp:    time.Now(),
 				Type:         m.Action,
-				AppId:        fmt.Sprintf("%s-%d", m.ResourceName, m.ResourceID),
+				AppId:        fmt.Sprintf("%s-%s", m.ResourceName, m.ResourceID),
 				Body:         b,
 			},
 		)
@@ -95,7 +95,6 @@ PUBLISH:
 			}
 			continue PUBLISH
 		}
-		return nil
 	}
 	return fmt.Errorf("failed to send message %+v", m)
 }
@@ -363,8 +362,6 @@ func (qc *AmqpConsumer) Start(stop chan struct{}) error {
 			msgCh <- d
 		}
 	}
-
-	return nil
 }
 
 func StartAmqpConsumer(addr, name string, handler queueHandler, stop chan struct{}, handlerTimeout time.Duration) error {

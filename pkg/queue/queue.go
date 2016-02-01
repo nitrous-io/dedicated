@@ -68,12 +68,12 @@ type QueueConsumer struct {
 }
 
 type Message struct {
-	UUID         string `json: "uuid"`
-	Action       string `json: "action"`
-	Event        string `json: "event"`
-	ResourceName string `json: "resource_name"`
-	ResourceID   string `json: "resource_id"`
-	Payload      []byte `json: "payload"`
+	UUID         string `json:"uuid"`
+	Action       string `json:"action"`
+	Event        string `json:"event"`
+	ResourceName string `json:"resource_name"`
+	ResourceID   string `json:"resource_id"`
+	Payload      []byte `json:"payload"`
 }
 
 func (m *Message) LogFields() logrus.Fields {
@@ -215,7 +215,6 @@ func (d *redisDelivery) Ack(retryInterval time.Duration) error {
 		}
 		return nil
 	}
-	return fmt.Errorf("timed out sending message %+v", m)
 }
 
 // Fail push failed message to failed queue
@@ -293,8 +292,6 @@ func (qc *QueueConsumer) Start(stop chan struct{}) error {
 			msg <- d
 		}
 	}
-
-	return nil
 }
 
 func StartConsumer(redisHost, redisPort string, redisDB int64, queueName string, handler queueHandler, stop chan struct{}, queueHandlerTimeout time.Duration) error {
