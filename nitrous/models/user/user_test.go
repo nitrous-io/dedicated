@@ -1712,7 +1712,7 @@ var _ = Describe("models/user", func() {
 
 	Describe("FindAllByNoticeSent()", func() {
 		var (
-			u1, u2, u3, u4, u5 *user.User
+			u1, u2, u3, u4, u5, u6 *user.User
 		)
 
 		BeforeEach(func() {
@@ -1721,17 +1721,16 @@ var _ = Describe("models/user", func() {
 				Password: "123456",
 				Email:    "qux1@example.com",
 			}
-			err := test.WrapInTransaction(db, u1.Insert)
-			Expect(err).To(BeNil())
+			Expect(test.WrapInTransaction(db, u1.Insert)).To(BeNil())
 
-			_, err = test.CreateHostStack(db, &test.HostStack{
+			_, err := test.CreateHostStack(db, &test.HostStack{
 				U: u1,
+				H: &host.Host{Free: true},
 			})
 			Expect(err).To(BeNil())
 
-			_, err = db.Exec(`
-				UPDATE users SET usage_notices_sent = $1 WHERE id = $2;
-			`, user.USAGE_NOTICES_NO_WARNING, u1.ID) // 50 hours
+			_, err = db.Exec(`UPDATE users SET usage_notices_sent = $1 WHERE id = $2;`,
+				user.USAGE_NOTICES_NO_WARNING, u1.ID)
 			Expect(err).To(BeNil())
 
 			u2 = &user.User{
@@ -1739,17 +1738,16 @@ var _ = Describe("models/user", func() {
 				Password: "123456",
 				Email:    "qux2@example.com",
 			}
-			err = test.WrapInTransaction(db, u2.Insert)
-			Expect(err).To(BeNil())
+			Expect(test.WrapInTransaction(db, u2.Insert)).To(BeNil())
 
 			_, err = test.CreateHostStack(db, &test.HostStack{
 				U: u2,
+				H: &host.Host{Free: true},
 			})
 			Expect(err).To(BeNil())
 
-			_, err = db.Exec(`
-				UPDATE users SET usage_notices_sent = $1 WHERE id = $2;
-			`, user.USAGE_NOTICES_NO_WARNING, u2.ID) // 4 hours
+			_, err = db.Exec(`UPDATE users SET usage_notices_sent = $1 WHERE id = $2;`,
+				user.USAGE_NOTICES_NO_WARNING, u2.ID)
 			Expect(err).To(BeNil())
 
 			u3 = &user.User{
@@ -1757,17 +1755,16 @@ var _ = Describe("models/user", func() {
 				Password: "123456",
 				Email:    "qux3@example.com",
 			}
-			err = test.WrapInTransaction(db, u3.Insert)
-			Expect(err).To(BeNil())
+			Expect(test.WrapInTransaction(db, u3.Insert)).To(BeNil())
 
 			_, err = test.CreateHostStack(db, &test.HostStack{
 				U: u3,
+				H: &host.Host{Free: true},
 			})
 			Expect(err).To(BeNil())
 
-			_, err = db.Exec(`
-				UPDATE users SET usage_notices_sent = $1 WHERE id = $2;
-			`, user.USAGE_NOTICES_NO_WARNING, u3.ID) // less than 4 hours
+			_, err = db.Exec(`UPDATE users SET usage_notices_sent = $1 WHERE id = $2;`,
+				user.USAGE_NOTICES_NO_WARNING, u3.ID)
 			Expect(err).To(BeNil())
 
 			u4 = &user.User{
@@ -1775,17 +1772,16 @@ var _ = Describe("models/user", func() {
 				Password: "123456",
 				Email:    "qux4@example.com",
 			}
-			err = test.WrapInTransaction(db, u4.Insert)
-			Expect(err).To(BeNil())
+			Expect(test.WrapInTransaction(db, u4.Insert)).To(BeNil())
 
 			_, err = test.CreateHostStack(db, &test.HostStack{
 				U: u4,
+				H: &host.Host{Free: true},
 			})
 			Expect(err).To(BeNil())
 
-			_, err = db.Exec(`
-				UPDATE users SET usage_notices_sent = $1 WHERE id = $2;
-			`, user.USAGE_NOTICES_FIRST_WARNING, u4.ID) // less than 1 hours
+			_, err = db.Exec(`UPDATE users SET usage_notices_sent = $1 WHERE id = $2;`,
+				user.USAGE_NOTICES_FIRST_WARNING, u4.ID)
 			Expect(err).To(BeNil())
 
 			u5 = &user.User{
@@ -1793,20 +1789,37 @@ var _ = Describe("models/user", func() {
 				Password: "123456",
 				Email:    "qux5@example.com",
 			}
-			err = test.WrapInTransaction(db, u5.Insert)
-			Expect(err).To(BeNil())
+			Expect(test.WrapInTransaction(db, u5.Insert)).To(BeNil())
 
 			_, err = test.CreateHostStack(db, &test.HostStack{
 				U: u5,
+				H: &host.Host{Free: true},
 			})
 			Expect(err).To(BeNil())
 
-			_, err = db.Exec(`
-				UPDATE users SET usage_notices_sent = $1 WHERE id = $2;
-			`, user.USAGE_NOTICES_FIRST_WARNING, u5.ID) // less than 1 hours
+			_, err = db.Exec(`UPDATE users SET usage_notices_sent = $1 WHERE id = $2;`,
+				user.USAGE_NOTICES_FIRST_WARNING, u5.ID)
 			Expect(err).To(BeNil())
 
-			_, err = db.Exec(`UPDATE hosts SET free = true`)
+			// User with terminated host - should not be returned.
+			u6 = &user.User{
+				Username: "qux6",
+				Password: "123456",
+				Email:    "qux6@example.com",
+			}
+			Expect(test.WrapInTransaction(db, u6.Insert)).To(BeNil())
+
+			hs6, err := test.CreateHostStack(db, &test.HostStack{
+				U: u6,
+				H: &host.Host{Free: true},
+			})
+			Expect(err).To(BeNil())
+
+			err = hs6.H.Delete(db)
+			Expect(err).To(BeNil())
+
+			_, err = db.Exec(`UPDATE users SET usage_notices_sent = $1 WHERE id = $2;`,
+				user.USAGE_NOTICES_FIRST_WARNING, u6.ID)
 			Expect(err).To(BeNil())
 		})
 

@@ -235,9 +235,10 @@ func FindAllByNoticeSent(d db.QueryReceiver, noticeSent int64) ([]*User, error) 
 	users := []*User{}
 	err := d.Select(&users, `
 		SELECT u.* FROM users u
-		INNER JOIN hosts AS h ON h.user_id = u.id
+			INNER JOIN hosts AS h ON h.user_id = u.id
 		WHERE h.free = true
-		AND u.usage_notices_sent = $1
+			AND h.terminated_at IS NULL
+			AND u.usage_notices_sent = $1
 		ORDER BY u.id
 	`, noticeSent)
 	if err != nil {
