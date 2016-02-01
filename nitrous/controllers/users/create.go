@@ -77,8 +77,9 @@ func Create(env *middleware.Env, w http.ResponseWriter, r *http.Request) error {
 		return errClientNotFound
 	}
 
-	// It only verifies captcha token when CaptchaSecret is specified
-	// It skips oauth client is not nil
+	// Require captcha verification only if it is specified in env vars.
+	// Also, we don't require captcha verification for signups done via OAuth
+	// clients of our API (since those would actually be done by a robot).
 	if client == nil && envvars.IsCaptchaAvailable() {
 		if err := CVerifier.Verify(captchaToken); err != nil {
 			logrus.Errorf("Error verifying captcha token for user %+v, err: %s, uuid=%d", u, err, env.UUID)
