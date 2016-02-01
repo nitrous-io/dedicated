@@ -145,7 +145,7 @@ func (u *User) BillingProfile(d db.QueryReceiver) (*billingprofile.BillingProfil
 	return u.billingProfile, nil
 }
 
-// RestoreUsageQuotas restores the usage_remaining (to the usage_quota value)
+// RestoreUsageQuotas restores the usage_quota_restored_at and usage_notices_sent
 // for all users who:
 // 1. have a free host, and
 // 2. had their free usage quota last restored earlier than their usage quota
@@ -153,7 +153,6 @@ func (u *User) BillingProfile(d db.QueryReceiver) (*billingprofile.BillingProfil
 func RestoreUsageQuotas(d db.QueryReceiver, when time.Time) (int64, error) {
 	res, err := d.Exec(`UPDATE users
 		SET
-			usage_remaining = usage_quota,
 			usage_quota_restored_at = now(),
 			usage_notices_sent = 0
 		WHERE id IN (
