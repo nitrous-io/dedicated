@@ -95,7 +95,6 @@ type Host struct {
 	// FIXME delete preprovisioned field and column
 	Preprovisioned bool `db:"preprovisioned"`
 
-	AssignedAt   *time.Time `db:"assigned_at"`
 	TerminatedAt *time.Time `db:"terminated_at"`
 	CreatedAt    *time.Time `db:"created_at"`
 	UpdatedAt    *time.Time `db:"updated_at"`
@@ -548,10 +547,6 @@ func (h *Host) UpdateColumn(d db.QueryReceiver, column string, value interface{}
 	// Warning: 2nd argument (column) should never be a user provided string!
 	// Don't try update updated_at to specific time.
 	return d.QueryRowx(fmt.Sprintf(`UPDATE hosts SET ("%s", updated_at) = ($1, now()) WHERE id = $2 RETURNING *;`, column), value, h.ID).StructScan(h)
-}
-
-func (h *Host) Reassign(d db.QueryReceiver, u *user.User) error {
-	return d.QueryRowx(`UPDATE hosts SET user_id = $1, assigned_at = now() WHERE id = $2 RETURNING *;`, u.ID, h.ID).StructScan(h)
 }
 
 func (h *Host) Delete(d db.QueryReceiver) error {

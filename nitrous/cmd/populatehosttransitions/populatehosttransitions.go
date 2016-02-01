@@ -66,10 +66,6 @@ func main() {
 			if host.ID > lastId {
 				lastId = host.ID
 			}
-			time := host.AssignedAt
-			if time == nil {
-				time = host.CreatedAt
-			}
 
 			logrus.Infof("Creating host transition '%s' for %s", host.State, host.Slug)
 			tx, err := dbConn.Beginx()
@@ -77,7 +73,8 @@ func main() {
 				logrus.Infof("Failed starting transaction for for %d '%s'", host.ID, host.Slug)
 				continue
 			}
-			if err := hosttransition.Record(tx, &host, "", *time, initiatorID); err != nil {
+
+			if err := hosttransition.Record(tx, &host, "", *host.CreatedAt, initiatorID); err != nil {
 				tx.Rollback()
 				logrus.Infof("Failed to populate host transition for %d '%s'", host.ID, host.Slug)
 				continue

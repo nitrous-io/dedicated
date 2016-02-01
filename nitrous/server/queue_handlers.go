@@ -174,16 +174,19 @@ func (s *Server) handleCreateMessage(m *queue.Message) error {
 
 func (s *Server) activateHost(uuid string, u *user.User, h *host.Host, hostInfo *hh.Info) error {
 	db := s.db
+
 	logData := logrus.WithFields(logrus.Fields{
 		"uuid":    uuid,
 		"host_id": h.ID,
 		"user_id": u.ID,
 	})
-	logData.Debugf("queueProvisionTracer: queue: %+v", uuid, hostInfo)
+	logData.Debugf("queueProvisionTracer: activating host: %+v", hostInfo)
+
 	if hostInfo != nil {
 		h.IPAddress = sql.NullString{hostInfo.IPAddress, true}
 		h.ProviderIdentifier = sql.NullString{hostInfo.ID, true}
 		h.RegionIdentifier = sql.NullString{hostInfo.Region, true}
+		h.FreighterdPort = sql.NullInt64{int64(hostInfo.FreighterdPort), true}
 
 		if hostInfo.VolumeID != "" {
 			h.ProviderStorageIdentifier = sql.NullString{hostInfo.VolumeID, true}
@@ -192,26 +195,22 @@ func (s *Server) activateHost(uuid string, u *user.User, h *host.Host, hostInfo 
 		}
 	}
 
-	h.FreighterdPort = sql.NullInt64{int64(hostInfo.FreighterdPort), true}
-	h.State = host.StateRunning
-
 	nstmt, err := db.PrepareNamed(`UPDATE hosts
-		SET (ip_address, provider_identifier, region_identifier, freighterd_port, state, provider_storage_identifier, updated_at)
-		= (:ip_address, :provider_identifier, :region_identifier, :freighterd_port, :state, :provider_storage_identifier, now())
+		SET (ip_address, provider_identifier, region_identifier, freighterd_port, provider_storage_identifier, updated_at)
+		= (:ip_address, :provider_identifier, :region_identifier, :freighterd_port, :provider_storage_identifier, now())
 		WHERE id = :id
 		RETURNING *;`)
 	if err != nil {
 		return err
 	}
-
 	if err := nstmt.QueryRowx(h).StructScan(h); err != nil {
-		logData.Debugf("queueProvisionTracer: update (provider) err: %+v h: %+v", uuid, err, h)
+		logData.Debugf("queueProvisionTracer: failed to update host, err: %v, h: %+v", err, h)
 		return err
 	}
 
 	p, err := plan.FindByID(db, h.PlanID)
 	if err != nil {
-		logData.Debugf("queueProvisionTracer: failed to get the plan. err: %+v h: %+v", uuid, err, h)
+		logData.Debugf("queueProvisionTracer: failed to lookup plan, err: %v, h: %+v", err, h)
 	}
 
 	if p.IsSubscription() && !h.SubscriptionID.Valid {
@@ -222,7 +221,7 @@ func (s *Server) activateHost(uuid string, u *user.User, h *host.Host, hostInfo 
 				if err == sql.ErrNoRows {
 					return SubscriptionCreateError{Err: "Unable to locate organization."}
 				}
-				logData.Errorf("Unable to locate org: %d, err: %v", h.OrgID.Int64)
+				logData.Errorf("Unable to locate org ID %d, err: %v", h.OrgID.Int64, err)
 				return errUnableToCreateSubscription
 			}
 			_, err := orgmembership.FindByIdentifierAndOrgSlug(db, u.Username, o.Slug)
@@ -230,7 +229,7 @@ func (s *Server) activateHost(uuid string, u *user.User, h *host.Host, hostInfo 
 				if err == sql.ErrNoRows {
 					return SubscriptionCreateError{Err: "You do not have access to this organization."}
 				}
-				logData.Errorf("Unable to locate org membership: %d, err: %v", h.OrgID.Int64)
+				logData.Errorf("Unable to locate org membership for org ID %d, err: %v", h.OrgID.Int64, err)
 				return errUnableToCreateSubscription
 			}
 		}
@@ -245,7 +244,7 @@ func (s *Server) activateHost(uuid string, u *user.User, h *host.Host, hostInfo 
 				opts.PromoCodeUse = cl.Use
 				opts.PromoCode = cl.Code
 			} else if err != sql.ErrNoRows {
-				logrus.Errorf("Error finding pending claim for user %d, err: %v", u.ID, err)
+				logData.Errorf("Error finding pending claim for user %d, err: %v", u.ID, err)
 			}
 		}
 
@@ -265,37 +264,33 @@ func (s *Server) activateHost(uuid string, u *user.User, h *host.Host, hostInfo 
 		}
 	}
 
-	_, err = db.Exec(`UPDATE hosts SET hourly_price=$1, free=$2, updated_at=now() WHERE id=$3 AND plan_id=$4;`,
-		p.HourlyPrice(), p.IsFree(), h.ID, p.ID)
+	tx, err := s.db.Beginx()
 	if err != nil {
-		logrus.Debugf("uuid=%s queueProvisionTracer: update err: %+v h: %+v ", uuid, err, h)
 		return err
 	}
-	logrus.Debugf("uuid=%s queueProvisionTracer: updated h: %+v", uuid, h)
+	defer tx.Rollback()
 
-	if err := s.createSharedVolume(uuid, u, h); err != nil {
+	// Update host state to be "running" - this is done only now because the
+	// host only really counts as running at this time (otherwise, we might
+	// incorrectly do stuff like auto-shutdown the host).
+	h.State = host.StateRunning
+	_, err = tx.Exec(`UPDATE hosts SET state = $1, hourly_price=$2, free=$3, updated_at=now() WHERE id=$4 AND plan_id=$5;`,
+		host.StateRunning, p.HourlyPrice(), p.IsFree(), h.ID, p.ID)
+	if err != nil {
+		logData.Debugf("uuid=%s queueProvisionTracer: update err: %v, h: %+v ", uuid, err, h)
+		return err
+	}
+	logData.Debugf("queueProvisionTracer: updated h: %+v", h)
+
+	if err := hosttransition.Record(tx, h, host.StateBorn, *h.CreatedAt, u.ID); err != nil {
 		return err
 	}
 
-	if err := s.recordTransition(u, h); err != nil {
+	if err := tx.Commit(); err != nil {
 		return err
 	}
 
-	return nil
-}
-
-func (s *Server) recordTransition(u *user.User, h *host.Host) error {
-	timing := h.AssignedAt
-	if timing == nil {
-		timing = h.CreatedAt
-	}
-
-	return s.db.WithTransaction(func(tx *sqlx.Tx) error {
-		if err := hosttransition.Record(tx, h, host.StateBorn, *timing, u.ID); err != nil {
-			return err
-		}
-		return nil
-	})
+	return s.createSharedVolume(uuid, u, h)
 }
 
 func (s *Server) createSharedVolume(uuid string, u *user.User, h *host.Host) error {
@@ -343,7 +338,7 @@ func (s *Server) createSharedVolume(uuid string, u *user.User, h *host.Host) err
 			}
 		}
 
-		return fmt.Errorf("failed to connect to fregither to create shared volume")
+		return fmt.Errorf("failed to connect to freighter to create shared volume")
 	})
 }
 
