@@ -192,9 +192,13 @@ func Create(env *middleware.Env, w http.ResponseWriter, r *http.Request) error {
 
 	env.Tracker.CreateProfile(u, distinctID)
 
+	serializedUser := serializers.SerializeUser(u)
+	if u.UsageQuota.Valid {
+		serializedUser.UsageRemaining = u.UsageQuota.Int64
+	}
 	env.Status = http.StatusCreated
 	env.Data = map[string]interface{}{
-		"user": serializers.SerializeUser(u),
+		"user": serializedUser,
 	}
 	env.User = u
 

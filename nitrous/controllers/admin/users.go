@@ -66,7 +66,20 @@ func showUser(env *middleware.Env, w http.ResponseWriter, r *http.Request) error
 			return err
 		}
 
+		secondsUsed, err := u.FreeHostUsage(db, time.Now())
+		if err != nil {
+			return err
+		}
+		usageRemaining := int64(0)
+		if u.UsageQuota.Valid {
+			usageRemaining = u.UsageQuota.Int64 - secondsUsed
+			if usageRemaining < 0 {
+				usageRemaining = 0
+			}
+		}
+
 		ser := serializers.AdminSerializeUserWithProfiles(u, up, bp)
+		ser.User.UsageRemaining = usageRemaining
 
 		if u.BannedByID.Valid {
 			err := db.Get(&ser.BannedBy, "SELECT username FROM users WHERE id = $1", u.BannedByID.Int64)

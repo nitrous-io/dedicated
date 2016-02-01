@@ -318,6 +318,18 @@ func GetAuthenticatedUser(env *middleware.Env, w http.ResponseWriter, r *http.Re
 		return err
 	}
 
+	secondsUsed, err := u.FreeHostUsage(db, time.Now())
+	if err != nil {
+		return err
+	}
+	usageRemaining := int64(0)
+	if u.UsageQuota.Valid {
+		usageRemaining = u.UsageQuota.Int64 - secondsUsed
+		if usageRemaining < 0 {
+			usageRemaining = 0
+		}
+	}
+
 	canUseDesktopApp, err := u.CheckCanUseDesktopApp(env.DB)
 	if err != nil {
 		logrus.Errorf("Failed to determine if user %d can use desktop app, err: %v", u.ID, err)
@@ -325,9 +337,12 @@ func GetAuthenticatedUser(env *middleware.Env, w http.ResponseWriter, r *http.Re
 	}
 	u.CanUseDesktopApp = sql.NullBool{canUseDesktopApp, true}
 
+	serializedUser := serializers.SerializeUserWithProfiles(u, up, bp)
+	serializedUser.UsageRemaining = usageRemaining
+
 	env.Status = http.StatusOK
 	env.Data = map[string]interface{}{
-		"user": serializers.SerializeUserWithProfiles(u, up, bp),
+		"user": serializedUser,
 	}
 	return nil
 }
@@ -514,9 +529,24 @@ func setUserResponse(env *middleware.Env, u *user.User) error {
 		return err
 	}
 
+	secondsUsed, err := u.FreeHostUsage(env.DB, time.Now())
+	if err != nil {
+		return err
+	}
+	usageRemaining := int64(0)
+	if u.UsageQuota.Valid {
+		usageRemaining = u.UsageQuota.Int64 - secondsUsed
+		if usageRemaining < 0 {
+			usageRemaining = 0
+		}
+	}
+
+	serializedUser := serializers.SerializeUserWithProfiles(u, up, bp)
+	serializedUser.UsageRemaining = usageRemaining
+
 	env.Status = http.StatusOK
 	env.Data = map[string]interface{}{
-		"user": serializers.SerializeUserWithProfiles(u, up, bp),
+		"user": serializedUser,
 	}
 	return nil
 }
