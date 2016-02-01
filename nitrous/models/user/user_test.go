@@ -15,7 +15,6 @@ import (
 	"github.com/nitrous-io/dedicated/nitrous/models/billingprofile"
 	"github.com/nitrous-io/dedicated/nitrous/models/container"
 	"github.com/nitrous-io/dedicated/nitrous/models/containercollab"
-	"github.com/nitrous-io/dedicated/nitrous/models/host"
 	"github.com/nitrous-io/dedicated/nitrous/models/org"
 	"github.com/nitrous-io/dedicated/nitrous/models/user"
 	"github.com/nitrous-io/dedicated/nitrous/models/userprofile"
@@ -1781,7 +1780,7 @@ var _ = Describe("models/user", func() {
 		})
 	})
 
-	Describe("FindAllByUsageAndNoticeSent()", func() {
+	Describe("FindAllByNoticeSent()", func() {
 		var (
 			u1, u2, u3, u4, u5 *user.User
 		)
@@ -1794,10 +1793,15 @@ var _ = Describe("models/user", func() {
 			}
 			err := test.WrapInTransaction(db, u1.Insert)
 			Expect(err).To(BeNil())
+
+			_, err = test.CreateHostStack(db, &test.HostStack{
+				U: u1,
+			})
+			Expect(err).To(BeNil())
+
 			_, err = db.Exec(`
-				UPDATE users SET usage_remaining = $1, usage_notices_sent = $2
-				WHERE id = $3;
-			`, 180000, user.USAGE_NOTICES_NO_WARNING, u1.ID)
+				UPDATE users SET usage_notices_sent = $1 WHERE id = $2;
+			`, user.USAGE_NOTICES_NO_WARNING, u1.ID) // 50 hours
 			Expect(err).To(BeNil())
 
 			u2 = &user.User{
@@ -1807,10 +1811,15 @@ var _ = Describe("models/user", func() {
 			}
 			err = test.WrapInTransaction(db, u2.Insert)
 			Expect(err).To(BeNil())
+
+			_, err = test.CreateHostStack(db, &test.HostStack{
+				U: u2,
+			})
+			Expect(err).To(BeNil())
+
 			_, err = db.Exec(`
-				UPDATE users SET usage_remaining = $1, usage_notices_sent = $2
-				WHERE id = $3;
-			`, 14400, user.USAGE_NOTICES_NO_WARNING, u2.ID) // 4 hours
+				UPDATE users SET usage_notices_sent = $1 WHERE id = $2;
+			`, user.USAGE_NOTICES_NO_WARNING, u2.ID) // 4 hours
 			Expect(err).To(BeNil())
 
 			u3 = &user.User{
@@ -1820,10 +1829,15 @@ var _ = Describe("models/user", func() {
 			}
 			err = test.WrapInTransaction(db, u3.Insert)
 			Expect(err).To(BeNil())
+
+			_, err = test.CreateHostStack(db, &test.HostStack{
+				U: u3,
+			})
+			Expect(err).To(BeNil())
+
 			_, err = db.Exec(`
-				UPDATE users SET usage_remaining = $1, usage_notices_sent = $2
-				WHERE id = $3;
-			`, 14300, user.USAGE_NOTICES_NO_WARNING, u3.ID) // less than 4 hours
+				UPDATE users SET usage_notices_sent = $1 WHERE id = $2;
+			`, user.USAGE_NOTICES_NO_WARNING, u3.ID) // less than 4 hours
 			Expect(err).To(BeNil())
 
 			u4 = &user.User{
@@ -1833,10 +1847,15 @@ var _ = Describe("models/user", func() {
 			}
 			err = test.WrapInTransaction(db, u4.Insert)
 			Expect(err).To(BeNil())
+
+			_, err = test.CreateHostStack(db, &test.HostStack{
+				U: u4,
+			})
+			Expect(err).To(BeNil())
+
 			_, err = db.Exec(`
-				UPDATE users SET usage_remaining = $1, usage_notices_sent = $2
-				WHERE id = $3;
-			`, 3500, user.USAGE_NOTICES_FIRST_WARNING, u4.ID) // less than 1 hours
+				UPDATE users SET usage_notices_sent = $1 WHERE id = $2;
+			`, user.USAGE_NOTICES_FIRST_WARNING, u4.ID) // less than 1 hours
 			Expect(err).To(BeNil())
 
 			u5 = &user.User{
@@ -1846,23 +1865,32 @@ var _ = Describe("models/user", func() {
 			}
 			err = test.WrapInTransaction(db, u5.Insert)
 			Expect(err).To(BeNil())
+
+			_, err = test.CreateHostStack(db, &test.HostStack{
+				U: u5,
+			})
+			Expect(err).To(BeNil())
+
 			_, err = db.Exec(`
-				UPDATE users SET usage_remaining = $1, usage_notices_sent = $2
-				WHERE id = $3;
-			`, 3400, user.USAGE_NOTICES_FIRST_WARNING, u5.ID) // less than 1 hours
+				UPDATE users SET usage_notices_sent = $1 WHERE id = $2;
+			`, user.USAGE_NOTICES_FIRST_WARNING, u5.ID) // less than 1 hours
+			Expect(err).To(BeNil())
+
+			_, err = db.Exec(`UPDATE hosts SET free = true`)
 			Expect(err).To(BeNil())
 		})
 
-		It("returns users that has never receive notice email and usage remaining is less than 5 hours", func() {
-			users, err := user.FindAllByUsageAndNoticeSent(db, 60*60*5, user.USAGE_NOTICES_NO_WARNING)
+		It("returns users that has never receive notice email", func() {
+			users, err := user.FindAllByNoticeSent(db, user.USAGE_NOTICES_NO_WARNING)
 			Expect(err).To(BeNil())
-			Expect(users).To(HaveLen(2))
-			Expect(users[0].Email).To(Equal("qux2@example.com"))
-			Expect(users[1].Email).To(Equal("qux3@example.com"))
+			Expect(users).To(HaveLen(3))
+			Expect(users[0].Email).To(Equal("qux1@example.com"))
+			Expect(users[1].Email).To(Equal("qux2@example.com"))
+			Expect(users[2].Email).To(Equal("qux3@example.com"))
 		})
 
-		It("returns users that has received one notice email and usage remaining is less than 1 hours", func() {
-			users, err := user.FindAllByUsageAndNoticeSent(db, 3600, user.USAGE_NOTICES_FIRST_WARNING)
+		It("returns users that has received one notice email", func() {
+			users, err := user.FindAllByNoticeSent(db, user.USAGE_NOTICES_FIRST_WARNING)
 			Expect(err).To(BeNil())
 			Expect(users).To(HaveLen(2))
 			Expect(users[0].Email).To(Equal("qux4@example.com"))
@@ -1870,7 +1898,7 @@ var _ = Describe("models/user", func() {
 		})
 
 		It("returns no user when user has received more than two notice emails", func() {
-			users, err := user.FindAllByUsageAndNoticeSent(db, 60*50, user.USAGE_NOTICES_SECOND_WARNING)
+			users, err := user.FindAllByNoticeSent(db, user.USAGE_NOTICES_SECOND_WARNING)
 			Expect(err).To(BeNil())
 			Expect(users).To(HaveLen(0))
 		})

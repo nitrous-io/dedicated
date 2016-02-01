@@ -232,14 +232,15 @@ func FindByConfirmationToken(d db.QueryReceiver, token string) (*User, error) {
 	return user, nil
 }
 
-func FindAllByUsageAndNoticeSent(d db.QueryReceiver, usageRemaining, noticeSent int64) ([]*User, error) {
+func FindAllByNoticeSent(d db.QueryReceiver, noticeSent int64) ([]*User, error) {
 	users := []*User{}
 	err := d.Select(&users, `
-		SELECT * FROM users
-		WHERE usage_remaining <= $1
-		AND usage_notices_sent = $2
-		ORDER BY id
-	`, usageRemaining, noticeSent)
+		SELECT u.* FROM users u
+		INNER JOIN hosts AS h ON h.user_id = u.id
+		WHERE h.free = true
+		AND u.usage_notices_sent = $1
+		ORDER BY u.id
+	`, noticeSent)
 	if err != nil {
 		return nil, err
 	}
@@ -633,7 +634,10 @@ func (u *User) SendUsageNoticeEmail(d db.QueryReceiver, hoursRemaining int64) er
 	}
 
 	usageQuotaInHours := u.UsageQuota.Int64 / 60 / 60
-	hoursUsed := usageQuotaInHours - u.UsageRemaining.Int64/60/60
+	secondsUsed, err := u.FreeHostUsage(d, time.Now())
+	if err != nil {
+		return err
+	}
 	usageQuotaNextRestoredAt := u.UsageQuotaRestoredAt.Time.Add(time.Duration(u.UsageQuotaPeriod.Int64) * time.Second)
 
 	tmplData := struct {
@@ -646,7 +650,7 @@ func (u *User) SendUsageNoticeEmail(d db.QueryReceiver, hoursRemaining int64) er
 	}{
 		u.DisplayName(),
 		hoursRemainingStr,
-		hoursUsed,
+		secondsUsed / 60 / 60,
 		usageQuotaNextRestoredAt.Format("2 Jan 3:04PM GMT"),
 		usageQuotaInHours,
 		u.UsageQuotaPeriod.Int64 / 60 / 60 / 24,

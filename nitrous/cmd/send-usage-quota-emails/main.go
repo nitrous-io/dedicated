@@ -3,6 +3,7 @@ package main
 import (
 	"database/sql"
 	"os"
+	"time"
 
 	"github.com/Sirupsen/logrus"
 	"github.com/nitrous-io/dedicated/nitrous/db"
@@ -37,28 +38,40 @@ func main() {
 	}
 
 	logrus.Debug("Send usage notice second warning..")
-	users, err := user.FindAllByUsageAndNoticeSent(dbConn, oneHour, user.USAGE_NOTICES_FIRST_WARNING)
+	users, err := user.FindAllByNoticeSent(dbConn, user.USAGE_NOTICES_FIRST_WARNING)
 	for _, u := range users {
-		if err := u.SendUsageNoticeEmail(dbConn, 1); err != nil {
-			logrus.Fatalf("failed to send usage notice email, err: %v", err)
+		seconds, err := u.FreeHostUsage(dbConn, time.Now())
+		if err != nil {
+			logrus.Fatalf("failed to get user's free host usage, err: %v", err)
 		}
+		if (u.UsageQuota.Int64 - seconds) <= oneHour {
+			if err := u.SendUsageNoticeEmail(dbConn, 1); err != nil {
+				logrus.Fatalf("failed to send usage notice email, err: %v", err)
+			}
 
-		u.UsageNoticesSent = sql.NullInt64{user.USAGE_NOTICES_SECOND_WARNING, true}
-		if err := u.Update(dbConn); err != nil {
-			logrus.Fatalf("failed to update usage_notices_sent, err: %v", err)
+			u.UsageNoticesSent = sql.NullInt64{user.USAGE_NOTICES_SECOND_WARNING, true}
+			if err := u.Update(dbConn); err != nil {
+				logrus.Fatalf("failed to update usage_notices_sent, err: %v", err)
+			}
 		}
 	}
 
 	logrus.Debug("Send usage notice first warning..")
-	users, err = user.FindAllByUsageAndNoticeSent(dbConn, fiveHours, user.USAGE_NOTICES_NO_WARNING)
+	users, err = user.FindAllByNoticeSent(dbConn, user.USAGE_NOTICES_NO_WARNING)
 	for _, u := range users {
-		if err := u.SendUsageNoticeEmail(dbConn, 5); err != nil {
-			logrus.Fatalf("failed to send usage notice email, err: %v", err)
+		seconds, err := u.FreeHostUsage(dbConn, time.Now())
+		if err != nil {
+			logrus.Fatalf("failed to get user's free host usage, err: %v", err)
 		}
+		if (u.UsageQuota.Int64 - seconds) <= fiveHours {
+			if err := u.SendUsageNoticeEmail(dbConn, 5); err != nil {
+				logrus.Fatalf("failed to send usage notice email, err: %v", err)
+			}
 
-		u.UsageNoticesSent = sql.NullInt64{user.USAGE_NOTICES_FIRST_WARNING, true}
-		if err := u.Update(dbConn); err != nil {
-			logrus.Fatalf("failed to update usage_notices_sent, err: %v", err)
+			u.UsageNoticesSent = sql.NullInt64{user.USAGE_NOTICES_FIRST_WARNING, true}
+			if err := u.Update(dbConn); err != nil {
+				logrus.Fatalf("failed to update usage_notices_sent, err: %v", err)
+			}
 		}
 	}
 }
