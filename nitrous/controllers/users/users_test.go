@@ -545,6 +545,7 @@ var _ = Describe("controllers/users", func() {
 				params.Set("client_id", client.ClientID)
 				params.Set("client_secret", clientSecret)
 				params.Set("remote_addr", "142.254.116.10")
+				params.Set("captcha_token", "")
 
 				_, err := db.Exec("UPDATE oauth_clients SET create_user = TRUE WHERE id = $1", client.ID)
 				Expect(err).To(BeNil())
