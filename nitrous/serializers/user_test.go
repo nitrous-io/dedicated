@@ -46,6 +46,7 @@ var _ = Describe("user serializer", func() {
 	Describe("SerializeUser", func() {
 		It("serializes to JSON", func() {
 			u := serializers.SerializeUser(model)
+			u.UsageRemaining = 100
 			b, err := json.Marshal(u)
 			Expect(err).To(BeNil())
 			Expect(b).To(MatchJSON(`{
@@ -61,6 +62,7 @@ var _ = Describe("user serializer", func() {
 				"phone_country_code": "65",
 				"phone_authed": false,
 				"max_containers": 99,
+				"usage_remaining": 100,
 				"created_at": "2013-11-01T00:00:00Z",
 				"updated_at": "2013-11-02T00:00:00Z"
 			}`))
@@ -69,6 +71,7 @@ var _ = Describe("user serializer", func() {
 		It("should omit an empty UnconfirmedEmail", func() {
 			model.UnconfirmedEmail = sql.NullString{}
 			u := serializers.SerializeUser(model)
+			u.UsageRemaining = 100
 			b, err := json.Marshal(u)
 			Expect(err).To(BeNil())
 			Expect(b).To(MatchJSON(`{
@@ -83,6 +86,7 @@ var _ = Describe("user serializer", func() {
 				"phone_country_code": "65",
 				"phone_authed": false,
 				"max_containers": 99,
+				"usage_remaining": 100,
 				"created_at": "2013-11-01T00:00:00Z",
 				"updated_at": "2013-11-02T00:00:00Z"
 			}`))
@@ -93,6 +97,7 @@ var _ = Describe("user serializer", func() {
 			model.ConfirmedAt = pq.NullTime{time.Date(2013, time.November, 1, 0, 0, 0, 0, time.UTC), true}
 
 			u := serializers.SerializeUser(model)
+			u.UsageRemaining = 100
 			b, err := json.Marshal(u)
 			Expect(err).To(BeNil())
 			Expect(b).To(MatchJSON(`{
@@ -107,6 +112,7 @@ var _ = Describe("user serializer", func() {
 				"phone_country_code": "65",
 				"phone_authed": false,
 				"max_containers": 99,
+				"usage_remaining": 100,
 				"created_at": "2013-11-01T00:00:00Z",
 				"updated_at": "2013-11-02T00:00:00Z"
 			}`))
@@ -115,6 +121,7 @@ var _ = Describe("user serializer", func() {
 		It("should omit an empty MaxContainers", func() {
 			model.MaxContainers = sql.NullInt64{0, false}
 			u := serializers.SerializeUser(model)
+			u.UsageRemaining = 100
 			b, err := json.Marshal(u)
 			Expect(err).To(BeNil())
 			Expect(b).To(MatchJSON(`{
@@ -129,6 +136,7 @@ var _ = Describe("user serializer", func() {
 				"phone": "88884444",
 				"phone_country_code": "65",
 				"phone_authed": false,
+				"usage_remaining": 100,
 				"created_at": "2013-11-01T00:00:00Z",
 				"updated_at": "2013-11-02T00:00:00Z"
 			}`))
@@ -137,6 +145,7 @@ var _ = Describe("user serializer", func() {
 		It("should include when a user can't use the desktop app", func() {
 			model.CanUseDesktopApp = sql.NullBool{false, true}
 			u := serializers.SerializeUser(model)
+			u.UsageRemaining = 100
 			b, err := json.Marshal(u)
 			Expect(err).To(BeNil())
 			Expect(b).To(MatchJSON(`{
@@ -152,6 +161,7 @@ var _ = Describe("user serializer", func() {
 				"phone_country_code": "65",
 				"phone_authed": false,
 				"max_containers": 99,
+				"usage_remaining": 100,
 				"can_use_desktop_app": false,
 				"created_at": "2013-11-01T00:00:00Z",
 				"updated_at": "2013-11-02T00:00:00Z"
@@ -161,6 +171,7 @@ var _ = Describe("user serializer", func() {
 		It("should include when a user can use the desktop app", func() {
 			model.CanUseDesktopApp = sql.NullBool{true, true}
 			u := serializers.SerializeUser(model)
+			u.UsageRemaining = 100
 			b, err := json.Marshal(u)
 			Expect(err).To(BeNil())
 			Expect(b).To(MatchJSON(`{
@@ -176,6 +187,7 @@ var _ = Describe("user serializer", func() {
 				"phone_country_code": "65",
 				"phone_authed": false,
 				"max_containers": 99,
+				"usage_remaining": 100,
 				"can_use_desktop_app": true,
 				"created_at": "2013-11-01T00:00:00Z",
 				"updated_at": "2013-11-02T00:00:00Z"
@@ -208,6 +220,7 @@ var _ = Describe("user serializer", func() {
 			}
 
 			u := serializers.SerializeUserWithProfiles(model, up, bp)
+			u.UsageRemaining = 100
 			b, err := json.Marshal(u)
 			Expect(err).To(BeNil())
 			Expect(b).To(MatchJSON(`{
@@ -244,6 +257,7 @@ var _ = Describe("user serializer", func() {
 				"phone_country_code": "65",
 				"phone_authed": false,
 				"max_containers": 99,
+				"usage_remaining": 100,
 				"created_at": "2013-11-01T00:00:00Z",
 				"updated_at": "2013-11-02T00:00:00Z"
 			}`))
