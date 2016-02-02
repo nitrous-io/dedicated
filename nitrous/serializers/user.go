@@ -53,10 +53,6 @@ func SerializeUser(u *user.User) *User {
 		UpdatedAt: u.UpdatedAt,
 	}
 
-	if u.UsageRemaining.Valid {
-		s.UsageRemaining = u.UsageRemaining.Int64
-	}
-
 	if u.CanUseDesktopApp.Valid {
 		s.CanUseDesktopApp = &u.CanUseDesktopApp.Bool
 	}

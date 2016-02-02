@@ -64,14 +64,6 @@ func Create(env *middleware.Env, w http.ResponseWriter, r *http.Request) error {
 		Password: password,
 	}
 
-	// It only verifies captcha token when CaptchaSecret is specified
-	if envvars.IsCaptchaAvailable() {
-		if err := CVerifier.Verify(captchaToken); err != nil {
-			logrus.Errorf("Error verifying captcha token for user %+v, err: %s, uuid=%d", u, err, env.UUID)
-			return invalidCaptchaToken
-		}
-	}
-
 	err := u.Validate()
 	if err != nil {
 		return httperror.New(http.StatusBadRequest, "validation_failed", err.Error())
@@ -83,6 +75,16 @@ func Create(env *middleware.Env, w http.ResponseWriter, r *http.Request) error {
 	}
 	if client != nil && !client.CreateUser {
 		return errClientNotFound
+	}
+
+	// Require captcha verification only if it is specified in env vars.
+	// Also, we don't require captcha verification for signups done via OAuth
+	// clients of our API (since those would actually be done by a robot).
+	if client == nil && envvars.IsCaptchaAvailable() {
+		if err := CVerifier.Verify(captchaToken); err != nil {
+			logrus.Errorf("Error verifying captcha token for user %+v, err: %s, uuid=%d", u, err, env.UUID)
+			return invalidCaptchaToken
+		}
 	}
 
 	// check email is not banned
@@ -190,9 +192,13 @@ func Create(env *middleware.Env, w http.ResponseWriter, r *http.Request) error {
 
 	env.Tracker.CreateProfile(u, distinctID)
 
+	serializedUser := serializers.SerializeUser(u)
+	if u.UsageQuota.Valid {
+		serializedUser.UsageRemaining = u.UsageQuota.Int64
+	}
 	env.Status = http.StatusCreated
 	env.Data = map[string]interface{}{
-		"user": serializers.SerializeUser(u),
+		"user": serializedUser,
 	}
 	env.User = u
 

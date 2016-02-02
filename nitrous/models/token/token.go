@@ -90,7 +90,7 @@ func (t *Token) HasAtLeastScope(targetScopes []string) bool {
 
 func FindByUser(d db.QueryReceiver, userID int64) (*Token, error) {
 	t := &Token{}
-	err := d.Get(t, "SELECT * FROM tokens WHERE user_id = $1 ORDER BY created_at DESC", userID)
+	err := d.Get(t, `SELECT * FROM tokens WHERE user_id = $1 ORDER BY created_at DESC LIMIT 1;`, userID)
 	if err != nil {
 		if err == sql.ErrNoRows {
 			return nil, ErrInvalidToken

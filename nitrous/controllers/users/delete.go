@@ -13,8 +13,8 @@ import (
 	"github.com/nitrous-io/dedicated/nitrous/middleware"
 	"github.com/nitrous-io/dedicated/nitrous/models/billingprofile"
 	"github.com/nitrous-io/dedicated/nitrous/models/credit"
-	"github.com/nitrous-io/dedicated/nitrous/models/host"
 	"github.com/nitrous-io/dedicated/nitrous/models/invoice"
+	"github.com/nitrous-io/dedicated/nitrous/models/subscription"
 	"github.com/nitrous-io/dedicated/nitrous/models/user"
 	"github.com/nitrous-io/dedicated/nitrous/models/userprofile"
 	"github.com/nitrous-io/dedicated/nitrous/permission"
@@ -162,12 +162,12 @@ func CheckCanDelete(env *middleware.Env, w http.ResponseWriter, r *http.Request)
 }
 
 func canDeleteUser(d db.QueryReceiver, u *user.User) error {
-	hosts, err := host.FindAllByUser(d, u.ID)
+	subs, err := subscription.FindAllActiveByUserID(d, u.ID)
 	if err != nil && err != sql.ErrNoRows {
 		return err
 	}
 
-	if len(hosts) > 0 {
+	if len(subs) > 0 {
 		return hostsNotTerminatedErr
 	}
 

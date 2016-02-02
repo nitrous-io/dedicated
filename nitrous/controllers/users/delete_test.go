@@ -13,6 +13,7 @@ import (
 	"github.com/nitrous-io/dedicated/nitrous/models/billingprofile"
 	"github.com/nitrous-io/dedicated/nitrous/models/container"
 	"github.com/nitrous-io/dedicated/nitrous/models/host"
+	"github.com/nitrous-io/dedicated/nitrous/models/subscription"
 	"github.com/nitrous-io/dedicated/nitrous/models/token"
 	"github.com/nitrous-io/dedicated/nitrous/models/user"
 	"github.com/nitrous-io/dedicated/nitrous/server"
@@ -68,7 +69,14 @@ var _ = Describe("controllers/users", func() {
 				HourlyPrice: 2000,
 			},
 			U: u,
+			S: &subscription.Subscription{}, // use default factory
 		})
+		Expect(err).To(BeNil())
+
+		// the majority of the tests are for other checks, so make cancelled
+		// the default for tests and unset where necessary
+		_, err = db.Exec(`UPDATE subscriptions SET cancelled_at = now() WHERE id = $1`,
+			hs1.S.ID)
 		Expect(err).To(BeNil())
 
 		f = test.NewFakeMailChimp()
@@ -85,7 +93,16 @@ var _ = Describe("controllers/users", func() {
 	})
 
 	sharedCanDeleteExamples := func(doRequest func()) {
-		It("should return an error if running hosts are present", func() {
+		It("should not return an error if running hosts are present with no subscriptions", func() {
+			doRequest()
+			Expect(res.Code).To(Equal(http.StatusOK))
+		})
+
+		It("returns an error if there are active subscriptions", func() {
+			_, err := db.Exec(`UPDATE subscriptions SET cancelled_at = null WHERE id = $1`,
+				hs1.S.ID)
+			Expect(err).To(BeNil())
+
 			doRequest()
 			Expect(res.Code).To(Equal(http.StatusBadRequest))
 			errType, _ := test.ErrorSlug(res.Body)
@@ -93,10 +110,7 @@ var _ = Describe("controllers/users", func() {
 		})
 
 		It("should return an error if the user has outstanding invoices", func() {
-			_, err := db.Exec("UPDATE hosts SET terminated_at = now() WHERE id = $1", hs1.H.ID)
-			Expect(err).To(BeNil())
-
-			_, err = db.Exec("INSERT INTO invoices (user_id, state, period_start, period_end) values ($1, 'unpaid', now() - interval '2 hours', now());", u.ID)
+			_, err := db.Exec("INSERT INTO invoices (user_id, state, period_start, period_end) values ($1, 'unpaid', now() - interval '2 hours', now());", u.ID)
 			Expect(err).To(BeNil())
 
 			doRequest()
@@ -106,10 +120,7 @@ var _ = Describe("controllers/users", func() {
 		})
 
 		It("should return an error if the user has a deferred invoice that has not been covered", func() {
-			_, err := db.Exec("UPDATE hosts SET terminated_at = now() WHERE id = $1", hs1.H.ID)
-			Expect(err).To(BeNil())
-
-			_, err = db.Exec("INSERT INTO invoices (user_id, state, period_start, period_end) values ($1, 'deferred', now() - interval '2 hours', now());", u.ID)
+			_, err := db.Exec("INSERT INTO invoices (user_id, state, period_start, period_end) values ($1, 'deferred', now() - interval '2 hours', now());", u.ID)
 			Expect(err).To(BeNil())
 
 			doRequest()
@@ -120,9 +131,6 @@ var _ = Describe("controllers/users", func() {
 
 		It("should return an error if the user doesn't have enough credit", func() {
 			_, err := db.Exec("INSERT INTO credits (user_id, amount) values ($1, 1);", u.ID)
-			Expect(err).To(BeNil())
-
-			_, err = db.Exec("UPDATE hosts SET terminated_at = now() WHERE id = $1", hs1.H.ID)
 			Expect(err).To(BeNil())
 
 			_, err = db.Exec("INSERT INTO invoices (user_id, state, period_start, period_end) values ($1, 'paid', now() - interval '2 hours', now());", u.ID)
@@ -139,9 +147,6 @@ var _ = Describe("controllers/users", func() {
 			Expect(err).To(BeNil())
 			h2 := hs2.H
 
-			_, err = db.Exec("UPDATE hosts SET terminated_at = now(), updated_at = now() WHERE id = $1;", h2.ID)
-			Expect(err).To(BeNil())
-
 			_, err = db.Exec("INSERT INTO host_transitions (host_id, previous_state, state, created_at, ended_at) values ($1, $2, $3, $4, $5);", h2.ID, "born", "running", startTime, startTime.Add(1*time.Second))
 			Expect(err).To(BeNil())
 			_, err = db.Exec("INSERT INTO host_transitions (host_id, previous_state, state, created_at) values ($1, $2, $3, $4);", h2.ID, "running", "terminated", startTime.Add(1*time.Second))
@@ -157,9 +162,6 @@ var _ = Describe("controllers/users", func() {
 			_, err := db.Exec("INSERT INTO credits (user_id, amount) values ($1, 9000);", u.ID)
 			Expect(err).To(BeNil())
 
-			_, err = db.Exec("UPDATE hosts SET terminated_at = now() WHERE id = $1", hs1.H.ID)
-			Expect(err).To(BeNil())
-
 			_, err = db.Exec("INSERT INTO invoices (user_id, state, period_start, period_end) values ($1, 'paid', now() - interval '2 hours', now());", u.ID)
 			Expect(err).To(BeNil())
 
@@ -173,9 +175,6 @@ var _ = Describe("controllers/users", func() {
 			})
 			Expect(err).To(BeNil())
 			h2 := hs2.H
-
-			_, err = db.Exec("UPDATE hosts SET terminated_at = now(), updated_at = now() WHERE id = $1;", h2.ID)
-			Expect(err).To(BeNil())
 
 			_, err = db.Exec("INSERT INTO host_transitions (host_id, previous_state, state, created_at, ended_at) values ($1, $2, $3, $4, $5);", h2.ID, "born", "running", startTime, startTime.Add(1*time.Second))
 			Expect(err).To(BeNil())
@@ -198,7 +197,7 @@ var _ = Describe("controllers/users", func() {
 		sharedCanDeleteExamples(doRequest)
 
 		It("should be OK if the account can be deleted", func() {
-			_, err := db.Exec("UPDATE hosts SET terminated_at = now() WHERE id = $1", hs1.H.ID)
+			_, err := db.Exec("UPDATE subscriptions SET state = 'canceled' WHERE id = $1", hs1.S.ID)
 			Expect(err).To(BeNil())
 
 			hs2, err := test.CreateHostStack(db, &test.HostStack{
@@ -242,291 +241,272 @@ var _ = Describe("controllers/users", func() {
 
 		sharedCanDeleteExamples(doRequest)
 
-		Context("with terminated hosts", func() {
-			BeforeEach(func() {
-				_, err := db.Exec("UPDATE hosts SET terminated_at = now() WHERE id = $1", hs1.H.ID)
-				Expect(err).To(BeNil())
+		It("should return an error if there is a host creation in progress", func() {
+			tx, _ := db.Beginx()
+			ndb.TransactionLock(tx, ndb.HOST_CREATE_LOCK, int(u.ID))
+			defer tx.Rollback()
 
-				hs2, err := test.CreateHostStack(db, &test.HostStack{
-					H: &host.Host{
-						Slug:        "my-host-2",
-						HourlyPrice: 2000,
-					},
-					U: u,
-				})
-				Expect(err).To(BeNil())
+			doRequest()
+			Expect(res.Code).To(Equal(http.StatusConflict))
+			errType, _ := test.ErrorSlug(res.Body)
+			Expect(errType).To(Equal("host_creation_in_progress"))
+		})
 
-				_, err = db.Exec("UPDATE hosts SET state = 'orphan' WHERE id = $1", hs2.H.ID)
-				Expect(err).To(BeNil())
-			})
+		It("should successfully delete all user tokens", func() {
+			_, err := db.Exec("INSERT INTO tokens (user_id, token) values ($1, $2), ($1, $3);", u.ID, "toke1", "toke2")
+			Expect(err).To(BeNil())
 
-			It("should return an error if there is a host creation in progress", func() {
-				tx, _ := db.Beginx()
-				ndb.TransactionLock(tx, ndb.HOST_CREATE_LOCK, int(u.ID))
-				defer tx.Rollback()
+			doRequest()
+			Expect(res.Code).To(Equal(http.StatusOK))
 
-				doRequest()
-				Expect(res.Code).To(Equal(http.StatusConflict))
-				errType, _ := test.ErrorSlug(res.Body)
-				Expect(errType).To(Equal("host_creation_in_progress"))
-			})
+			var count int
+			err = db.QueryRow(`SELECT COUNT(*) FROM tokens WHERE user_id = $1;`, u.ID).Scan(&count)
+			Expect(err).To(BeNil())
+			Expect(count).To(Equal(0))
+		})
 
-			It("should successfully delete all user tokens", func() {
-				_, err := db.Exec("INSERT INTO tokens (user_id, token) values ($1, $2), ($1, $3);", u.ID, "toke1", "toke2")
-				Expect(err).To(BeNil())
+		It("should successfully remove container collabs for user", func() {
+			cnr := &container.Container{
+				CID:    "cafebeans",
+				UserID: hs1.U.ID,
+				HostID: hs1.H.ID,
+				Image:  "nitrous-base",
+				Slug:   "java-test-container",
+			}
+			err := cnr.Insert(db)
+			Expect(err).To(BeNil())
 
-				doRequest()
-				Expect(res.Code).To(Equal(http.StatusOK))
+			_, err = db.Exec(`INSERT INTO container_collabs (container_id, user_id) VALUES ($1, $2);`, cnr.ID, u.ID)
+			Expect(err).To(BeNil())
 
-				var count int
-				err = db.QueryRow(`SELECT COUNT(*) FROM tokens WHERE user_id = $1;`, u.ID).Scan(&count)
-				Expect(err).To(BeNil())
-				Expect(count).To(Equal(0))
-			})
+			doRequest()
+			Expect(res.Code).To(Equal(http.StatusOK))
 
-			It("should successfully remove container collabs for user", func() {
-				cnr := &container.Container{
-					CID:    "cafebeans",
-					UserID: hs1.U.ID,
-					HostID: hs1.H.ID,
-					Image:  "nitrous-base",
-					Slug:   "java-test-container",
+			var count int
+			err = db.QueryRow(`SELECT COUNT(*) FROM container_collabs WHERE user_id = $1;`, u.ID).Scan(&count)
+			Expect(err).To(BeNil())
+			Expect(count).To(Equal(0))
+		})
+
+		It("should delete all verifications", func() {
+			_, err := db.Exec(`INSERT INTO verifications
+				(user_id, phone, code)
+				VALUES ($1, '123456789', '61');`, u.ID)
+			Expect(err).To(BeNil())
+
+			doRequest()
+			Expect(res.Code).To(Equal(http.StatusOK))
+
+			_, err = user.FindByID(db, u.ID)
+			Expect(err).To(Equal(sql.ErrNoRows))
+
+			var count int
+			err = db.QueryRow(`SELECT COUNT(*) FROM verifications WHERE user_id = $1;`, u.ID).Scan(&count)
+			Expect(err).To(BeNil())
+			Expect(count).To(Equal(0))
+		})
+
+		It("should soft delete the user", func() {
+			doRequest()
+			Expect(res.Code).To(Equal(http.StatusOK))
+
+			_, err := user.FindByID(db, u.ID)
+			Expect(err).To(Equal(sql.ErrNoRows))
+
+			var count int
+			err = db.QueryRow(`SELECT COUNT(*) FROM users WHERE id = $1 AND deleted_at IS NOT NULL;`, u.ID).Scan(&count)
+			Expect(err).To(BeNil())
+			Expect(count).To(Equal(1))
+
+			Expect(ft.PropsCalled).To(HaveLen(1))
+			pc := ft.PropsCalled[0]
+			Expect(pc.UserID).To(Equal(u.ID))
+			Expect(pc.Mode).To(Equal("set"))
+			Expect(pc.PropsSet["deleted_date"]).To(BeTemporally("~", time.Now(), time.Minute))
+		})
+
+		It("should unsubscribe the user from MailChimp", func() {
+			_, err := db.Exec(`UPDATE users SET confirmed_at = now() WHERE id = $1;`, u.ID)
+			Expect(err).To(BeNil())
+
+			doRequest()
+			Expect(res.Code).To(Equal(http.StatusOK))
+
+			Eventually(func() int {
+				return f.UnsubscribeCalled
+			}).Should(Equal(2))
+
+			Expect(f.SubscribeCalled).To(BeZero())
+			Expect(f.UnsubscribeListIDs).To(Equal([]string{"newsletters", "announcements"}))
+			Expect(f.UnsubscribeEmails).To(Equal([]string{"tokenuser@example.com", "tokenuser@example.com"}))
+		})
+
+		It("should not unsubscribe if the user has not confirmed", func() {
+			_, err := db.Exec(`UPDATE users SET confirmed_at = NULL WHERE id = $1;`, u.ID)
+			Expect(err).To(BeNil())
+
+			doRequest()
+			Expect(res.Code).To(Equal(http.StatusOK))
+
+			Eventually(func() int {
+				return f.UnsubscribeCalled
+			}).Should(BeZero())
+
+			Expect(f.SubscribeCalled).To(BeZero())
+		})
+
+		It("should disallow delete if token holder is not full scope", func() {
+			_, err := db.Exec(`UPDATE tokens SET scope = 'third_party' WHERE id = $1;`, t.ID)
+			Expect(err).To(BeNil())
+
+			doRequest()
+			Expect(res.Code).To(Equal(http.StatusForbidden))
+		})
+
+		It("should erase the billing profile details", func() {
+			_, err := db.Exec(`UPDATE
+				 billing_profiles SET state = $1,
+				 last_four = 3443,
+				 stripe_id = 'St17',
+				 stripe_fingerprint = 'print',
+				 card_type = 'visa',
+				 exp_month = 9,
+				 exp_year = 2018,
+				 pending_activation = FALSE,
+				 max_hours = 1902
+				 WHERE user_id = $2;`, billingprofile.StatePaid, u.ID)
+			Expect(err).To(BeNil())
+
+			doRequest()
+			Expect(res.Code).To(Equal(http.StatusOK))
+
+			bp, err := billingprofile.Find(db, u.ID)
+			Expect(err).To(BeNil())
+
+			Expect(bp.State).To(Equal(billingprofile.StateNoCard))
+			Expect(bp.LastFour.Valid).To(BeFalse())
+			Expect(bp.CardType.Valid).To(BeFalse())
+			Expect(bp.ExpMonth.Valid).To(BeFalse())
+			Expect(bp.ExpYear.Valid).To(BeFalse())
+			Expect(bp.PendingActivation).To(BeTrue())
+			Expect(bp.MaxHours.Valid).To(BeFalse())
+
+			Expect(bp.StripeID).To(Equal(sql.NullString{"St17", true}))
+			Expect(bp.StripeFingerprint).To(Equal(sql.NullString{"print", true}))
+		})
+
+		It("should send a delete card request to Stripe", func() {
+			_, err := db.Exec(`UPDATE
+				billing_profiles SET state = $1,
+				last_four = 3443,
+				stripe_id = 'St17',
+				stripe_fingerprint = 'print',
+				card_type = 'visa',
+				exp_month = 9,
+				exp_year = 2018,
+				pending_activation = FALSE,
+				max_hours = 1902
+				WHERE user_id = $2;`, billingprofile.StatePaid, u.ID)
+			Expect(err).To(BeNil())
+
+			doRequest()
+			Expect(res.Code).To(Equal(http.StatusOK))
+
+			Expect(fakeStripe.ReceivedRequests).To(HaveLen(2))
+			Expect(fakeStripe.ReceivedRequests[0]).To(Equal(map[string]string{
+				"method": "GET",
+				"path":   "/customers/St17/cards",
+				"card":   "",
+				"email":  "",
+				"desc":   "",
+			}))
+
+			Expect(fakeStripe.ReceivedRequests[1]).To(Equal(map[string]string{
+				"method": "DELETE",
+				"path":   "/customers/St17/cards/card_15wTKjD2OOBduWpzVWXmAwVx",
+			}))
+		})
+
+		It("does not try to delete the users cards in Stripe if Stripe says the user has no cards", func() {
+			fakeStripe.Responses = []string{`
+				{
+					"object": "list",
+					"total_count": 0,
+					"has_more": false,
+					"data": []
 				}
-				err := cnr.Insert(db)
-				Expect(err).To(BeNil())
+			`}
 
-				_, err = db.Exec(`INSERT INTO container_collabs (container_id, user_id) VALUES ($1, $2);`, cnr.ID, u.ID)
-				Expect(err).To(BeNil())
+			_, err := db.Exec(`UPDATE
+				billing_profiles SET state = $1,
+				last_four = 3443,
+				stripe_id = 'St17',
+				stripe_fingerprint = 'print',
+				card_type = 'visa',
+				exp_month = 9,
+				exp_year = 2018,
+				pending_activation = FALSE,
+				max_hours = 1902
+				WHERE user_id = $2;`, billingprofile.StatePaid, u.ID)
+			Expect(err).To(BeNil())
 
-				doRequest()
-				Expect(res.Code).To(Equal(http.StatusOK))
+			doRequest()
+			Expect(res.Code).To(Equal(http.StatusOK))
 
-				var count int
-				err = db.QueryRow(`SELECT COUNT(*) FROM container_collabs WHERE user_id = $1;`, u.ID).Scan(&count)
-				Expect(err).To(BeNil())
-				Expect(count).To(Equal(0))
-			})
+			Expect(fakeStripe.ReceivedRequests).To(HaveLen(1))
+			Expect(fakeStripe.ReceivedRequests[0]["method"]).To(Equal("GET"))
+			Expect(fakeStripe.ReceivedRequests[0]["path"]).To(Equal("/customers/St17/cards"))
+		})
 
-			It("should delete all verifications", func() {
-				_, err := db.Exec(`INSERT INTO verifications
-					(user_id, phone, code)
-					VALUES ($1, '123456789', '61');`, u.ID)
-				Expect(err).To(BeNil())
+		It("should abort the transaction if the Stripe API request fails", func() {
+			_, err := db.Exec(`UPDATE
+				billing_profiles SET state = $1,
+				last_four = 3443,
+				stripe_id = 'St17',
+				stripe_fingerprint = 'print',
+				card_type = 'visa',
+				exp_month = 9,
+				exp_year = 2018,
+				pending_activation = FALSE,
+				max_hours = 1902
+				WHERE user_id = $2;`, billingprofile.StatePaid, u.ID)
+			Expect(err).To(BeNil())
 
-				doRequest()
-				Expect(res.Code).To(Equal(http.StatusOK))
+			fakeStripe.Errors = []*stripe.Error{
+				&stripe.Error{
+					Type: stripe.ErrorType(stripe.APIErr),
+					Msg:  "rate limited!",
+					Code: stripe.ErrorCode(stripe.RateLimit),
+				},
+			}
 
-				_, err = user.FindByID(db, u.ID)
-				Expect(err).To(Equal(sql.ErrNoRows))
+			doRequest()
+			Expect(res.Code).To(Equal(http.StatusInternalServerError))
 
-				var count int
-				err = db.QueryRow(`SELECT COUNT(*) FROM verifications WHERE user_id = $1;`, u.ID).Scan(&count)
-				Expect(err).To(BeNil())
-				Expect(count).To(Equal(0))
-			})
+			Expect(fakeStripe.ReceivedRequests).To(HaveLen(1))
 
-			It("should soft delete the user", func() {
-				doRequest()
-				Expect(res.Code).To(Equal(http.StatusOK))
+			var count int
+			err = db.QueryRow(`SELECT COUNT(*) FROM tokens WHERE user_id = $1;`, u.ID).Scan(&count)
+			Expect(err).To(BeNil())
+			Expect(count).To(Equal(1))
 
-				_, err := user.FindByID(db, u.ID)
-				Expect(err).To(Equal(sql.ErrNoRows))
+			bp, err := billingprofile.Find(db, u.ID)
+			Expect(err).To(BeNil())
 
-				var count int
-				err = db.QueryRow(`SELECT COUNT(*) FROM users WHERE id = $1 AND deleted_at IS NOT NULL;`, u.ID).Scan(&count)
-				Expect(err).To(BeNil())
-				Expect(count).To(Equal(1))
+			Expect(bp.State).To(Equal(billingprofile.StatePaid))
+			Expect(bp.LastFour.Valid).To(BeTrue())
+			Expect(bp.CardType.Valid).To(BeTrue())
+			Expect(bp.ExpMonth.Valid).To(BeTrue())
+			Expect(bp.ExpYear.Valid).To(BeTrue())
+			Expect(bp.PendingActivation).To(BeFalse())
+			Expect(bp.MaxHours.Valid).To(BeTrue())
 
-				Expect(ft.PropsCalled).To(HaveLen(1))
-				pc := ft.PropsCalled[0]
-				Expect(pc.UserID).To(Equal(u.ID))
-				Expect(pc.Mode).To(Equal("set"))
-				Expect(pc.PropsSet["deleted_date"]).To(BeTemporally("~", time.Now(), time.Minute))
-			})
+			Expect(bp.StripeID).To(Equal(sql.NullString{"St17", true}))
+			Expect(bp.StripeFingerprint).To(Equal(sql.NullString{"print", true}))
 
-			It("should unsubscribe the user from MailChimp", func() {
-				_, err := db.Exec(`UPDATE users SET confirmed_at = now() WHERE id = $1;`, u.ID)
-				Expect(err).To(BeNil())
-
-				doRequest()
-				Expect(res.Code).To(Equal(http.StatusOK))
-
-				Eventually(func() int {
-					return f.UnsubscribeCalled
-				}).Should(Equal(2))
-
-				Expect(f.SubscribeCalled).To(BeZero())
-				Expect(f.UnsubscribeListIDs).To(Equal([]string{"newsletters", "announcements"}))
-				Expect(f.UnsubscribeEmails).To(Equal([]string{"tokenuser@example.com", "tokenuser@example.com"}))
-			})
-
-			It("should not unsubscribe if the user has not confirmed", func() {
-				_, err := db.Exec(`UPDATE users SET confirmed_at = NULL WHERE id = $1;`, u.ID)
-				Expect(err).To(BeNil())
-
-				doRequest()
-				Expect(res.Code).To(Equal(http.StatusOK))
-
-				Eventually(func() int {
-					return f.UnsubscribeCalled
-				}).Should(BeZero())
-
-				Expect(f.SubscribeCalled).To(BeZero())
-			})
-
-			It("should disallow delete if token holder is not full scope", func() {
-				_, err := db.Exec(`UPDATE tokens SET scope = 'third_party' WHERE id = $1;`, t.ID)
-				Expect(err).To(BeNil())
-
-				doRequest()
-				Expect(res.Code).To(Equal(http.StatusForbidden))
-			})
-
-			It("should erase the billing profile details", func() {
-				_, err := db.Exec(`UPDATE
-					 billing_profiles SET state = $1,
-					 last_four = 3443,
-					 stripe_id = 'St17',
-					 stripe_fingerprint = 'print',
-					 card_type = 'visa',
-					 exp_month = 9,
-					 exp_year = 2018,
-					 pending_activation = FALSE,
-					 max_hours = 1902
-					 WHERE user_id = $2;`, billingprofile.StatePaid, u.ID)
-				Expect(err).To(BeNil())
-
-				doRequest()
-				Expect(res.Code).To(Equal(http.StatusOK))
-
-				bp, err := billingprofile.Find(db, u.ID)
-				Expect(err).To(BeNil())
-
-				Expect(bp.State).To(Equal(billingprofile.StateNoCard))
-				Expect(bp.LastFour.Valid).To(BeFalse())
-				Expect(bp.CardType.Valid).To(BeFalse())
-				Expect(bp.ExpMonth.Valid).To(BeFalse())
-				Expect(bp.ExpYear.Valid).To(BeFalse())
-				Expect(bp.PendingActivation).To(BeTrue())
-				Expect(bp.MaxHours.Valid).To(BeFalse())
-
-				Expect(bp.StripeID).To(Equal(sql.NullString{"St17", true}))
-				Expect(bp.StripeFingerprint).To(Equal(sql.NullString{"print", true}))
-			})
-
-			It("should send a delete card request to Stripe", func() {
-				_, err := db.Exec(`UPDATE
-					billing_profiles SET state = $1,
-					last_four = 3443,
-					stripe_id = 'St17',
-					stripe_fingerprint = 'print',
-					card_type = 'visa',
-					exp_month = 9,
-					exp_year = 2018,
-					pending_activation = FALSE,
-					max_hours = 1902
-					WHERE user_id = $2;`, billingprofile.StatePaid, u.ID)
-				Expect(err).To(BeNil())
-
-				doRequest()
-				Expect(res.Code).To(Equal(http.StatusOK))
-
-				Expect(fakeStripe.ReceivedRequests).To(HaveLen(2))
-				Expect(fakeStripe.ReceivedRequests[0]).To(Equal(map[string]string{
-					"method": "GET",
-					"path":   "/customers/St17/cards",
-					"card":   "",
-					"email":  "",
-					"desc":   "",
-				}))
-
-				Expect(fakeStripe.ReceivedRequests[1]).To(Equal(map[string]string{
-					"method": "DELETE",
-					"path":   "/customers/St17/cards/card_15wTKjD2OOBduWpzVWXmAwVx",
-				}))
-			})
-
-			It("does not try to delete the users cards in Stripe if Stripe says the user has no cards", func() {
-				fakeStripe.Responses = []string{`
-					{
-						"object": "list",
-						"total_count": 0,
-						"has_more": false,
-						"data": []
-					}
-				`}
-
-				_, err := db.Exec(`UPDATE
-					billing_profiles SET state = $1,
-					last_four = 3443,
-					stripe_id = 'St17',
-					stripe_fingerprint = 'print',
-					card_type = 'visa',
-					exp_month = 9,
-					exp_year = 2018,
-					pending_activation = FALSE,
-					max_hours = 1902
-					WHERE user_id = $2;`, billingprofile.StatePaid, u.ID)
-				Expect(err).To(BeNil())
-
-				doRequest()
-				Expect(res.Code).To(Equal(http.StatusOK))
-
-				Expect(fakeStripe.ReceivedRequests).To(HaveLen(1))
-				Expect(fakeStripe.ReceivedRequests[0]["method"]).To(Equal("GET"))
-				Expect(fakeStripe.ReceivedRequests[0]["path"]).To(Equal("/customers/St17/cards"))
-			})
-
-			It("should abort the transaction if the Stripe API request fails", func() {
-				_, err := db.Exec(`UPDATE
-					billing_profiles SET state = $1,
-					last_four = 3443,
-					stripe_id = 'St17',
-					stripe_fingerprint = 'print',
-					card_type = 'visa',
-					exp_month = 9,
-					exp_year = 2018,
-					pending_activation = FALSE,
-					max_hours = 1902
-					WHERE user_id = $2;`, billingprofile.StatePaid, u.ID)
-				Expect(err).To(BeNil())
-
-				fakeStripe.Errors = []*stripe.Error{
-					&stripe.Error{
-						Type: stripe.ErrorType(stripe.APIErr),
-						Msg:  "rate limited!",
-						Code: stripe.ErrorCode(stripe.RateLimit),
-					},
-				}
-
-				doRequest()
-				Expect(res.Code).To(Equal(http.StatusInternalServerError))
-
-				Expect(fakeStripe.ReceivedRequests).To(HaveLen(1))
-
-				var count int
-				err = db.QueryRow(`SELECT COUNT(*) FROM tokens WHERE user_id = $1;`, u.ID).Scan(&count)
-				Expect(err).To(BeNil())
-				Expect(count).To(Equal(1))
-
-				bp, err := billingprofile.Find(db, u.ID)
-				Expect(err).To(BeNil())
-
-				Expect(bp.State).To(Equal(billingprofile.StatePaid))
-				Expect(bp.LastFour.Valid).To(BeTrue())
-				Expect(bp.CardType.Valid).To(BeTrue())
-				Expect(bp.ExpMonth.Valid).To(BeTrue())
-				Expect(bp.ExpYear.Valid).To(BeTrue())
-				Expect(bp.PendingActivation).To(BeFalse())
-				Expect(bp.MaxHours.Valid).To(BeTrue())
-
-				Expect(bp.StripeID).To(Equal(sql.NullString{"St17", true}))
-				Expect(bp.StripeFingerprint).To(Equal(sql.NullString{"print", true}))
-
-				err = db.QueryRow(`SELECT COUNT(*) FROM users WHERE id = $1 AND deleted_at IS NOT NULL;`, u.ID).Scan(&count)
-				Expect(err).To(BeNil())
-				Expect(count).To(Equal(0))
-			})
+			err = db.QueryRow(`SELECT COUNT(*) FROM users WHERE id = $1 AND deleted_at IS NOT NULL;`, u.ID).Scan(&count)
+			Expect(err).To(BeNil())
+			Expect(count).To(Equal(0))
 		})
 	})
 })

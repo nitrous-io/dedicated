@@ -925,6 +925,19 @@ var _ = Describe("models/host", func() {
 			Expect(hosts).To(HaveLen(0))
 		})
 
+		It("should include hosts where subscriptions have been recently cancelled if user is deleted", func() {
+			_, err := db.Exec(`UPDATE subscriptions SET cancelled_at = now() - interval '12 hours' WHERE id = $1`, s.ID)
+			Expect(err).To(BeNil())
+
+			_, err = db.Exec(`UPDATE users SET deleted_at = now() WHERE id = $1`, u1.ID)
+			Expect(err).To(BeNil())
+
+			hosts, err := host.FindAllForTermination(db)
+			Expect(err).To(BeNil())
+
+			Expect(hosts).To(HaveLen(1))
+		})
+
 		It("should not include hosts where subscriptions have not been cancelled", func() {
 			_, err := db.Exec(`UPDATE subscriptions SET state = 'active', cancelled_at  = NULL WHERE id = $1`, s.ID)
 			Expect(err).To(BeNil())
@@ -1749,32 +1762,6 @@ var _ = Describe("models/host", func() {
 			Expect(err).To(BeNil())
 
 			Expect(*h.UpdatedAt).To(BeTemporally(">", *origUpdatedAt))
-		})
-	})
-
-	Describe("Reassign()", func() {
-		It("updates the host's user_id to the given user's ID and the assigned_at timestamp", func() {
-			h := &host.Host{
-				Slug:               "foo",
-				UserID:             hs.U.ID,
-				RegionID:           hs.R.ID,
-				PlanID:             hs.P.ID,
-				ProviderTemplateID: hs.PT.ID,
-			}
-			err := h.Insert(db)
-			Expect(err).To(BeNil())
-			u := &user.User{
-				Username: "foo",
-				Email:    "foo@example.com",
-				Password: "123456",
-			}
-			err = test.WrapInTransaction(db, u.Insert)
-			Expect(err).To(BeNil())
-
-			err = h.Reassign(db, u)
-			Expect(err).To(BeNil())
-			Expect(h.UserID).To(Equal(u.ID))
-			Expect(h.AssignedAt).NotTo(BeNil())
 		})
 	})
 

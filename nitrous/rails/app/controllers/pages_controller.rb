@@ -44,7 +44,7 @@ class PagesController < ApplicationController
       render status: :not_found
     end
   end
-  
+
   def awsactivate
   end
 end

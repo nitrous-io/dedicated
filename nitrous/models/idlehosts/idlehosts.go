@@ -1,3 +1,13 @@
+// idlehosts is used to determine free hosts that have been inactive, and sends
+// out 2 warning emails before finally "soft-terminating" a host by canceling
+// its Stripe subscription.
+//
+// The actual termination of the host is handled by the cmd/hostautoterminate
+// package, which will look for soft-terminated hosts.
+//
+// We do this to give users some breathing room in case we want to be nice and
+// restore their access to host (e.g. if they write an impassioned email to
+// support).
 package idlehosts
 
 import (
@@ -10,7 +20,6 @@ import (
 	"text/template"
 	"time"
 
-	"github.com/Sirupsen/logrus"
 	"github.com/jmoiron/sqlx"
 	"github.com/lib/pq"
 	ndb "github.com/nitrous-io/dedicated/nitrous/db"
@@ -23,26 +32,27 @@ import (
 )
 
 var (
-	IdleTimeout                  = 14 * 24 * time.Hour
-	FirstWarningTimeout          = IdleTimeout - (7 * 24 * time.Hour)
-	NextCheckAfterFirstWarning   = FirstWarningTimeout - (24 * time.Hour) // after first warning is sent, second warning occurs 7 days - 24hrs
+	// MaxInactivityDuration is the duration after which an inactive free host
+	// will be terminated.
+	MaxInactivityDuration = 30 * 24 * time.Hour
+	// FirstWarningTimeout is the duration after which an inactive free host is
+	// sent its 1st warning email.
+	FirstWarningTimeout        = MaxInactivityDuration - (7 * 24 * time.Hour)
+	NextCheckAfterFirstWarning = 6 * 24 * time.Hour
+	// TerminationAfterFinalWarning is the duration after a host receives its
+	// final warning that we will terminate it.
 	TerminationAfterFinalWarning = 24 * time.Hour
 	Mailer                       mailer.Mailer
 )
 
 var (
-	ErrLockNotObtained              = errors.New("Lock was not obtained")
-	ErrLastRunningAtInvalid         = errors.New("LastRunningAt is not valid")
-	ErrHostStartedWithinIdleTimeout = errors.New("Host has been started since IdleTimeout")
+	ErrLockNotObtained                        = errors.New("Lock was not obtained")
+	ErrLastRunningAtInvalid                   = errors.New("LastRunningAt is not valid")
+	ErrHostStartedWithinMaxInactivityDuration = errors.New("Host has been started within the MaxInactivityDuration")
 )
 
 func init() {
 	Mailer = mailer.NewSendGridMailer(envvars.SendgridUsername, envvars.SendgridPassword)
-
-	total := FirstWarningTimeout + NextCheckAfterFirstWarning + TerminationAfterFinalWarning
-	if total != IdleTimeout {
-		logrus.Fatalf("IdleTimeout should add up to all Warning checks", total, IdleTimeout)
-	}
 }
 
 type Target struct {
@@ -97,7 +107,8 @@ func (t *Target) SendFinalWarning(db *ndb.Database) error {
 	return t.sendWarning(db, opts)
 }
 
-func (t *Target) Terminate(db *ndb.Database) error {
+// SoftTerminate cancels the target host's Stripe subscription.
+func (t *Target) SoftTerminate(db *ndb.Database) error {
 	var data struct {
 		LastRunningAt   pq.NullTime    `db:"last_running_at"`
 		IdleNoticesSent int            `db:"idle_notices_sent"`
@@ -129,8 +140,8 @@ func (t *Target) Terminate(db *ndb.Database) error {
 		return ErrLastRunningAtInvalid
 	}
 
-	if data.LastRunningAt.Time.After(time.Now().Add(-1 * IdleTimeout)) {
-		return ErrHostStartedWithinIdleTimeout
+	if time.Now().Sub(data.LastRunningAt.Time) < MaxInactivityDuration {
+		return ErrHostStartedWithinMaxInactivityDuration
 	}
 
 	// create advisory lock
@@ -228,7 +239,7 @@ func TerminationTargets(db *ndb.Database) ([]*Target, error) {
                 AND hosts.idle_notices_sent = $1
                 AND hosts.idle_next_check <= now()
                 AND GREATEST(last_running_at, last_pinged_at) <= now() - interval '%d seconds';`,
-		int64(IdleTimeout/time.Second))
+		int64(MaxInactivityDuration/time.Second))
 	err := db.Select(&targets, query, host.IDLE_NOTICES_FINAL_WARNING)
 	if err != nil {
 		return nil, err

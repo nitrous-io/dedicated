@@ -135,6 +135,9 @@ func FindAllActiveForOrg(d db.QueryReceiver, orgID int64) ([]*SubscriptionWithHo
 	return subscriptions, nil
 }
 
+// FindAllActiveByUserID returns active subscriptions.  Note that this includes
+// subscriptions that have been set to cancel at the end of the period
+// (cancellation doesn't happen immediately for paid users)
 func FindAllActiveByUserID(d db.QueryReceiver, userID int64) ([]*SubscriptionWithHostSlug, error) {
 	subscriptions := []*SubscriptionWithHostSlug{}
 	err := d.Select(&subscriptions, `SELECT s.*, hosts.slug AS host_slug, bp.org_id AS org_id FROM subscriptions s
