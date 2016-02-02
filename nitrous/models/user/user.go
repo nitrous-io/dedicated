@@ -231,6 +231,21 @@ func FindByConfirmationToken(d db.QueryReceiver, token string) (*User, error) {
 	return user, nil
 }
 
+func FindAllWithFreeHost(d db.QueryReceiver) ([]*User, error) {
+	users := []*User{}
+	err := d.Select(&users, `
+		SELECT DISTINCT(users.*) FROM users
+			JOIN hosts on hosts.user_id = users.id
+		WHERE
+			hosts.free = true
+			AND hosts.terminated_at IS NULL;
+	`)
+	if err != nil {
+		return nil, err
+	}
+	return users, nil
+}
+
 func FindAllByNoticeSent(d db.QueryReceiver, noticeSent int64) ([]*User, error) {
 	users := []*User{}
 	err := d.Select(&users, `
@@ -239,7 +254,7 @@ func FindAllByNoticeSent(d db.QueryReceiver, noticeSent int64) ([]*User, error) 
 		WHERE h.free = true
 			AND h.terminated_at IS NULL
 			AND u.usage_notices_sent = $1
-		ORDER BY u.id
+		ORDER BY u.id;
 	`, noticeSent)
 	if err != nil {
 		return nil, err

@@ -6,8 +6,6 @@ html lang='en' class=@html_class
       = @title || "Nitrous"
     = favicon_link_tag
     = yield :head_before
-    / = stylesheet_link_tag 'application', media: 'all'
-    / = stylesheet_link_tag 'pages', media: 'all'
     = stylesheet_link_tag 'website', media: 'all'
     = yield :head_stylesheet
     = render 'layouts/google_analytics'

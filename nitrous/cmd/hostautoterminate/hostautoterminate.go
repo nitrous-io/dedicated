@@ -1,3 +1,6 @@
+// The hostautoterminate command terminates hosts that were marked as
+// "soft-terminated" by the idlefreehosts command (which "soft-terminates"
+// inactive free hosts by cancelling their Stripe subscription).
 package main
 
 import (
@@ -15,9 +18,7 @@ import (
 	"github.com/nitrous-io/dedicated/nitrous/pkg/constants"
 )
 
-const (
-	nWorkers = 4
-)
+const nWorkers = 4
 
 var (
 	initiatorID int64
@@ -43,16 +44,14 @@ func main() {
 		logrus.Warnf("--live-run specified, will be performing destructive actions")
 	}
 
-	var wg sync.WaitGroup
-
-	logrus.Infof("starting host terminate service with %d workers", nWorkers)
+	logrus.Infof("Starting host termination service with %d workers", nWorkers)
 	dbURL := envvars.NitrousPgUrl
 	if dbURL == "" {
-		logrus.Fatal(envvars.DBEnvVar, "is not defined")
+		logrus.Fatalf("%v is not defined", envvars.DBEnvVar)
 	}
 	dbConn, err := db.NewDatabase(dbURL)
 	if err != nil {
-		logrus.Fatalf("db.NewDatabase() failed with '%s'", err)
+		logrus.Fatalf("failed to connect to database, err: %v", err)
 	}
 
 	if envvars.ProvisionerUser == "" {
@@ -61,15 +60,16 @@ func main() {
 
 	err = dbConn.QueryRow(`SELECT id FROM users WHERE username = $1`, envvars.ProvisionerUser).Scan(&initiatorID)
 	if err != nil {
-		logrus.Fatalf("Failed to locate the ID of the PROVISIONER_USER. Err: '%s'", err)
+		logrus.Fatalf("failed to locate the ID of the PROVISIONER_USER, err: %v", err)
 	}
 
+	var wg sync.WaitGroup
 	hostsCh := make(chan *host.Host)
 	for i := 0; i < nWorkers; i++ {
 		go worker(dbConn, &wg, hostsCh)
 	}
 
-	timeStart := time.Now()
+	start := time.Now()
 	hosts, err := host.FindAllForTermination(dbConn)
 	if err != nil {
 		logrus.Fatalf("host.FindAllForTermination() failed with '%s'", err)
@@ -81,9 +81,12 @@ func main() {
 		hostsCh <- hst
 	}
 	wg.Wait()
+
 	if n := len(hosts); n > 0 {
-		logrus.Infof("Terminated %d hosts in %s", n, time.Since(timeStart))
+		logrus.Infof("Terminated %d hosts in %s", n, time.Since(start))
 	}
+
+	logrus.Info("Host termination service done. Exiting.")
 }
 
 func worker(dbConn *db.Database, wg *sync.WaitGroup, ch chan *host.Host) {
@@ -95,7 +98,7 @@ func worker(dbConn *db.Database, wg *sync.WaitGroup, ch chan *host.Host) {
 
 func termHost(dbConn *db.Database, hst *host.Host) {
 	logrus.Infof("Starting terminate on host %s (user %d)", hst.Slug, hst.UserID)
-	timeStart := time.Now()
+	start := time.Now()
 
 	if dryrun {
 		logrus.Infof("dry-run active, *would* terminate %s", hst.Slug)
@@ -111,5 +114,5 @@ func termHost(dbConn *db.Database, hst *host.Host) {
 		logrus.Errorf("Unable to terminate host %s, err: %v", hst.Slug, err)
 		return
 	}
-	logrus.Infof("Successfully terminated host %s (user %d) in %s", hst.Slug, hst.UserID, time.Since(timeStart))
+	logrus.Infof("Successfully terminated host %s (user %d) in %s", hst.Slug, hst.UserID, time.Since(start))
 }
