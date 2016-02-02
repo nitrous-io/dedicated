@@ -2141,9 +2141,11 @@ var _ = Describe("models/user", func() {
 
 	Describe("SendUsageNoticeEmail", func() {
 		var (
-			u          *user.User
-			fakeMailer *test.FakeMailer
-			origMailer mailer.Mailer
+			hs              *test.HostStack
+			u               *user.User
+			fakeMailer      *test.FakeMailer
+			origMailer      mailer.Mailer
+			quotaRestoredAt time.Time
 		)
 
 		BeforeEach(func() {
@@ -2152,13 +2154,27 @@ var _ = Describe("models/user", func() {
 			user.Mailer = fakeMailer
 
 			u = &user.User{
-				Username: "qux",
-				Name:     "quxboy",
-				Password: "123456",
-				Email:    "qux@example.com",
+				Username:   "qux",
+				Name:       "quxboy",
+				Password:   "123456",
+				Email:      "qux@example.com",
+				UsageQuota: sql.NullInt64{180000, true},
 			}
 			err := test.WrapInTransaction(db, u.Insert)
 			Expect(err).To(BeNil())
+
+			hs, err = test.CreateHostStack(db, &test.HostStack{
+				U: u,
+			})
+			Expect(err).To(BeNil())
+
+			_, err = db.Exec(`UPDATE hosts SET free = true WHERE id = $1`, hs.H.ID)
+			Expect(err).To(BeNil())
+
+			quotaRestoredAt = time.Date(2014, 1, 1, 0, 0, 0, 0, time.Local)
+			_, err = db.Exec(`UPDATE users SET usage_quota_restored_at = $1 ;`, quotaRestoredAt)
+			Expect(err).To(BeNil())
+
 			envvars.WebHostname = "nitrous.example"
 		})
 
@@ -2166,8 +2182,19 @@ var _ = Describe("models/user", func() {
 			user.Mailer = origMailer
 		})
 
-		It("sends 5 hours usage remaining notice email", func() {
-			err := u.SendUsageNoticeEmail(db, 5)
+		It("sends usage notice email", func() {
+			// add usage of 44.8 hours and so there'll be 5.2 hours remaining
+			// we will show 5 hours remaining in the email
+			startTime := quotaRestoredAt.Add(2 * time.Hour)
+			endTime := quotaRestoredAt.Add(168480 * time.Second) //46.8 hours
+			_, err := db.Exec(`
+				INSERT INTO host_transitions (
+					host_id, previous_state, state, created_at, ended_at
+				) values ($1, $2, $3, $4, $5);
+			`, hs.H.ID, "starting", "running", startTime, endTime)
+			Expect(err).To(BeNil())
+
+			err = u.SendUsageNoticeEmail(db)
 			Expect(err).To(BeNil())
 
 			Expect(fakeMailer.SendMailCalled).To(BeTrue())
@@ -2177,19 +2204,7 @@ var _ = Describe("models/user", func() {
 			Expect(fakeMailer.Subject).To(Equal("Your free Nitrous workstation: 5 hours remaining this month"))
 			Expect(fakeMailer.Body).To(ContainSubstring("Hello quxboy!"))
 			Expect(fakeMailer.HTML).To(ContainSubstring("<h3>Hello quxboy!</h3>"))
-		})
-
-		It("sends 1 hour usage remaining notice email", func() {
-			err := u.SendUsageNoticeEmail(db, 1)
-			Expect(err).To(BeNil())
-
-			Expect(fakeMailer.SendMailCalled).To(BeTrue())
-			Expect(fakeMailer.From).To(Equal(envvars.SupportEmail))
-			Expect(fakeMailer.Tos).To(Equal([]string{"\"quxboy\" <qux@example.com>"}))
-			Expect(fakeMailer.ReplyTo).To(Equal(envvars.SupportEmail))
-			Expect(fakeMailer.Subject).To(Equal("Your free Nitrous workstation: 1 hour remaining this month"))
-			Expect(fakeMailer.Body).To(ContainSubstring("Hello quxboy!"))
-			Expect(fakeMailer.HTML).To(ContainSubstring("<h3>Hello quxboy!</h3>"))
+			Expect(fakeMailer.HTML).To(ContainSubstring("<p>You've used 45 out of the free 50 hours of usage"))
 		})
 	})
 
