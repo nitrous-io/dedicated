@@ -116,14 +116,6 @@ var _ = Describe("controllers/userprofiles", func() {
 			return res
 		}
 
-		It("should block if the user has billing issues", func() {
-			MarkDelinquentUser(db, u)
-			params := &url.Values{}
-			params.Set("advanced", "true")
-			res := doRequest(params)
-			Expect(res.Code).To(Equal(http.StatusOK))
-		})
-
 		It("allows advanced settings", func() {
 			params := &url.Values{}
 			params.Set("advanced", "true")
