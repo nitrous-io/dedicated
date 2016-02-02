@@ -5,6 +5,7 @@ import (
 	"database/sql"
 	"errors"
 	"fmt"
+	"math"
 	"net/mail"
 	"net/url"
 	"regexp"
@@ -640,20 +641,34 @@ func (u *User) GenerateConfirmationURL(d db.QueryReceiver) (*url.URL, error) {
 	}, nil
 }
 
-func (u *User) SendUsageNoticeEmail(d db.QueryReceiver, hoursRemaining int64) error {
-	var hoursRemainingStr string
-	if hoursRemaining == 1 {
-		hoursRemainingStr = fmt.Sprintf("%d hour", hoursRemaining)
-	} else {
-		hoursRemainingStr = fmt.Sprintf("%d hours", hoursRemaining)
+func (u *User) SendUsageNoticeEmail(d db.QueryReceiver) error {
+	var usageQuotaInHours int64
+	if u.UsageQuota.Valid {
+		usageQuotaInHours = u.UsageQuota.Int64 / 60 / 60
 	}
 
-	usageQuotaInHours := u.UsageQuota.Int64 / 60 / 60
 	secondsUsed, err := u.FreeHostUsage(d, time.Now())
 	if err != nil {
 		return err
 	}
-	usageQuotaNextRestoredAt := u.UsageQuotaRestoredAt.Time.Add(time.Duration(u.UsageQuotaPeriod.Int64) * time.Second)
+
+	hoursUsed := int64(math.Ceil(float64(secondsUsed) / 60 / 60))
+	if hoursUsed > usageQuotaInHours {
+		hoursUsed = usageQuotaInHours
+	}
+
+	var usageQuotaNextRestoredAt time.Time
+	if u.UsageQuotaRestoredAt.Valid {
+		usageQuotaNextRestoredAt = u.UsageQuotaRestoredAt.Time.Add(time.Duration(u.UsageQuotaPeriod.Int64) * time.Second)
+	}
+
+	hoursRemaining := usageQuotaInHours - hoursUsed
+	var hoursRemainingStr string
+	if hoursRemaining <= 1 {
+		hoursRemainingStr = fmt.Sprintf("%d hour", hoursRemaining)
+	} else {
+		hoursRemainingStr = fmt.Sprintf("%d hours", hoursRemaining)
+	}
 
 	tmplData := struct {
 		Name                     string
@@ -665,7 +680,7 @@ func (u *User) SendUsageNoticeEmail(d db.QueryReceiver, hoursRemaining int64) er
 	}{
 		u.DisplayName(),
 		hoursRemainingStr,
-		secondsUsed / 60 / 60,
+		hoursUsed,
 		usageQuotaNextRestoredAt.Format("2 Jan 3:04PM GMT"),
 		usageQuotaInHours,
 		u.UsageQuotaPeriod.Int64 / 60 / 60 / 24,
