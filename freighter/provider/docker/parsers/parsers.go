@@ -122,9 +122,9 @@ func parsePortSpec(portSpec, gateway string) (string, error) {
 
 var (
 	// w IDLE column is > 1 minute, < 1 hour
-	wMinsRe = regexp.MustCompile(`\A(\d\d):(\d\d)\z`) // MM:SS
+	wMinsRe = regexp.MustCompile(`\A(\d+):(\d\d)\z`) // MM:SS or M:SS
 	// w IDLE column is < 1 minute
-	wSecsRe = regexp.MustCompile(`\A(\d+)\.\d\ds\z`) // SS.CCs
+	wSecsRe = regexp.MustCompile(`\A(\d+)\.\d\ds\z`) // SS.CCs or S.CCs
 )
 
 // parse WOutput returns true if the command indicates that the user was active
@@ -135,7 +135,7 @@ func ParseWOutput(output, username string, threshold int) (bool, error) {
 	// nitrous  pts/1                     03:11    2:25m  0.08s  0.08s -zsh
 	//
 	// IDLE format:
-	// The standard format is DDdays, HH:MMm, MM:SS or SS.CCs if the times are
+	// The standard format is DDdays, HH:MMm, [M]M:SS or [S]S.CCs if the times are
 	// greater than 2 days, 1hour, or 1 minute respectively.
 
 	if len(output) == 0 {
