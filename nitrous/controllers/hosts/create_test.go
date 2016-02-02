@@ -1294,6 +1294,34 @@ var _ = Describe("POST /api/v0/hosts", func() {
 					Expect(res.Code).To(Equal(http.StatusAccepted))
 				})
 
+				It(`does not set the user's usage_quota_restored_at time to the host creation time
+					when user's usage_quota_restored_at is not null`, func() {
+					_, err := db.Exec(`UPDATE plans SET price=0;`)
+					Expect(err).To(BeNil())
+
+					Expect(u.UsageQuotaRestoredAt.Valid).To(BeFalse())
+					fakeTime := time.Date(2014, 1, 1, 0, 0, 0, 0, time.Local)
+					u.UsageQuotaRestoredAt = pq.NullTime{fakeTime, true}
+					_, err = db.Exec(`UPDATE users SET usage_quota_restored_at = $1;`, fakeTime)
+					Expect(err).To(BeNil())
+
+					res := doRequest(params)
+					Expect(res.Code).To(Equal(http.StatusAccepted))
+
+					u, err := user.FindByID(db, u.ID)
+					Expect(err).To(BeNil())
+
+					Expect(u.UsageQuotaRestoredAt.Valid).To(BeTrue())
+
+					hosts, err := host.FindAllByUser(db, u.ID)
+					Expect(err).To(BeNil())
+					Expect(hosts).To(HaveLen(1))
+					h := hosts[0]
+					Expect(h.Free).To(BeTrue())
+
+					Expect(u.UsageQuotaRestoredAt.Time).To(BeTemporally("==", fakeTime))
+				})
+
 				It("sets the user's usage_quota_restored_at time to the host creation time", func() {
 					_, err := db.Exec(`UPDATE plans SET price=0;`)
 					Expect(err).To(BeNil())
