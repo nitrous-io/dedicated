@@ -23,6 +23,7 @@ type User struct {
 	PhoneCountryCode string          `json:"phone_country_code"`
 	PhoneAuthed      bool            `json:"phone_authed"`
 	UsageRemaining   int64           `json:"usage_remaining"`
+	NextUsageQuotaAt *time.Time      `json:"next_usage_quota_at,omitempty"`
 
 	MaxContainers    int64 `json:"max_containers,omitempty"`
 	CanUseDesktopApp *bool `json:"can_use_desktop_app,omitempty"`
@@ -55,6 +56,10 @@ func SerializeUser(u *user.User) *User {
 
 	if u.CanUseDesktopApp.Valid {
 		s.CanUseDesktopApp = &u.CanUseDesktopApp.Bool
+	}
+	if u.UsageQuotaRestoredAt.Valid && u.UsageQuotaPeriod.Valid {
+		var next = u.UsageQuotaRestoredAt.Time.Add(time.Duration(u.UsageQuotaPeriod.Int64) * time.Second)
+		s.NextUsageQuotaAt = &next
 	}
 
 	return s
