@@ -152,6 +152,9 @@ var _ = Describe("ParseWOutput", func() {
 			// idle for 10 minutes means active
 			{true, "", 900, "nitrous",
 				`nitrous  pts/1                     03:11    10:00  0.08s  0.08s -zsh`},
+			// check that M:SS is supported
+			{true, "", 900, "nitrous",
+				`nitrous  pts/1                     03:11    1:23  0.08s  0.08s -zsh`},
 			// idle for 39 seconds means active
 			{true, "", 900, "nitrous",
 				`nitrous  pts/1                     03:11    39.12s  0.08s  0.08s -zsh`},
