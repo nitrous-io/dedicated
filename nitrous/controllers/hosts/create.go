@@ -318,7 +318,7 @@ func Create(env *middleware.Env, w http.ResponseWriter, r *http.Request) error {
 
 	// If this is a free host, set the user's usage_quota_restored_at to the
 	// host creation time.
-	if h.Free {
+	if h.Free && !u.UsageQuotaRestoredAt.Valid {
 		u.UsageQuotaRestoredAt = pq.NullTime{*h.CreatedAt, true}
 		if err := u.Update(db); err != nil {
 			return err
