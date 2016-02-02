@@ -1710,6 +1710,54 @@ var _ = Describe("models/user", func() {
 		})
 	})
 
+	Describe("FindAllWithFreeHost()", func() {
+		It("returns users with unterminated free hosts", func() {
+			// User with free, running host - will be returned.
+			hs1, err := test.CreateHostStack(db, &test.HostStack{
+				H: &host.Host{Free: true, State: host.StateRunning},
+			})
+			Expect(err).To(BeNil())
+
+			// User with free, stopped host - will be returned.
+			hs2, err := test.CreateHostStack(db, &test.HostStack{
+				H: &host.Host{Free: true, State: host.StateStopped},
+			})
+			Expect(err).To(BeNil())
+
+			// User with free, terminated host - will not be returned.
+			hs3, err := test.CreateHostStack(db, &test.HostStack{
+				H: &host.Host{Free: true},
+			})
+			Expect(err).To(BeNil())
+			err = hs3.H.Delete(db)
+			Expect(err).To(BeNil())
+
+			// User with paid, terminated host - will not be returned.
+			hs4, err := test.CreateHostStack(db, &test.HostStack{
+				H: &host.Host{Free: false},
+			})
+			Expect(err).To(BeNil())
+			err = hs4.H.Delete(db)
+			Expect(err).To(BeNil())
+
+			// User with paid, running host - will not be returned.
+			_, err = test.CreateHostStack(db, &test.HostStack{
+				H: &host.Host{Free: false, State: host.StateRunning},
+			})
+			Expect(err).To(BeNil())
+
+			users, err := user.FindAllWithFreeHost(db)
+			Expect(err).To(BeNil())
+
+			userIDs := []int64{}
+			for _, u := range users {
+				userIDs = append(userIDs, u.ID)
+			}
+
+			Expect(userIDs).To(ConsistOf(hs1.U.ID, hs2.U.ID))
+		})
+	})
+
 	Describe("FindAllByNoticeSent()", func() {
 		var (
 			u1, u2, u3, u4, u5, u6 *user.User
