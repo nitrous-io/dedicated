@@ -3,6 +3,7 @@ package googlerecaptcha
 import (
 	"bytes"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"net/http"
 	"net/url"
@@ -10,6 +11,8 @@ import (
 )
 
 const reCaptchaVerifyURL = "https://www.google.com/recaptcha/api/siteverify"
+
+var ErrTokenRequired = errors.New("token is required")
 
 type CaptchaVerifier interface {
 	Verify(token string) error
@@ -29,8 +32,11 @@ func NewVerifier(secret string) *GoogleReCaptchaVerifier {
 }
 
 func (v *GoogleReCaptchaVerifier) Verify(token string) error {
-	data := url.Values{}
+	if token == "" {
+		return ErrTokenRequired
+	}
 
+	data := url.Values{}
 	data.Set("secret", v.secret)
 	data.Set("response", token)
 
