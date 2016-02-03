@@ -12,8 +12,8 @@ const addedHtmlTmpl = `
   <body>
     <h3>Hello {{ .Name }}!</h3>
     <p>You have been added as a collaborator on {{ .ContainerSlug }} by {{ .SharerName }}.</p>
-    <p>You will be able to collaborate in the IDE as well as control the container yourself.</p>
-    <p>You can view this container at <a href="{{ .ViewUrl }}" target="_blank">{{ .ViewUrl }}</a>, otherwise look out for it under the Shared area in the sidebar.</p>
+    <p>You will be able to collaborate together in the IDE.</p>
+    <p>You can view this project at <a href="{{ .ViewUrl }}" target="_blank">{{ .ViewUrl }}</a>.</p>
     <br />
     <p>Thanks,</p>
     <p>The Nitrous team</p>
@@ -24,8 +24,8 @@ const addedHtmlTmpl = `
 const addedTxtTmpl = `
 Hello {{ .Name }}!
 You have been added as a collaborator on {{ .ContainerSlug }} by {{ .SharerName }}.
-You will be able to collaborate together through the IDE as well as control the container yourself.
-You can view this container at {{ .ViewUrl }}, otherwise look out for it under the Shared area in the sidebar.
+You will be able to collaborate together in the IDE.
+You can view this project at {{ .ViewUrl }}.
 
 Thanks,
 The Nitrous team
@@ -41,8 +41,8 @@ const invitedHtmlTmpl = `
   <body>
     <h3>Hello {{ .Email }}!</h3>
     <p>You have been added as a collaborator on {{ .ContainerSlug }} by {{ .SharerName }}.</p>
-    <p>You will be able to collaborate in the IDE as well as control the container yourself.</p>
-    <p>To begin collaborating on this container, complete your Nitrous signup at <a href="{{ .SignupUrl }}" target="_blank">{{ .SignupUrl }}</a>.</p>
+    <p>You will be able to collaborate in the IDE.</p>
+    <p>To begin collaborating on this project, complete your Nitrous signup at <a href="{{ .SignupUrl }}" target="_blank">{{ .SignupUrl }}</a>.</p>
     <br />
     <p>Thanks,</p>
     <p>The Nitrous team</p>
@@ -53,8 +53,8 @@ const invitedHtmlTmpl = `
 const invitedTxtTmpl = `
 Hello {{ .Email }}!
 You have been added as a collaborator on {{ .ContainerSlug }} by {{ .SharerName }}.
-You will be able to collaborate together through the IDE as well as control the container yourself.
-To begin collaborating on this container, complete your Nitrous signup at {{ .SignupUrl }}.
+You will be able to collaborate together through the IDE.
+To begin collaborating on this project, complete your Nitrous signup at {{ .SignupUrl }}.
 
 Thanks,
 The Nitrous team
