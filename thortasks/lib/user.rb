@@ -1,6 +1,7 @@
 class User
   ATTRS = %i(uid username email confirmed_at phone_authed
-    deleted_at banned_at suspicious bp_state sub_state)
+    deleted_at banned_at suspicious bp_state sub_state
+    usage_quota usage_quota_period usage_quota_restored_at)
 
   attr_reader *ATTRS
 

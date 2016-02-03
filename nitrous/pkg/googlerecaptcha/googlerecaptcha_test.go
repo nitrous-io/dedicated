@@ -41,6 +41,11 @@ var _ = Describe("googlerecaptcha", func() {
 	})
 
 	Describe("Verify", func() {
+		It("returns an error when attempting to verify an empty token", func() {
+			err := verifier.Verify("")
+			Expect(err).To(Equal(googlerecaptcha.ErrTokenRequired))
+		})
+
 		It("requests with correct params", func() {
 			server.AppendHandlers(ghttp.CombineHandlers(
 				ghttp.VerifyRequest("POST", "/"),

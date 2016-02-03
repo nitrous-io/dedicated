@@ -115,6 +115,17 @@ class Users < Thor
 
     puts "#{u.summary}: phone_authed #{old_authed} => true, bp_state #{old_bp_state} => 'free'"
   end
+
+  desc "set_usage_quota IDENT SECONDS", "set usage quota for a user"
+  def set_usage_quota(ident, usage_quota)
+    DB.transaction do
+      u = User.find(ident) {|ds| ds.where(users__deleted_at: nil )}
+      old_usage_quota = u.usage_quota
+      r = DB[:users].where(id: u.uid).update(usage_quota: usage_quota)
+      rows_expected!(r, 1)
+      puts "#{u.summary}: usage_quota #{old_usage_quota} => #{usage_quota}"
+    end
+  end
 end
 
 # vim:ft=ruby

@@ -39,12 +39,13 @@ var _ = Describe("user serializer", func() {
 			MaxContainers:     sql.NullInt64{99, true},
 			CreatedAt:         &createdAt,
 			UpdatedAt:         &updatedAt,
+			UsageQuotaPeriod:  sql.NullInt64{int64((30 * 24 * time.Hour).Seconds()), true},
 		}
-
 	})
 
 	Describe("SerializeUser", func() {
 		It("serializes to JSON", func() {
+			model.UsageQuotaRestoredAt = pq.NullTime{createdAt, true}
 			u := serializers.SerializeUser(model)
 			u.UsageRemaining = 100
 			b, err := json.Marshal(u)
@@ -64,7 +65,8 @@ var _ = Describe("user serializer", func() {
 				"max_containers": 99,
 				"usage_remaining": 100,
 				"created_at": "2013-11-01T00:00:00Z",
-				"updated_at": "2013-11-02T00:00:00Z"
+				"updated_at": "2013-11-02T00:00:00Z",
+				"next_usage_quota_at": "2013-12-01T00:00:00Z"
 			}`))
 		})
 
