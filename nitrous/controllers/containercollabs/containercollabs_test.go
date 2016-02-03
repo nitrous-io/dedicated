@@ -394,9 +394,9 @@ var _ = Describe("controllers/containercollabs", func() {
 			Expect(fakeMailer.ReplyTo).To(Equal(envvars.SupportEmail))
 			Expect(fakeMailer.Subject).To(Equal("owner has shared container java-test-container with you!"))
 			Expect(fakeMailer.Body).To(ContainSubstring("Hello steve!"))
-			Expect(fakeMailer.Body).To(ContainSubstring("https://nitrous.example/app/#/containers/java-test-container"))
+			Expect(fakeMailer.Body).To(ContainSubstring("https://nitrous.example/app/#/dashboard/shared-projects"))
 			Expect(fakeMailer.HTML).To(ContainSubstring("<h3>Hello steve!</h3>"))
-			Expect(fakeMailer.HTML).To(ContainSubstring(`<a href="https://nitrous.example/app/#/containers/java-test-container" target="_blank">`))
+			Expect(fakeMailer.HTML).To(ContainSubstring(`<a href="https://nitrous.example/app/#/dashboard/shared-projects" target="_blank">`))
 
 			Expect(ft.PropsCalled).To(HaveLen(1))
 			pc := ft.PropsCalled[0]

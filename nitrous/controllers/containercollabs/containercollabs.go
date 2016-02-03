@@ -304,7 +304,7 @@ func sendEmail(d *db.Database, c *container.Container, collab *containercollab.C
 		Scheme:   "https",
 		Host:     host,
 		Path:     "/app/",
-		Fragment: fmt.Sprintf("/containers/%s", c.Slug),
+		Fragment: "/dashboard/shared-projects",
 	}
 
 	tmplData := struct {
