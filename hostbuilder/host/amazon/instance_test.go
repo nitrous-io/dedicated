@@ -114,7 +114,7 @@ var _ = Describe("setTags", func() {
 			instance: &ec2.Instance{InstanceId: "i-1234"},
 		}
 
-		err := setTags(p, h)
+		err := setTags(p, h, nil)
 		Expect(err).To(BeNil())
 
 		Expect(p.calls[0].args[0].([]string)).To(Equal([]string{"i-1234"}))
@@ -129,13 +129,36 @@ var _ = Describe("setTags", func() {
 			instance:     &ec2.Instance{InstanceId: "i-1234"},
 		}
 
-		err = setTags(p, h)
+		err = setTags(p, h, nil)
 		Expect(err).To(BeNil())
 
 		Expect(p.calls[0].args[1].([]ec2.Tag)).To(ConsistOf(
 			ec2.Tag{"Name", "test-staging-host"},
 			ec2.Tag{"dedicated", "staging"},
 			ec2.Tag{"dedicated:version", "42"},
+		))
+	})
+
+	It("includes any additional tags", func() {
+		p := &dummyInstanceProvider{}
+		h := &Host{
+			Config:   &hostConfig{Name: "test-host"},
+			instance: &ec2.Instance{InstanceId: "i-1234"},
+		}
+
+		additionalTags := []ec2.Tag{
+			{Key: "plan", Value: "free"},
+			{Key: "vip", Value: "true"},
+		}
+
+		err := setTags(p, h, additionalTags)
+		Expect(err).To(BeNil())
+
+		Expect(p.calls[0].args[0].([]string)).To(Equal([]string{"i-1234"}))
+		Expect(p.calls[0].args[1].([]ec2.Tag)).To(ConsistOf(
+			ec2.Tag{"Name", "test-host"},
+			ec2.Tag{"plan", "free"},
+			ec2.Tag{"vip", "true"},
 		))
 	})
 })

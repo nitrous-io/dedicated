@@ -651,13 +651,26 @@ func detachElasticIP(ctx *host.HostContext) error {
 }
 
 // associateInstanceTags sets the instance's tags which include Name and
-// dedicated environment.
+// dedicated environment. It also sets any configured tags.
 func associateInstanceTags(ctx *host.HostContext) error {
 	h := ctx.Host.(*Host)
 	label := h.MetricsLabel("set_tags")
 	defer mh.UpdateSince(label, time.Now())
 
-	return setTags(h.provider, h)
+	// If there are tags configured, we set those too.
+	tags := []ec2.Tag{}
+	if h.Config.Tags != "" {
+		tagMap := map[string]string{}
+		if err := json.Unmarshal([]byte(h.Config.Tags), &tagMap); err != nil {
+			h.Printf("error parsing tags %q, err: %v", h.Config.Tags, err)
+		} else {
+			for k, v := range tagMap {
+				tags = append(tags, ec2.Tag{Key: k, Value: v})
+			}
+		}
+	}
+
+	return setTags(h.provider, h, tags)
 }
 
 // mountUserVolume logs in to instance via SSH to:
