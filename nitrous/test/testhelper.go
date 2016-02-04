@@ -336,6 +336,7 @@ func WaitForEvent(msgCh chan pubsub.Message, name controllers.EventName, timeout
 
 var invoiceIDToKey = map[string]string{
 	"in_16JckrD2OOBduWpzD4jRuR5B": "july01",
+	"in_17ae6CD2OOBduWpzFld7AWwH": "freeplan",
 	"in_17L56DD2OOBduWpz7PwZ7BNf": "freetrial",
 	"in_17OGrhD2OOBduWpzsNYZKqrK": "success-sub",
 	"in_168gMyD2OOBduWpzJlqG8C9J": "success-usage",

@@ -4,15 +4,16 @@
 // Table of possible invoice types, with the username (for checking via switch
 // user) and invoice id (for checking on Stripe)
 //
-// | Special July 1 invoice (comped for one month) | ronoaldo  | in_16JckrD2OOBduWpzD4jRuR5B |
-// | Free trial invoice of $0.00                   | navya     | in_17L56DD2OOBduWpz7PwZ7BNf |
-// | Successful subscription invoice               | ronoaldo  | in_17OGrhD2OOBduWpzsNYZKqrK |
-// | Successful usage-based invoice                | ronoaldo  | in_168gMyD2OOBduWpzJlqG8C9J |
-// | Failed invoice (closed)                       | navya     | in_17Q9pMD2OOBduWpzu7hqP1rX |
-// | Failed invoice (due)                          | magnoodle | in_17SI46D2OOBduWpzgi38TLz5 |
-// | Fully credited (subscription)                 | msnoval   | in_16QsLUD2OOBduWpzs5RpLvKx |
-// | Partially credited (subscription)             | msnoval   | in_16QszVD2OOBduWpzbrn3YbyR |
-// | Partial credited (usage-based)                | bitomule  | in_15RBORD2OOBduWpze7Gef6b0 |
+// | Special July 1 invoice (comped for one month) | ronoaldo     | in_16JckrD2OOBduWpzD4jRuR5B |
+// | Free plan invoice of $0.00                    | ffeelliiggoo | in_17ae6CD2OOBduWpzFld7AWwH |
+// | Free trial invoice of $0.00                   | navya        | in_17L56DD2OOBduWpz7PwZ7BNf |
+// | Successful subscription invoice               | ronoaldo     | in_17OGrhD2OOBduWpzsNYZKqrK |
+// | Successful usage-based invoice                | ronoaldo     | in_168gMyD2OOBduWpzJlqG8C9J |
+// | Failed invoice (closed)                       | navya        | in_17Q9pMD2OOBduWpzu7hqP1rX |
+// | Failed invoice (due)                          | magnoodle    | in_17SI46D2OOBduWpzgi38TLz5 |
+// | Fully credited (subscription)                 | msnoval      | in_16QsLUD2OOBduWpzs5RpLvKx |
+// | Partially credited (subscription)             | msnoval      | in_16QszVD2OOBduWpzbrn3YbyR |
+// | Partial credited (usage-based)                | bitomule     | in_15RBORD2OOBduWpze7Gef6b0 |
 [
 // Invoice: July 01
 {
@@ -86,6 +87,80 @@
   "tax_percent": null,
   "total": 0,
   "webhooks_delivered_at": 1435724610,
+  "payment": null
+},
+// Invoice: free plan invoice of $0.00
+{
+  "id": "in_17ae6CD2OOBduWpzFld7AWwH",
+  "object": "invoice",
+  "amount_due": 0,
+  "application_fee": null,
+  "attempt_count": 0,
+  "attempted": true,
+  "charge": null,
+  "closed": true,
+  "currency": "usd",
+  "customer": "cus_7qKlWTgTfj1G7y",
+  "date": 1454557684,
+  "description": null,
+  "discount": null,
+  "ending_balance": 0,
+  "forgiven": false,
+  "lines": {
+    "object": "list",
+    "data": [
+      {
+        "id": "sub_7qKl6cOHOeP9rM",
+        "object": "line_item",
+        "amount": 0,
+        "currency": "usd",
+        "description": null,
+        "discountable": true,
+        "livemode": true,
+        "metadata": {},
+        "period": {
+          "start": 1454557684,
+          "end": 1457063284
+        },
+        "plan": {
+          "id": "20160118-free",
+          "object": "plan",
+          "amount": 0,
+          "created": 1453107510,
+          "currency": "usd",
+          "interval": "month",
+          "interval_count": 1,
+          "livemode": true,
+          "metadata": {},
+          "name": "Free",
+          "statement_descriptor": null,
+          "trial_period_days": null
+        },
+        "proration": false,
+        "quantity": 1,
+        "subscription": null,
+        "type": "subscription"
+      }
+    ],
+    "has_more": false,
+    "total_count": 1,
+    "url": "/v1/invoices/in_17ae6CD2OOBduWpzFld7AWwH/lines"
+  },
+  "livemode": true,
+  "metadata": {},
+  "next_payment_attempt": null,
+  "paid": true,
+  "period_end": 1454557684,
+  "period_start": 1454557684,
+  "receipt_number": null,
+  "starting_balance": 0,
+  "statement_descriptor": null,
+  "subscription": "sub_7qKl6cOHOeP9rM",
+  "subtotal": 0,
+  "tax": null,
+  "tax_percent": null,
+  "total": 0,
+  "webhooks_delivered_at": 1454557698,
   "payment": null
 },
 // Invoice: free trial invoice for $0.00

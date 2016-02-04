@@ -52,6 +52,7 @@ const (
 	// all existing users with a free month of subscription
 	NinvoiceJuly1 = "july01"
 
+	NinvoiceFreePlan     = "freeplan"
 	NinvoiceFreeTrial    = "freetrial"
 	NinvoiceSuccessSub   = "success-sub"
 	NinvoiceSuccessUsage = "success-usage"
@@ -145,6 +146,8 @@ func (n NitrousInvoice) Description() string {
 	switch {
 	case t == NinvoiceJuly1:
 		return "Complimentary subscription for month of July 2015"
+	case t == NinvoiceFreePlan:
+		return "Free Tier"
 	case t == NinvoiceFreeTrial:
 		pstart, pend := time.Unix(n.Lines.Values[0].Period.Start, 0), time.Unix(n.Lines.Values[0].Period.End, 0)
 		dur := pend.Sub(pstart)
@@ -208,8 +211,15 @@ func (n NitrousInvoice) Type() string {
 		if t := time.Unix(n.Date, 0); t.Format("2006-01-02") == "2015-07-01" {
 			return NinvoiceJuly1
 		}
-		if len(n.Lines.Values) == 1 && n.Lines.Values[0].Period != nil {
-			return NinvoiceFreeTrial
+
+		if len(n.Lines.Values) == 1 {
+			plan := n.Lines.Values[0].Plan
+			if plan != nil && plan.Amount == 0 {
+				return NinvoiceFreePlan
+			}
+			if plan != nil && plan.Amount > 0 {
+				return NinvoiceFreeTrial
+			}
 		}
 	}
 
