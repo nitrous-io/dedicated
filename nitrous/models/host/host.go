@@ -685,9 +685,13 @@ func (h *Host) MachineConfig() hostbuilderclient.Config {
 			// hostbuilder will replace the {{env}} with the hostbuilder environment
 			cfg["name"] = fmt.Sprintf("userhost-{{env}}-%d", h.ID)
 
-			size, err := strconv.Atoi(cfg["storage_size"].(string))
-			if err == nil {
-				cfg["storage_size"] = size
+			if ssize, ok := cfg["storage_size"]; ok {
+				if ssizeStr, ok := ssize.(string); ok {
+					size, err := strconv.Atoi(ssizeStr)
+					if err == nil {
+						cfg["storage_size"] = size
+					}
+				}
 			}
 
 			var disableEIP bool
