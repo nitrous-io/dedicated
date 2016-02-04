@@ -434,6 +434,11 @@ func (h *Host) tagVolume(volumeID, namePrefix string) error {
 		{Key: "Name", Value: name},
 	}
 
+	additionalTags, err := parseTags(h.Config.Tags)
+	if err == nil {
+		tags = append(tags, additionalTags...)
+	}
+
 	h.Printf("tagging volume %s with tags %#v", volumeID, tags)
 	if _, err := h.provider.CreateTags([]string{volumeID}, tags); err != nil {
 		return fmt.Errorf("amazon: failed to tag volume %s with tags %#v, err: %v", volumeID, tags, err)
@@ -658,15 +663,12 @@ func associateInstanceTags(ctx *host.HostContext) error {
 	defer mh.UpdateSince(label, time.Now())
 
 	// If there are tags configured, we set those too.
-	tags := []ec2.Tag{}
+	var tags []ec2.Tag
 	if h.Config.Tags != "" {
-		tagMap := map[string]string{}
-		if err := json.Unmarshal([]byte(h.Config.Tags), &tagMap); err != nil {
+		var err error
+		tags, err = parseTags(h.Config.Tags)
+		if err != nil {
 			h.Printf("error parsing tags %q, err: %v", h.Config.Tags, err)
-		} else {
-			for k, v := range tagMap {
-				tags = append(tags, ec2.Tag{Key: k, Value: v})
-			}
 		}
 	}
 
@@ -846,4 +848,20 @@ func getMetadata(h *Host) string {
 	}
 
 	return shellquote.QuoteCmd(strings.Join(metadata, "\n"))
+}
+
+// parseTags parses a JSON string representing a map of EC2 tag key-value pairs.
+// E.g. `{"plan": "free", "admin": "true"}`.
+func parseTags(jsonStr string) ([]ec2.Tag, error) {
+	tagMap := map[string]string{}
+	if err := json.Unmarshal([]byte(jsonStr), &tagMap); err != nil {
+		return nil, err
+	}
+
+	tags := []ec2.Tag{}
+	for k, v := range tagMap {
+		tags = append(tags, ec2.Tag{Key: k, Value: v})
+	}
+
+	return tags, nil
 }
