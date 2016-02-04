@@ -29,17 +29,17 @@ type Respec struct {
 
 // Find returns the pending respec for a host. There can only be 1 pending
 // respec for a host.
-func Find(d *db.Database, hostID int64) (*Respec, error) {
+func Find(d db.QueryReceiver, hostID int64) (*Respec, error) {
 	return findByState(d, hostID, StatePending)
 }
 
 // Find returns the processing respec for a host. There can only be 1 processing
 // respec for a host.
-func FindProcessing(d *db.Database, hostID int64) (*Respec, error) {
+func FindProcessing(d db.QueryReceiver, hostID int64) (*Respec, error) {
 	return findByState(d, hostID, StateProcessing)
 }
 
-func findByState(d *db.Database, hostID int64, state string) (*Respec, error) {
+func findByState(d db.QueryReceiver, hostID int64, state string) (*Respec, error) {
 	r := &Respec{}
 	err := d.Get(r, `SELECT * FROM respecs
 		WHERE host_id = $1 AND state = $2
@@ -76,7 +76,7 @@ func (r *Respec) Insert(tx *sqlx.Tx) error {
 	return nstmt.QueryRowx(r).StructScan(r)
 }
 
-func (r *Respec) UpdateState(d *db.Database, state string) error {
+func (r *Respec) UpdateState(d db.QueryReceiver, state string) error {
 	r.State = state
 	nstmt, err := d.PrepareNamed(`UPDATE respecs
 		SET (state, updated_at) = (:state, now())
