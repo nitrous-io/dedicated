@@ -77,6 +77,7 @@ type hostConfig struct {
 	RegionID        string `json:"region_id"`
 	SecurityGroupID string `json:"security_group_id"`
 	IPAddress       string `json:"ip_address"`
+	Tags            string `json:"tags"`
 
 	// DisableEIP disables the allocation of Elastic IP for the current host
 	// When this happens, the returned IP will be the host's public IP.
