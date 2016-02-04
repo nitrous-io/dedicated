@@ -39,8 +39,9 @@ func modifyInstanceType(provider instanceProvider, h *Host, instanceType string)
 	return nil
 }
 
-func setTags(provider instanceProvider, h *Host) error {
+func setTags(provider instanceProvider, h *Host, additionalTags []ec2.Tag) error {
 	tags := []ec2.Tag{{"Name", h.Name()}}
+	tags = append(tags, additionalTags...)
 	if h.driverConfig.Env != "" {
 		tags = append(tags, ec2.Tag{"dedicated", h.driverConfig.Env})
 	}

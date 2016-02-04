@@ -2173,6 +2173,28 @@ var _ = Describe("models/host", func() {
 					"source_ami":   "ami-deadface",
 					"storage_size": 9,
 				},
+				&host.Host{ // test that all of the provider template's config is included
+					ID:        42,
+					SourceAMI: sql.NullString{"ami-deadface", true},
+					ProviderTemplate: &providertemplate.ProviderTemplate{
+						Provider: "amazon",
+						Config: hstore.Hstore{
+							Map: map[string]sql.NullString{
+								"tags": sql.NullString{`{"plan": "free"}`, true},
+							},
+						},
+					},
+				}: hostbuilderclient.Config{
+					"host_id":     int64(42),
+					"id":          "",
+					"volume_id":   "",
+					"region_id":   "",
+					"ip_address":  "",
+					"name":        "userhost-{{env}}-42",
+					"disable_eip": false,
+					"source_ami":  "ami-deadface",
+					"tags":        `{"plan": "free"}`,
+				},
 			}
 
 			for h, cfg := range testCases {

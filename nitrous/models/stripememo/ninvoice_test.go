@@ -49,6 +49,29 @@ var _ = Describe("models/stripememo/ninvoice", func() {
 		}`))
 	})
 
+	It("serializes an invoice for a free plan", func() {
+		inv := NewNinvoice(stripememo.NinvoiceFreePlan)
+		j, err := jsonize(inv)
+		Expect(err).To(BeNil())
+		Expect(j).To(MatchJSON(`{
+			"id": 0,
+			"user_id": 0,
+			"amount": 0,
+			"period_start": "2016-02-04T03:48:04Z",
+			"state": "paid",
+			"description": "Free Tier",
+			"items": [{
+				"amount": 0,
+				"description": "Free Tier",
+				"sid": "in_17ae6CD2OOBduWpzFld7AWwH-line1",
+				"total_charge": 0
+			}],
+			"sid": "in_17ae6CD2OOBduWpzFld7AWwH",
+			"total_charge": 0,
+			"period_end": "2016-02-04T03:48:04Z"
+		}`))
+	})
+
 	It("serializes free trial invoice", func() {
 		inv := NewNinvoice(stripememo.NinvoiceFreeTrial)
 		j, err := jsonize(inv)
@@ -239,8 +262,9 @@ var _ = Describe("models/stripememo/ninvoice", func() {
 	})
 
 	Context("State()", func() {
-		var testcases = map[string]string{
+		testcases := map[string]string{
 			"july01":                 invoice.StatePaid,
+			"freeplan":               invoice.StatePaid,
 			"freetrial":              invoice.StatePaid,
 			"success-sub":            invoice.StatePaid,
 			"success-usage":          invoice.StatePaid,
@@ -260,8 +284,9 @@ var _ = Describe("models/stripememo/ninvoice", func() {
 	})
 
 	Context("Type()", func() {
-		var testcases = []string{
+		testcases := []string{
 			"july01",
+			"freeplan",
 			"freetrial",
 			"success-sub",
 			"success-usage",
@@ -281,8 +306,9 @@ var _ = Describe("models/stripememo/ninvoice", func() {
 	})
 
 	Context("IsSubscription()", func() {
-		var testcases = map[string]bool{
+		testcases := map[string]bool{
 			"july01":                 true,
+			"freeplan":               true,
 			"freetrial":              true,
 			"success-sub":            true,
 			"success-usage":          false,

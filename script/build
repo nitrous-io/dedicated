@@ -142,6 +142,7 @@ build_nitrous() {
     "nitrous/cmd/poolman" \
     "nitrous/cmd/restore-usage-quota" \
     "nitrous/cmd/send-usage-quota-emails" \
+    "nitrous/cmd/clean-host-transitions" \
   )
   if [ "$ENV" != "development" ]; then
     (build_assets)
