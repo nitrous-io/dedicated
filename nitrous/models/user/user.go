@@ -19,6 +19,7 @@ import (
 	"github.com/nitrous-io/dedicated/nitrous/db"
 	"github.com/nitrous-io/dedicated/nitrous/envvars"
 	"github.com/nitrous-io/dedicated/nitrous/models/billingprofile"
+	"github.com/nitrous-io/dedicated/nitrous/models/bonus"
 	"github.com/nitrous-io/dedicated/nitrous/models/userprofile"
 	"github.com/nitrous-io/dedicated/nitrous/pkg/bcrypt"
 	"github.com/nitrous-io/dedicated/nitrous/pkg/blacklist"
@@ -132,6 +133,34 @@ type User struct {
 
 	// deprecated
 	PreviousPromoCode sql.NullString `db:"previous_promo_code"`
+}
+
+func (u *User) GrantBonus(d *db.Database, bn *bonus.Bonus) error {
+	// We want to rollback transaction if user has already earned bonus
+	return d.WithTransaction(func(tx *sqlx.Tx) error {
+		err := tx.QueryRowx(`UPDATE users
+		SET
+		  usage_quota = usage_quota + $1,
+                 updated_at = now()
+               FROM hosts
+               WHERE (
+                 users.id = $2
+                 AND hosts.user_id = users.id
+                 AND hosts.free = true
+                 AND hosts.terminated_at IS NULL
+               )
+               RETURNING (users.*);
+		`, bn.Amount, u.ID).StructScan(u)
+		if err != nil {
+			return err
+		}
+
+		ebn := &bonus.EarnedBonus{
+			BonusID: bn.ID,
+			UserID:  u.ID,
+		}
+		return ebn.Insert(tx)
+	})
 }
 
 func (u *User) BillingProfile(d db.QueryReceiver) (*billingprofile.BillingProfile, error) {
