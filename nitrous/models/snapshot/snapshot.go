@@ -84,6 +84,23 @@ func FindByImageID(d db.QueryReceiver, imageID int64) (*SnapshotWithOwner, error
 	return s, nil
 }
 
+func FindByImageIDAndOrgID(d db.QueryReceiver, imageID, orgID int64) (*SnapshotWithOwner, error) {
+	s := &SnapshotWithOwner{}
+	if err := d.Get(s, `SELECT snapshots.*,
+			users.username AS owner_username,
+			users.name AS owner_name,
+			users.email AS owner_email
+		FROM snapshots
+			LEFT JOIN users ON users.id = snapshots.user_id
+		WHERE (
+			snapshots.image_id = $1
+			AND snapshots.org_id = $2
+		);`, imageID, orgID); err != nil {
+		return nil, err
+	}
+	return s, nil
+}
+
 func FindBySlug(d db.QueryReceiver, slug string) (*SnapshotWithOwner, error) {
 	s := &SnapshotWithOwner{}
 	if err := d.Get(s, `SELECT snapshots.*,

@@ -93,7 +93,7 @@ func Publish(env *middleware.Env, w http.ResponseWriter, r *http.Request) error 
 	}
 
 	// Check whether image has already been published as a snapshot.
-	if _, err := snapshot.FindByImageID(db, img.ID); err == nil {
+	if _, err := snapshot.FindByImageIDAndOrgID(db, img.ID, o.ID); err == nil {
 		return errSnapshotAlreadyPublished
 	}
 
@@ -215,7 +215,7 @@ func Publish(env *middleware.Env, w http.ResponseWriter, r *http.Request) error 
 			return
 		}
 
-		swo, err := snapshot.FindByImageID(tx, s.ImageID)
+		swo, err := snapshot.FindByImageIDAndOrgID(tx, s.ImageID, o.ID)
 		if err != nil {
 			publishFailure(err)
 			return
