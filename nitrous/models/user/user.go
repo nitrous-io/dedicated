@@ -15,6 +15,7 @@ import (
 	"github.com/Sirupsen/logrus"
 	"github.com/jmoiron/sqlx"
 	"github.com/lib/pq"
+	"github.com/lib/pq/hstore"
 	"github.com/nitrous-io/dedicated/nitrous/db"
 	"github.com/nitrous-io/dedicated/nitrous/envvars"
 	"github.com/nitrous-io/dedicated/nitrous/models/billingprofile"
@@ -387,9 +388,89 @@ func (u *User) UpdatePhoneAuthed(d db.QueryReceiver, b bool) error {
 		RETURNING *`, b, u.ID).StructScan(u)
 }
 
-func (u *User) FreeHostUsage(d db.QueryReceiver, endTime time.Time) (int64, error) {
+// There are some host_transitions with running state and null ended_at.
+// Before compute free host usage, we have to clean up bad host_transitions row of a user.
+// We do it by filling up ended_at with created_at of the next host_transition.
+func (u *User) FreeHostUsage(db *db.Database, endTime time.Time) (int64, error) {
+	type HostTransition struct {
+		ID            int64          `db:"id"`
+		HostID        int64          `db:"host_id"`
+		InitiatorID   sql.NullInt64  `db:"initiator_id"`
+		PreviousState sql.NullString `db:"previous_state"`
+		State         string         `db:"state"`
+		CreatedAt     *time.Time     `db:"created_at"`
+		EndedAt       *time.Time     `db:"ended_at"`
+		Metadata      hstore.Hstore  `db:"metadata"`
+	}
+
+	err := db.WithTransaction(func(tx *sqlx.Tx) error {
+		// select all host transitions of user's running, free hosts
+		// which ended_at are null and omit the last row of each host
+		hostTransitions := []*HostTransition{}
+		err := tx.Select(&hostTransitions, `
+			SELECT ht.*
+			FROM host_transitions AS ht
+				JOIN hosts AS h on ht.host_id = h.id
+				JOIN users AS u on h.user_id = u.id
+			WHERE u.id = $1
+				AND ht.state = 'running'
+				AND h.free = true
+				AND ht.ended_at IS NULL
+				AND ht.id < (
+					SELECT MAX(ht1.id) FROM host_transitions ht1
+					JOIN hosts AS h1 ON ht1.host_id = h1.id
+					JOIN users AS u1 ON u1.id = h1.user_id
+					WHERE u.id = $1
+					AND ht1.host_id = ht.host_id
+				)
+		`, u.ID)
+		if err != nil {
+			if err != sql.ErrNoRows {
+				return err
+			}
+		}
+
+		for _, ht := range hostTransitions {
+			nextOfNullEndedAtHostTransitions := &HostTransition{}
+			err = tx.Get(nextOfNullEndedAtHostTransitions, `
+			SELECT * FROM host_transitions
+			WHERE host_id = $1
+			AND created_at > $2
+			ORDER BY created_at
+			LIMIT 1
+		`, ht.HostID, ht.CreatedAt)
+			if err != nil {
+				if err == sql.ErrNoRows {
+					continue
+				} else {
+					return err
+				}
+			}
+
+			newEndedAt := nextOfNullEndedAtHostTransitions.CreatedAt
+			_, err = tx.Exec(`
+				UPDATE host_transitions SET ended_at = $1 WHERE id = $2
+			`, newEndedAt, ht.ID)
+			if err != nil {
+				return err
+			}
+
+			logrus.WithFields(logrus.Fields{
+				"alertdevs": true,
+				"host_id":   ht.HostID,
+				"ht_id":     ht.ID,
+			}).Warn("host_transitions: null ended_at with running state for id: %d", ht.ID)
+		}
+
+		return nil
+	})
+
+	if err != nil {
+		return 0, err
+	}
+
 	var seconds int64
-	err := d.QueryRowx(`
+	err = db.QueryRowx(`
 		SELECT COALESCE(SUM(
 			CAST(EXTRACT(
 				EPOCH FROM (
@@ -411,8 +492,8 @@ func (u *User) FreeHostUsage(d db.QueryReceiver, endTime time.Time) (int64, erro
 	return seconds, nil
 }
 
-func (u *User) HasUsageRemaining(d db.QueryReceiver) bool {
-	seconds, err := u.FreeHostUsage(d, time.Now())
+func (u *User) HasUsageRemaining(db *db.Database) bool {
+	seconds, err := u.FreeHostUsage(db, time.Now())
 	if err != nil {
 		return false
 	}
@@ -641,13 +722,13 @@ func (u *User) GenerateConfirmationURL(d db.QueryReceiver) (*url.URL, error) {
 	}, nil
 }
 
-func (u *User) SendUsageNoticeEmail(d db.QueryReceiver) error {
+func (u *User) SendUsageNoticeEmail(db *db.Database) error {
 	var usageQuotaInHours int64
 	if u.UsageQuota.Valid {
 		usageQuotaInHours = u.UsageQuota.Int64 / 60 / 60
 	}
 
-	secondsUsed, err := u.FreeHostUsage(d, time.Now())
+	secondsUsed, err := u.FreeHostUsage(db, time.Now())
 	if err != nil {
 		return err
 	}

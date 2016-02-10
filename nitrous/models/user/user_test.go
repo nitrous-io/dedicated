@@ -871,6 +871,140 @@ var _ = Describe("models/user", func() {
 			Expect(err).To(BeNil())
 		})
 
+		// bad row here means empty ended_at and running state host transition
+		It("fixes bad host_transitions row and returns correct usage", func() {
+			hs1, err := test.CreateHostStack(db, &test.HostStack{U: hs.U})
+			Expect(err).To(BeNil())
+
+			// HOST 1 TRANSITIONS
+			// born -> running(bad 1hour) -> stopping -> running(1hour) -> stopping ->
+			// stopped -> usage_quota_restored_at-> starting -> running(2hours) -> terminated
+
+			// 1 hour bad row
+			_, err = db.Exec(`
+				INSERT INTO host_transitions (
+				host_id, previous_state, state, created_at
+				) values ($1, $2, $3, $4);
+			`, hs1.H.ID, "born", "running", quotaRestoredAt.Add(-100*time.Hour))
+			Expect(err).To(BeNil())
+
+			_, err = db.Exec(`
+				INSERT INTO host_transitions (
+				host_id, previous_state, state, created_at, ended_at
+				) values ($1, $2, $3, $4, $5);
+			`, hs1.H.ID, "running", "stopping",
+				quotaRestoredAt.Add(-99*time.Hour), quotaRestoredAt.Add(-98*time.Hour))
+			Expect(err).To(BeNil())
+
+			// 1 hour
+			_, err = db.Exec(`
+				INSERT INTO host_transitions (
+				host_id, previous_state, state, created_at, ended_at
+				) values ($1, $2, $3, $4, $5);
+			`, hs1.H.ID, "starting", "running",
+				quotaRestoredAt.Add(-98*time.Hour), quotaRestoredAt.Add(-97*time.Hour))
+			Expect(err).To(BeNil())
+
+			_, err = db.Exec(`
+				INSERT INTO host_transitions (
+				host_id, previous_state, state, created_at, ended_at
+				) values ($1, $2, $3, $4, $5);
+			`, hs1.H.ID, "running", "stopping",
+				quotaRestoredAt.Add(-97*time.Hour), quotaRestoredAt.Add(-96*time.Hour))
+			Expect(err).To(BeNil())
+
+			_, err = db.Exec(`
+				INSERT INTO host_transitions (
+				host_id, previous_state, state, created_at, ended_at
+				) values ($1, $2, $3, $4, $5);
+			`, hs1.H.ID, "stopping", "stopped",
+				quotaRestoredAt.Add(-96*time.Hour), quotaRestoredAt.Add(1*time.Hour))
+			Expect(err).To(BeNil())
+
+			// 2 hour
+			_, err = db.Exec(`
+				INSERT INTO host_transitions (
+				host_id, previous_state, state, created_at, ended_at
+				) values ($1, $2, $3, $4, $5);
+			`, hs1.H.ID, "starting", "running",
+				quotaRestoredAt.Add(1*time.Hour), quotaRestoredAt.Add(3*time.Hour))
+			Expect(err).To(BeNil())
+
+			// terminated
+			_, err = db.Exec(`
+				INSERT INTO host_transitions (
+				host_id, previous_state, state, created_at
+				) values ($1, $2, $3, $4);
+			`, hs1.H.ID, "running", "terminated", quotaRestoredAt.Add(3*time.Hour))
+			Expect(err).To(BeNil())
+
+			// HOST 2 TRANSITIONS
+			// usage_quota_restored_at -> born -> running(1hour) -> stopping ->
+			// running(bad 1hour) -> stopping -> running
+
+			// 1 hour
+			_, err = db.Exec(`
+				INSERT INTO host_transitions (
+					host_id, previous_state, state, created_at, ended_at
+				) values ($1, $2, $3, $4, $5);
+			`, hs.H.ID, "born", "running",
+				quotaRestoredAt.Add(1*time.Hour), quotaRestoredAt.Add(2*time.Hour))
+			Expect(err).To(BeNil())
+
+			_, err = db.Exec(`
+				INSERT INTO host_transitions (
+					host_id, previous_state, state, created_at, ended_at
+				) values ($1, $2, $3, $4, $5);
+			`, hs.H.ID, "running", "stopping",
+				quotaRestoredAt.Add(2*time.Hour), quotaRestoredAt.Add(3*time.Hour))
+			Expect(err).To(BeNil())
+
+			// 1 hour bad row
+			_, err = db.Exec(`
+				INSERT INTO host_transitions (
+					host_id, previous_state, state, created_at
+				) values ($1, $2, $3, $4);
+			`, hs.H.ID, "stopping", "running", quotaRestoredAt.Add(3*time.Hour))
+			Expect(err).To(BeNil())
+
+			_, err = db.Exec(`
+				INSERT INTO host_transitions (
+					host_id, previous_state, state, created_at, ended_at
+				) values ($1, $2, $3, $4, $5);
+			`, hs.H.ID, "running", "stopping",
+				quotaRestoredAt.Add(4*time.Hour), quotaRestoredAt.Add(5*time.Hour))
+			Expect(err).To(BeNil())
+
+			// running currently
+			_, err = db.Exec(`
+				INSERT INTO host_transitions (
+					host_id, previous_state, state, created_at
+				) values ($1, $2, $3, $4);
+			`, hs.H.ID, "stopping", "running", quotaRestoredAt.Add(5*time.Hour))
+			Expect(err).To(BeNil())
+
+			fakeTimeNow := time.Date(2014, 12, 31, 0, 0, 0, 0, time.Local)
+			fakeRunningTime := int64(fakeTimeNow.Sub(quotaRestoredAt.Add(5 * time.Hour)).Seconds())
+			Expect(fakeRunningTime).To(Equal(int64(31431600)))
+
+			_, err = db.Exec(`UPDATE hosts SET free = true WHERE user_id = $1`, hs.U.ID)
+			Expect(err).To(BeNil())
+
+			secondsUsed, err := hs.U.FreeHostUsage(db, fakeTimeNow)
+			Expect(err).To(BeNil())
+			Expect(secondsUsed).To(Equal(int64(14400 + fakeRunningTime)))
+
+			// It should have 2 null ended_at,
+			// 1) terminated host_transition,
+			// 2) running host_transition,
+			var nullEndedAtCount int
+			err = db.Get(&nullEndedAtCount, `
+				SELECT COUNT(*) FROM host_transitions WHERE host_id IN ($1, $2) AND ended_at IS NULL;
+			`, hs.H.ID, hs1.H.ID)
+			Expect(err).To(BeNil())
+			Expect(nullEndedAtCount).To(Equal(2))
+		})
+
 		It(`returns sum of 'running' host transitions in seconds
 			started at time before usage_quota_restored_at and
 			ended at time after usage_quota_restored_at`, func() {
