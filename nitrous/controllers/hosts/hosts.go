@@ -462,9 +462,9 @@ func Respec(h *host.Host, env *middleware.Env, w http.ResponseWriter, r *http.Re
 	h.ProviderTemplate = pt // So that MachineConfig() returns config with the new provider template.
 	config := h.MachineConfig()
 
-	if _, err := HostbuilderClient.Respec(h.Provider, config, hostbuilderHeaders(env), host.URLArgsFromHost(h)); err != nil {
-		return err
-	}
+	// Perform the respec request asynchronously, since we expect to get the
+	// result from hostbuilder asynchronously (i.e. via the queue).
+	go HostbuilderClient.Respec(h.Provider, config, hostbuilderHeaders(env), host.URLArgsFromHost(h))
 
 	PublishHostEvent(env, controllers.EventHostRespeccing, h)
 	env.Status = http.StatusAccepted
