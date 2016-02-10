@@ -39,6 +39,7 @@ var _ = Describe("user serializer", func() {
 			MaxContainers:     sql.NullInt64{99, true},
 			CreatedAt:         &createdAt,
 			UpdatedAt:         &updatedAt,
+			UsageQuota:        sql.NullInt64{int64(123), true},
 			UsageQuotaPeriod:  sql.NullInt64{int64((30 * 24 * time.Hour).Seconds()), true},
 		}
 	})
@@ -63,6 +64,7 @@ var _ = Describe("user serializer", func() {
 				"phone_country_code": "65",
 				"phone_authed": false,
 				"max_containers": 99,
+				"usage_quota": 123,
 				"usage_remaining": 100,
 				"created_at": "2013-11-01T00:00:00Z",
 				"updated_at": "2013-11-02T00:00:00Z",
@@ -88,6 +90,7 @@ var _ = Describe("user serializer", func() {
 				"phone_country_code": "65",
 				"phone_authed": false,
 				"max_containers": 99,
+				"usage_quota": 123,
 				"usage_remaining": 100,
 				"created_at": "2013-11-01T00:00:00Z",
 				"updated_at": "2013-11-02T00:00:00Z"
@@ -114,6 +117,7 @@ var _ = Describe("user serializer", func() {
 				"phone_country_code": "65",
 				"phone_authed": false,
 				"max_containers": 99,
+				"usage_quota": 123,
 				"usage_remaining": 100,
 				"created_at": "2013-11-01T00:00:00Z",
 				"updated_at": "2013-11-02T00:00:00Z"
@@ -138,6 +142,7 @@ var _ = Describe("user serializer", func() {
 				"phone": "88884444",
 				"phone_country_code": "65",
 				"phone_authed": false,
+				"usage_quota": 123,
 				"usage_remaining": 100,
 				"created_at": "2013-11-01T00:00:00Z",
 				"updated_at": "2013-11-02T00:00:00Z"
@@ -163,6 +168,7 @@ var _ = Describe("user serializer", func() {
 				"phone_country_code": "65",
 				"phone_authed": false,
 				"max_containers": 99,
+				"usage_quota": 123,
 				"usage_remaining": 100,
 				"can_use_desktop_app": false,
 				"created_at": "2013-11-01T00:00:00Z",
@@ -189,6 +195,7 @@ var _ = Describe("user serializer", func() {
 				"phone_country_code": "65",
 				"phone_authed": false,
 				"max_containers": 99,
+				"usage_quota": 123,
 				"usage_remaining": 100,
 				"can_use_desktop_app": true,
 				"created_at": "2013-11-01T00:00:00Z",
@@ -259,6 +266,7 @@ var _ = Describe("user serializer", func() {
 				"phone_country_code": "65",
 				"phone_authed": false,
 				"max_containers": 99,
+				"usage_quota": 123,
 				"usage_remaining": 100,
 				"created_at": "2013-11-01T00:00:00Z",
 				"updated_at": "2013-11-02T00:00:00Z"

@@ -13,6 +13,7 @@ import (
 	"github.com/nitrous-io/dedicated/nitrous/db"
 	"github.com/nitrous-io/dedicated/nitrous/envvars"
 	"github.com/nitrous-io/dedicated/nitrous/models/billingprofile"
+	"github.com/nitrous-io/dedicated/nitrous/models/bonus"
 	"github.com/nitrous-io/dedicated/nitrous/models/container"
 	"github.com/nitrous-io/dedicated/nitrous/models/containercollab"
 	"github.com/nitrous-io/dedicated/nitrous/models/host"
@@ -57,6 +58,99 @@ var _ = Describe("models/user", func() {
 		if db != nil {
 			db.Close()
 		}
+	})
+
+	Describe("GrantBonus()", func() {
+		var (
+			u          *user.User
+			threeHours = int64(3 * 60 * 60)
+			bn         *bonus.Bonus
+		)
+
+		BeforeEach(func() {
+			u = &user.User{
+				Username: "aroon",
+				Password: "123456",
+				Email:    "aroon@zerobotlabs.com",
+			}
+			Expect(test.WrapInTransaction(db, u.Insert)).To(BeNil())
+
+			_, err := db.Exec("INSERT INTO bonuses (slug, amount) VALUES ($1, $2);", "follow-twitter", threeHours)
+			Expect(err).To(BeNil())
+
+			bn, err = bonus.FindBySlug(db, "follow-twitter")
+			Expect(err).To(BeNil())
+		})
+
+		It("increments usage_quota with the amount provided and inserts record into earned_bonuses", func() {
+			// Create a free host belonging to the user.
+			_, err := test.CreateHostStack(db, &test.HostStack{
+				U: u,
+				H: &host.Host{
+					Slug: "free-host",
+					Free: true,
+				},
+			})
+			Expect(err).To(BeNil())
+
+			origUsageQuota := u.UsageQuota.Int64
+			err = u.GrantBonus(db, bn)
+			Expect(err).To(BeNil())
+
+			// Check if user quota is updated
+			updatedUsageQuota := u.UsageQuota.Int64
+			expectedUsageQuota := origUsageQuota + bn.Amount
+			Expect(updatedUsageQuota).To(Equal(expectedUsageQuota))
+
+			// Check if earned_bonus record inserted
+			ebns, err := bonus.FindEarnedByUser(db, u.ID)
+			Expect(err).To(BeNil())
+			Expect(ebns).To(HaveLen(1))
+			Expect(ebns[0].UserID).To(Equal(u.ID))
+			Expect(ebns[0].BonusID).To(Equal(bn.ID))
+		})
+
+		It("should return error and not update user quota if earned bonus record exists", func() {
+			_, err := test.CreateHostStack(db, &test.HostStack{
+				U: u,
+				H: &host.Host{
+					Slug: "not-free-host",
+					Free: true,
+				},
+			})
+			Expect(err).To(BeNil())
+
+			_, err = db.Exec(`INSERT INTO earned_bonuses (bonus_id, user_id) VALUES ($1, $2);`, bn.ID, u.ID)
+			Expect(err).To(BeNil())
+
+			origUsageQuota := u.UsageQuota.Int64
+			err = u.GrantBonus(db, bn)
+			Expect(err).To(Equal(bonus.ErrBonusAlreadyEarned))
+
+			u1, err := user.FindByID(db, u.ID)
+			Expect(err).To(BeNil())
+			updatedUsageQuota := u1.UsageQuota.Int64
+
+			Expect(updatedUsageQuota).To(Equal(origUsageQuota))
+		})
+
+		It("returns error if host is not free", func() {
+			_, err := test.CreateHostStack(db, &test.HostStack{
+				U: u,
+				H: &host.Host{
+					Slug: "not-free-host",
+					Free: false,
+				},
+			})
+			Expect(err).To(BeNil())
+
+			origUsageQuota := u.UsageQuota.Int64
+			err = u.GrantBonus(db, bn)
+			Expect(err).To(Equal(sql.ErrNoRows))
+
+			updatedUsageQuota := u.UsageQuota.Int64
+			Expect(updatedUsageQuota).To(Equal(origUsageQuota))
+		})
 	})
 
 	Describe("RestoreUsageQuotas()", func() {
