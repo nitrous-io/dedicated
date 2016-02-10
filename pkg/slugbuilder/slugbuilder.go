@@ -4,7 +4,6 @@ import (
 	"fmt"
 	"math/rand"
 	"regexp"
-	"strconv"
 	"strings"
 	"time"
 )
@@ -13,11 +12,12 @@ var (
 	nonAlphaNumericsRegex   *regexp.Regexp
 	repeatedDashesRegex     *regexp.Regexp
 	dashesAtStartOrEndRegex *regexp.Regexp
+	startsWithNumberRegex   *regexp.Regexp
 	validSlugRegex          *regexp.Regexp
 
-	// numericOnlyPrefix is prefixed to slugs that end up being purely numeric
+	// numericSlugPrefix is prefixed to slugs that end up starting with a number
 	// after sanitization.
-	numericOnlyPrefix = "slug"
+	numericSlugPrefix = "slug"
 )
 
 func init() {
@@ -26,6 +26,7 @@ func init() {
 	nonAlphaNumericsRegex = regexp.MustCompile(`[^A-Za-z0-9\-]`)
 	repeatedDashesRegex = regexp.MustCompile(`-{2,}`)
 	dashesAtStartOrEndRegex = regexp.MustCompile(`^-|-$`)
+	startsWithNumberRegex = regexp.MustCompile(`^[0-9]`)
 	validSlugRegex = regexp.MustCompile(`^[a-z0-9\-]+-\d{4,}$`)
 }
 
@@ -62,13 +63,13 @@ func Slugify(s string) string {
 	s = nonAlphaNumericsRegex.ReplaceAllString(s, "-")
 	s = sanitize(s)
 
-	// Prefix with non-numeric character if slug is now purely numbers.
-	if _, err := strconv.Atoi(s); err == nil {
-		s = numericOnlyPrefix + s
+	// Prefix with non-numeric characters if slug starts with a number.
+	if startsWithNumberRegex.MatchString(s) {
+		s = numericSlugPrefix + s
 	}
 
 	if s == "" {
-		s = numericOnlyPrefix
+		s = numericSlugPrefix
 	}
 
 	return s
