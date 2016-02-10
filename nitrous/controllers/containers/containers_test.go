@@ -1476,6 +1476,7 @@ var _ = Describe("controllers/containers", func() {
 			Expect(s.UserID).To(Equal(u.ID))
 			Expect(s.Name).To(MatchRegexp("elixir-staging-snapshot-20140813-000000"))
 			Expect(s.Slug).To(MatchRegexp("elixir-staging-snapshot-20140813-000000"))
+			Expect(s.PublishedAt.Valid).To(BeFalse())
 		})
 
 		It("returns image, container and snapshot on success", func() {

@@ -7,15 +7,16 @@ import (
 )
 
 type Snapshot struct {
-	ID          int64  `json:"id"`
-	ImageID     int64  `json:"image_id"`
-	UserID      int64  `json:"user_id"`
-	OrgID       int64  `json:"org_id"`
-	Slug        string `json:"slug"`
-	DisplayName string `json:"display_name"`
-	Size        int64  `json:"size,omitempty"`
-	Downloads   int64  `json:"downloads"`
-	Stack       string `json:"stack"`
+	ID          int64      `json:"id"`
+	ImageID     int64      `json:"image_id"`
+	UserID      int64      `json:"user_id"`
+	OrgID       int64      `json:"org_id"`
+	Slug        string     `json:"slug"`
+	DisplayName string     `json:"display_name"`
+	Size        int64      `json:"size,omitempty"`
+	Downloads   int64      `json:"downloads"`
+	PublishedAt *time.Time `json:"published_at,omitempty"`
+	Stack       string     `json:"stack"`
 
 	OwnerUsername string `json:"owner_username,omitempty"`
 	OwnerName     string `json:"owner_name,omitempty"`
@@ -44,6 +45,9 @@ func SerializeSnapshot(s *snapshot.Snapshot) *Snapshot {
 	}
 	if s.Size.Valid {
 		serialized.Size = s.Size.Int64
+	}
+	if s.PublishedAt.Valid {
+		serialized.PublishedAt = &s.PublishedAt.Time
 	}
 	if s.CreatedAt.Valid {
 		serialized.CreatedAt = &s.CreatedAt.Time

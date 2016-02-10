@@ -23,7 +23,8 @@ type Snapshot struct {
 	OriginalImage string        `db:"original_image"`
 	Size          sql.NullInt64 `db:"size"`
 
-	Downloads int64 `db:"downloads"`
+	Downloads   int64       `db:"downloads"`
+	PublishedAt pq.NullTime `db:"published_at"`
 
 	CreatedAt pq.NullTime `db:"created_at"`
 	UpdatedAt pq.NullTime `db:"updated_at"`
@@ -117,8 +118,8 @@ func FindBySlug(d db.QueryReceiver, slug string) (*SnapshotWithOwner, error) {
 
 func (s *Snapshot) Insert(d db.QueryReceiver) error {
 	nstmt, err := d.PrepareNamed(`INSERT INTO snapshots
-		(image_id, user_id, org_id, slug, namespace, name, tag, display_name, original_image, size, downloads)
-		VALUES (:image_id, :user_id, :org_id, :slug, :namespace, :name, :tag, :display_name, :original_image, :size, :downloads)
+		(image_id, user_id, org_id, slug, namespace, name, tag, display_name, original_image, size, downloads, published_at)
+		VALUES (:image_id, :user_id, :org_id, :slug, :namespace, :name, :tag, :display_name, :original_image, :size, :downloads, :published_at)
 		RETURNING *;`)
 	if err != nil {
 		return err
@@ -128,8 +129,8 @@ func (s *Snapshot) Insert(d db.QueryReceiver) error {
 
 func (s *Snapshot) Update(d db.QueryReceiver) error {
 	nstmt, err := d.PrepareNamed(`UPDATE snapshots
-		SET (image_id, user_id, org_id, slug, namespace, name, tag, display_name, original_image, size, downloads, updated_at)
-		= (:image_id, :user_id, :org_id, :slug, :namespace, :name, :tag, :display_name, :original_image, :size, :downloads, now())
+		SET (image_id, user_id, org_id, slug, namespace, name, tag, display_name, original_image, size, downloads, published_at, updated_at)
+		= (:image_id, :user_id, :org_id, :slug, :namespace, :name, :tag, :display_name, :original_image, :size, :downloads, :published_at, now())
 		WHERE id = :id
 		RETURNING *;`)
 	if err != nil {

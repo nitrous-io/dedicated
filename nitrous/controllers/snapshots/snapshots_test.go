@@ -646,6 +646,7 @@ var _ = Describe("controllers/snapshots", func() {
 					Expect(snap.DisplayName).To(Equal(i1.Name))
 					Expect(snap.OriginalImage).To(Equal(i1.OriginalImage.String))
 					Expect(snap.Size.Int64).To(Equal(mockClient.InspectImageReturn.VirtualSize))
+					Expect(snap.PublishedAt.Valid).To(BeTrue())
 
 					Expect(snap.OwnerUsername.String).To(Equal(u.Username))
 					Expect(snap.OwnerName.String).To(Equal(u.Name))
