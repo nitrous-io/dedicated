@@ -61,6 +61,7 @@ var (
 		"oauth.Logout":               1,
 		"feedback.Send":              1,
 		"orgs.Index":                 1,
+		"plans.Index":                1,
 	}
 )
 

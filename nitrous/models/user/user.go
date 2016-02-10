@@ -459,7 +459,7 @@ func (u *User) FreeHostUsage(db *db.Database, endTime time.Time) (int64, error) 
 				"alertdevs": true,
 				"host_id":   ht.HostID,
 				"ht_id":     ht.ID,
-			}).Warn("host_transitions: null ended_at with running state for id: %d", ht.ID)
+			}).Warnf("host_transitions: null ended_at with running state for id: %d", ht.ID)
 		}
 
 		return nil
