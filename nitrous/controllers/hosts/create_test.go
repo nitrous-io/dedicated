@@ -731,7 +731,7 @@ var _ = Describe("POST /api/v0/hosts", func() {
 		})
 
 		It("converts the 'name' form value to valid slug", func() {
-			params.Set("name", "Rails-Host")
+			params.Set("name", "Rails Host")
 			doRequest(params)
 
 			hosts, err := host.FindAllByUser(db, u.ID)
@@ -739,6 +739,21 @@ var _ = Describe("POST /api/v0/hosts", func() {
 			Expect(hosts).To(HaveLen(1))
 			Expect(hosts[0].Slug).To(HavePrefix("rails-host"))
 			Expect(slugbuilder.IsValid(hosts[0].Slug)).To(BeTrue())
+		})
+
+		It("uses a host slug that starts with 'slug' if 'name' starts with digits", func() {
+			params.Set("name", "123aroonthampi")
+			res := doRequest(params)
+
+			Expect(res.Code).To(Equal(http.StatusOK))
+
+			hosts, err := host.FindAllByUser(db, u.ID)
+			Expect(err).To(BeNil())
+			Expect(hosts).To(HaveLen(1))
+
+			h := hosts[0]
+			Expect(h.Slug).To(HavePrefix("slug123aroonthampi"))
+			Expect(slugbuilder.IsValid(h.Slug)).To(BeTrue())
 		})
 
 		It("does not create the host when there's a host creation going on", func() {
