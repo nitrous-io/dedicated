@@ -1,0 +1,36 @@
+---
+- hosts: userhosts
+  vars:
+    - psql_app: pro-nitrous-io
+    - dedicated_environment: production
+    - environment: production
+  gather_facts: no
+  serial: 5 # 5 hosts at a time
+  strategy: free # Don't wait until all hosts on a batch finish
+  tasks:
+  - name: Get provider_identifier and instance_state
+    shell: heroku pg:psql --app {{ psql_app }} -c "select h.provider_identifier, h.provider_storage_identifier, h.state, h.region_identifier, (case when p.price > 0 then 'paid' else 'free' end) from hosts h join plans p on h.plan_id = p.id where h.slug = '{{ inventory_hostname }}';"
+    register: out
+    delegate_to: 127.0.0.1
+
+  - set_fact:
+      provider_identifier={{out.stdout_lines[2].split("|")[0] | trim }}
+      provider_storage_identifier={{out.stdout_lines[2].split("|")[1] | trim }}
+      state={{out.stdout_lines[2].split("|")[2] | trim }}
+      region={{out.stdout_lines[2].split("|")[3] | trim }}
+      plan={{out.stdout_lines[2].split("|")[4] | trim }}
+
+  - name: Add plan tag to volume
+    ec2_tag: resource={{ provider_storage_identifier }} region={{region}} state=present
+    delegate_to: 127.0.0.1
+    args:
+      tags:
+        plan: "{{ plan }}"
+
+  - name: Add plan tag to instance
+    ec2_tag: resource={{ provider_identifier }} region={{region}} state=present
+    delegate_to: 127.0.0.1
+    args:
+      tags:
+        plan: "{{ plan }}"
+    when: state == 'running'

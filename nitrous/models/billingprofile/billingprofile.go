@@ -83,6 +83,10 @@ func (bp *BillingProfile) IsNoCard() bool {
 	return bp.State == StateNoCard
 }
 
+func (bp *BillingProfile) IsPaid() bool {
+	return bp.State == StatePaid
+}
+
 func (bp *BillingProfile) MaxMinutes() int64 {
 	return bp.MaxHours.Int64 * 60
 }

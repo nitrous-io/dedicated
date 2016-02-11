@@ -7,6 +7,7 @@ import (
 	"github.com/nitrous-io/dedicated/nitrous/controllers/appsettings"
 	"github.com/nitrous-io/dedicated/nitrous/controllers/billing"
 	"github.com/nitrous-io/dedicated/nitrous/controllers/billingprofiles"
+	"github.com/nitrous-io/dedicated/nitrous/controllers/bonuses"
 	"github.com/nitrous-io/dedicated/nitrous/controllers/containercollabs"
 	"github.com/nitrous-io/dedicated/nitrous/controllers/containerkeys"
 	"github.com/nitrous-io/dedicated/nitrous/controllers/containers"
@@ -145,6 +146,8 @@ func (s *Server) drawRoutes() {
 				"/user/can_delete":                         r("users.CheckCanDelete", users.CheckCanDelete),
 				"/user/login_token":                        r("users.GetLoginToken", users.GetLoginToken),
 				"/user/promo_codes":                        r("promocodes.PendingPromoCodes", promocodes.PendingPromoCodes),
+				"/user/earned_bonuses":                     r("bonuses.EarnedByUser", bonuses.EarnedByUser),
+				"/bonuses":                                 r("bonuses.Index", bonuses.Index),
 				"/plans":                                   r("plans.Index", plans.Index),
 				"/hosts":                                   r("hosts.Index", hosts.Index),
 				"/images":                                  r("images.IndexAll", images.Index),
@@ -199,6 +202,7 @@ func (s *Server) drawRoutes() {
 				"/user/verify_phone":                       r("users.VerifyPhone", users.VerifyPhone),
 				"/user/profile":                            r("userprofiles.Update", userprofiles.Update),
 				"/user/settings":                           r("usersettings.Update", usersettings.Update),
+				"/user/bonus":                              r("users.IncrementUsageQuota", users.IncrementUsageQuota),
 				"/coupons":                                 r("coupon.Create", coupons.Create),
 				"/user/dismiss_first_time":                 r("users.DismissFirstTime", users.DismissFirstTime),
 				"/hosts":                                   r("hosts.Create", hosts.Create, EventHostCreated),

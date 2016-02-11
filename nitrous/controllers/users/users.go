@@ -16,6 +16,7 @@ import (
 	"github.com/nitrous-io/dedicated/nitrous/envvars"
 	"github.com/nitrous-io/dedicated/nitrous/middleware"
 	"github.com/nitrous-io/dedicated/nitrous/models/billingprofile"
+	"github.com/nitrous-io/dedicated/nitrous/models/bonus"
 	"github.com/nitrous-io/dedicated/nitrous/models/container"
 	"github.com/nitrous-io/dedicated/nitrous/models/emailcapture"
 	"github.com/nitrous-io/dedicated/nitrous/models/token"
@@ -41,6 +42,8 @@ var (
 	errExistsForbidden         = httperror.New(http.StatusForbidden, "forbidden", "forbidden")
 	errUserNotFound            = httperror.New(http.StatusNotFound, "user_not_found", "not found")
 	errExistingPasswordNoMatch = httperror.New(http.StatusBadRequest, "incorrect_existing_password", "your existing passsword is incorrect")
+	errInvalidBonusAction      = httperror.New(http.StatusNotFound, "bonus_not_found", "the bonus type is invalid")
+	errBonusAlreadyEarned      = httperror.New(http.StatusForbidden, "forbidden", "you have already earned this bonus")
 )
 
 func EmailCapture(env *middleware.Env, w http.ResponseWriter, r *http.Request) error {
@@ -152,6 +155,55 @@ func Update(env *middleware.Env, w http.ResponseWriter, r *http.Request) error {
 	})
 
 	return setUserResponse(env, u)
+}
+
+func IncrementUsageQuota(env *middleware.Env, w http.ResponseWriter, r *http.Request) error {
+	u := env.User
+	action := r.PostFormValue("action")
+
+	// Not abuse-proof (e.g. users can just send POST requests with the correct action to earn bonus hours)
+	// TODO: Replace with OAuth API https://dev.twitter.com/rest/reference/post/friendships/create
+	bn, err := bonus.FindBySlug(env.DB, action)
+	if err != nil {
+		if err == sql.ErrNoRows {
+			return errInvalidBonusAction
+		}
+		return err
+	}
+
+	if err := u.GrantBonus(env.DB, bn); err != nil {
+		if err == bonus.ErrBonusAlreadyEarned {
+			return errBonusAlreadyEarned
+		}
+		return errUserNotFound
+	}
+
+	ebns, err := bonus.FindEarnedByUser(env.DB, u.ID)
+	if err != nil {
+		return err
+	}
+
+	secondsUsed, err := u.FreeHostUsage(env.DB, time.Now())
+	if err != nil {
+		return err
+	}
+	usageRemaining := int64(0)
+	if u.UsageQuota.Valid {
+		usageRemaining = u.UsageQuota.Int64 - secondsUsed
+		if usageRemaining < 0 {
+			usageRemaining = 0
+		}
+	}
+
+	serializedUser := serializers.SerializeUser(u)
+	serializedUser.UsageRemaining = usageRemaining
+
+	env.Status = http.StatusOK
+	env.Data = map[string]interface{}{
+		"user":           serializedUser,
+		"earned_bonuses": serializers.SerializeEarnedBonuses(ebns),
+	}
+	return nil
 }
 
 func UpdatePhone(env *middleware.Env, w http.ResponseWriter, r *http.Request) error {

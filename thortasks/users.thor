@@ -126,6 +126,18 @@ class Users < Thor
       puts "#{u.summary}: usage_quota #{old_usage_quota} => #{usage_quota}"
     end
   end
+
+  desc "reset_quota IDENT", "reset the current quota period for a user"
+  def reset_quota(ident)
+    DB.transaction do
+      u = User.find(ident) {|ds| ds.where(users__deleted_at: nil )}
+      old_period = u.usage_quota_restored_at
+      new_period = Time.now
+      r = DB[:users].where(id: u.uid).update(usage_quota_restored_at: new_period)
+      rows_expected!(r, 1)
+      puts "#{u.summary}: usage_quota_restored_at #{old_period} => #{new_period}"
+    end
+  end
 end
 
 # vim:ft=ruby
