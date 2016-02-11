@@ -67,7 +67,10 @@ App.IdeController = Em.ObjectController.extend
       App.set 'eventsSocket', evSocket = App.EventsSocket.create()
       evSocket.connect()
 
-      pingerSocket = App.PingerSocket.create(hostId: container.get('host_id'), alert: container.get('host')?.auto_shutdown)
+      pingerSocket = App.PingerSocket.create
+        hostId: container.get('host_id')
+        pingWhenVisible: false
+        alert: container.get('host')?.auto_shutdown
       App.set 'pingerSocket', pingerSocket
       pingerSocket.connect()
 

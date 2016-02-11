@@ -2,6 +2,9 @@
 
 App.PingerSocket = Lib.Socket.extend
   hostId: null
+  pingWhenVisible: false # set to true to ping periodically when IDE is "visible"
+  started: false
+
   interval: 30000 # milliseconds
   timer: null
   listener: null
@@ -24,12 +27,15 @@ App.PingerSocket = Lib.Socket.extend
   didOpen: (ev) ->
     @_super.apply this, arguments
 
+    @set 'started', true
+
     if @firstTime
       @ping()
       @firstTime = false
 
-    @startPinging()
-    @handleVisibilityChange()
+    if @pingWhenVisible
+      @startPinging()
+      @handleVisibilityChange()
 
   didReceiveMessage: (ev) ->
     msg = ev.data
