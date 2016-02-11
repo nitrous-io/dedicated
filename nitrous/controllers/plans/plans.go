@@ -23,8 +23,8 @@ func Index(env *middleware.Env, w http.ResponseWriter, r *http.Request) error {
 	case bp.IsNoCard():
 		// Show all plans if user has not yet added a credit card.
 		finder = plan.AllPlansForProvider
-	case bp.IsFreeTier():
-		// Show all plans if user is in free tier and has no existing hosts.
+	case bp.IsFreeTier(), bp.IsPaid():
+		// Show all plans for free tier or paid user that has no existing hosts.
 		hosts, err := host.FindAllWithoutOrphaned(db, u.ID)
 		if err != nil {
 			return err
