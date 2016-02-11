@@ -60,6 +60,7 @@ App.IdeMainMenuView = Em.View.extend
 
   previewPortBinding: Em.Binding.oneWay 'App.container.previewPort'
   dashboardURLBinding: Em.Binding.oneWay 'App.dashboardURL'
+  userBinding: Em.Binding.oneWay 'App.user'
 
   previewItems: (->
     baseItems = []

@@ -20,6 +20,13 @@
             .ui.dropdown-triangle
           ul.dropdown-menu.right
             li
+              a href='/app/#/dashboard/earn-bonuses'
+                = App.user.usageRemainingHours
+                '  free hours remaining
+                = ui-progress value=App.user.usage_remaining max=App.user.usage_quota
+
+            li.separator
+            li
               a href=view.dashboardURL
                 | Dashboard
             li
