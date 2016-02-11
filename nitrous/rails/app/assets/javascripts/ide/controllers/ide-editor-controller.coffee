@@ -18,6 +18,8 @@ App.IdeEditorController = Em.ArrayController.extend App.IdeTabControllerMixin,
   collabSocketBinding: Em.Binding.oneWay 'App.router.ideController.collabSocket'
   collabSocketReadyBinding: Em.Binding.oneWay 'App.router.ideController.collabSocketReady'
 
+  pingerSocketBinding: Em.Binding.oneWay 'App.pingerSocket'
+
   supportsGoToDefinitionBinding: Em.Binding.oneWay 'activeTab.supportsGoToDefinition'
 
   activeFilesMonitorBinding: Em.Binding.oneWay 'App.router.ideController.activeFilesMonitor'
@@ -109,8 +111,8 @@ App.IdeEditorController = Em.ArrayController.extend App.IdeTabControllerMixin,
 
   goToDefinition: (doc) ->
     opsSocket = @get 'opsSocket'
-    if pl = doc.get('plugin')
-      pl.goToDefinition({opsSocket: opsSocket, sidebar: App.get('router.ideSidebarController')})
+    if plugin = doc.get('plugin')
+      plugin.goToDefinition({opsSocket: opsSocket, sidebar: App.get('router.ideSidebarController')})
 
   handleFileChanged: (err, file) ->
     path = App.Path.create(absolutePath: file)
@@ -127,13 +129,14 @@ App.IdeEditorController = Em.ArrayController.extend App.IdeTabControllerMixin,
   saveDocument: (doc) ->
     return unless @get 'opsSocketReady'
     return if doc.get('isImageFile')
-    opsSocket = @get 'opsSocket'
 
     if path = doc.get 'path'
       path.incrementProperty 'loadCount'
       doc.set 'readOnly', true
       if @get 'removeTrailingWhitespaceOnSave'
         doc.set 'removeTrailingWhitespaceTrigger', true
+
+      opsSocket = @get 'opsSocket'
       opsSocket.writeFile path.get('absolutePath'), doc.get('content'), (err, absolutePath) =>
         path.decrementProperty 'loadCount'
         doc.setProperties
@@ -147,26 +150,32 @@ App.IdeEditorController = Em.ArrayController.extend App.IdeTabControllerMixin,
         doc.set 'documentLastUpdated', Date.now()
 
         doc.set 'clean', true
-        if pl = doc.get('plugin')
-          pl.afterSave({opsSocket: opsSocket, sidebar: App.get('router.ideSidebarController')})
+
+        if plugin = doc.get('plugin')
+          plugin.afterSave({opsSocket: opsSocket, sidebar: App.get('router.ideSidebarController')})
+
+        @trackActivity()
     else
       @set 'saveDialog', App.SaveDialog.create document: doc
 
   saveNewDocument: ->
     return unless @get 'opsSocketReady'
     saveDialog = @get 'saveDialog'
-    opsSocket = @get 'opsSocket'
+    return unless saveDialog.validate()
 
-    unless saveDialog.validate()
-      saveDialog.set 'saving', true
-      doc = saveDialog.get 'document'
-      docContent = doc.get 'content'
-      # FIXME probably not the best way to scope to home path
-      path = saveDialog.get 'path'
-      homePath = App.get('container.homePath')
-      absolutePath = "#{homePath}/#{path}"
-      doc.set 'readOnly', true
-      opsSocket.writeNewFile absolutePath, docContent, _.bind(@didWriteNewFileContent, this)
+    saveDialog.set 'saving', true
+    doc = saveDialog.get 'document'
+    docContent = doc.get 'content'
+    # FIXME probably not the best way to scope to home path
+    path = saveDialog.get 'path'
+    homePath = App.get('container.homePath')
+    absolutePath = "#{homePath}/#{path}"
+    doc.set 'readOnly', true
+
+    opsSocket = @get 'opsSocket'
+    opsSocket.writeNewFile absolutePath, docContent, _.bind(@didWriteNewFileContent, this)
+
+    @trackActivity()
 
   didWriteNewFileContent: (err, absolutePath) ->
     saveDialog = @get 'saveDialog'
@@ -197,6 +206,7 @@ App.IdeEditorController = Em.ArrayController.extend App.IdeTabControllerMixin,
   addTab: ->
     @_super.apply this, arguments
     Mp.track Mp.EventIDEUserOpenedFile
+    @trackActivity()
 
   # omit `path` or provide `multiple=true` in attrs to allow for multiple tabs
   # with same path
@@ -227,6 +237,7 @@ App.IdeEditorController = Em.ArrayController.extend App.IdeTabControllerMixin,
     lineStr = @get('goToLineDialog.line')
     if line = parseInt(lineStr)
       @get('activeTab')?.set('goToLine', line)
+      @trackActivity()
 
   getFontSize: ->
     if (size = @get 'fontSize')
@@ -252,3 +263,8 @@ App.IdeEditorController = Em.ArrayController.extend App.IdeTabControllerMixin,
 
   resetFontSize: ->
     @set 'fontSize', null
+
+  trackActivity: ->
+    pingerSocket = @get('pingerSocket')
+    return unless pingerSocket && pingerSocket.get('started')
+    @get('pingerSocket').ping()
