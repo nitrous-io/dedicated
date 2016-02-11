@@ -557,6 +557,7 @@ func PublishHostEvent(env *middleware.Env, name controllers.EventName, h *host.H
 		u, err = user.FindByID(env.DB, h.UserID)
 		if err != nil {
 			logrus.Errorf("Error retrieving owner %d for host %d, err: %+v", h.UserID, h.ID, err)
+			return
 		}
 	}
 	env.Events.Publish(
