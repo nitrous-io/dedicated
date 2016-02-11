@@ -113,14 +113,23 @@ var _ = Describe("controllers/plans", func() {
 				Expect(err).To(BeNil())
 			})
 
-			It("returns non-hidden, non-disabled, paid plans of the default provider", func() {
+			It("returns non-hidden, non-disabled, paid plans of the default provider when user has an existing host", func() {
+				p, err := plan.FindBySlug(db, "free")
+				Expect(err).To(BeNil())
+
+				_, err = test.CreateHostStack(db, &test.HostStack{
+					U: u,
+					P: p,
+				})
+				Expect(err).To(BeNil())
+
 				res := doRequest()
 				Expect(res.Code).To(Equal(http.StatusOK))
 
 				j := struct {
 					Plans []*serializers.Plan `json:"plans"`
 				}{}
-				err := json.NewDecoder(res.Body).Decode(&j)
+				err = json.NewDecoder(res.Body).Decode(&j)
 				Expect(err).To(BeNil())
 
 				slugs := []string{}
@@ -128,6 +137,37 @@ var _ = Describe("controllers/plans", func() {
 					slugs = append(slugs, p.Slug)
 				}
 				Expect(slugs).To(ConsistOf([]string{"start", "shift", "turbo"}))
+			})
+
+			It("returns both free and paid plans (non-hidden, non-disabled) when user has orphaned, non-terminated host", func() {
+				p, err := plan.FindBySlug(db, "free")
+				Expect(err).To(BeNil())
+
+				hs, err := test.CreateHostStack(db, &test.HostStack{
+					U: u,
+					P: p,
+				})
+				Expect(err).To(BeNil())
+
+				Expect(hs.H.TerminatedAt).To(BeNil())
+
+				_, err = db.Exec(`UPDATE hosts SET state = $1 WHERE id = $2`, host.StateOrphan, hs.H.ID)
+				Expect(err).To(BeNil())
+
+				res := doRequest()
+				Expect(res.Code).To(Equal(http.StatusOK))
+
+				j := struct {
+					Plans []*serializers.Plan `json:"plans"`
+				}{}
+				err = json.NewDecoder(res.Body).Decode(&j)
+				Expect(err).To(BeNil())
+
+				slugs := []string{}
+				for _, p := range j.Plans {
+					slugs = append(slugs, p.Slug)
+				}
+				Expect(slugs).To(ConsistOf([]string{"free", "start", "shift", "turbo"}))
 			})
 		})
 
