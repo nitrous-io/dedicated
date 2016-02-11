@@ -1,9 +1,10 @@
-containerStoppedMessage = 'Container is not running. Please start your container first.'
-hostStoppedMessage = 'Workspace is not running. Please start your workspace first, then start your container.'
-resumingSessionMessage = 'Resuming Session...'
-hostRestartingMessage = 'Workspace resuming, please wait...'
-containerRestartingMessage = 'Container resuming, please wait...'
+containerStoppedMessage = 'Project is not running. Please start your project first.'
+hostStoppedMessage = 'Workstation is not running. Please start your workstation first, then start your project.'
+resumingSessionMessage = 'Resuming your previous session...'
+hostRestartingMessage = 'Workstation resuming, please wait...'
+containerRestartingMessage = 'Resuming your project, please wait...'
 freighterFeaturesRetry = 3000 # 3s
+autoShutdownUser = 'host-provisioner' # username of system user that initiates auto-shutdown
 
 App.IdeController = Em.ObjectController.extend
   needs: ['ideFindInProject', 'ideFileFinder', 'ideGit']
@@ -19,12 +20,13 @@ App.IdeController = Em.ObjectController.extend
 
   resumingSession: false
 
-  opsTimeoutAlert: null
   repository: null
   errorDialog: null
   showBetaDialog: null
   resumeSessionDialog: null
+  startProjectDialog: null
 
+  opsTimeoutAlert: null
   opsConnectionGracePeriod: 15 * 1000 # TODO: This should come from a KeyValue object from the server-side
   opsConnectionLost: false
 
@@ -35,12 +37,15 @@ App.IdeController = Em.ObjectController.extend
   collabSocketNotReady: Em.computed.not 'collabSocketReady'
 
   ideSocketsReady: (->
-    @get('opsSocketReady') && ((@get('collabEnabled') && @get('collabSocketReady')) || !@get('collabEnabled'))
+    return false if !@get('opsSocketReady')
+
+    if @get('collabEnabled')
+      return @get('collabSocketReady')
+
+    return true
   ).property 'opsSocketReady', 'collabSocketReady', 'collabEnabled'
 
   ideSocketsNotReady: Em.computed.not 'ideSocketsReady'
-
-  workspaceDir: 'code'
 
   initialize: ->
     if container = @get 'content'
@@ -90,7 +95,7 @@ App.IdeController = Em.ObjectController.extend
         @set('hostRestarted', true)
         @set('resumeSessionDialog', @resumeSessionErrDialog(resumingSessionMessage))
 
-        @startContainer(App.container.slug).then =>
+        @startContainer().then =>
           @set('containerStarted', true)
         , (jqxhr) =>
           @set('errorDialog', @containerStoppedErrDialog())
@@ -98,22 +103,34 @@ App.IdeController = Em.ObjectController.extend
       evSocket.on 'container.started', (data) =>
         if @get('content.id') == data?.container?.id
           @set('containerStarted', true)
-          App.snackbar.post "Container started, resuming session..."
+          App.snackbar.post "Project started, resuming session..."
 
       evSocket.on 'container.restarted', (data) =>
         if @get('content.id') == data?.container?.id
           @set('containerRestarted', true)
-          App.snackbar.post "Container restarted, resuming session..."
+          App.snackbar.post "Project restarted, resuming session..."
 
       evSocket.on 'container.stopped', (data) =>
         # Don't interrupt auto start container for user on host restart scenario.
-        unless @resumingSession
-          if @get('content.id') == data?.container?.id
-            @set('errorDialog', @containerStoppedErrDialog())
+        return if @resumingSession
+
+        return if !data || !data.container
+        container = data.container
+        return if @get('content.id') != container.id
+
+        # Find out why the container was stopped - it could be due to:
+        # 1. user stopping their own container / host,
+        # 2. owner stopping container / host, current user is a collaborator, or
+        # 3. host was auto-shutdown by us.
+        initiator = data.initiated_by?.username
+        if initiator == autoShutdownUser
+          @set('startProjectDialog', App.StartProjectDialog.create())
+        else
+          @set('errorDialog', @containerStoppedErrDialog())
 
       evSocket.on 'container.reconfigured', (data) =>
         if @get('content.id') == data?.container?.id
-          App.snackbar.post "Container reconfigured, reconnecting..."
+          App.snackbar.post "Project reconfigured, reconnecting..."
 
       ['collaborator.added', 'collaborator.removed'].forEach (evt) =>
         evSocket.on evt, (data) =>
@@ -137,12 +154,13 @@ App.IdeController = Em.ObjectController.extend
     @set 'content', null
     @set 'errorDialog', null
     @set 'resumeSessionDialog', null
+    @set 'startProjectDialog', null
 
   validateHostAndContainerState: ->
     if App.container.host.state != 'running'
       switch App.container.host.state
         when 'stopped'
-          @handleHostStopped()
+          @startHostAndContainer()
         when 'restarting'
           @set('resumeSessionDialog', @resumeSessionErrDialog(hostRestartingMessage))
         else
@@ -150,16 +168,22 @@ App.IdeController = Em.ObjectController.extend
     else if App.container.state != 'running'
       switch App.container.state
         when 'stopped'
-          @handleContainerStopped()
+          @resumeContainer()
         when 'restarting'
           @set('resumeSessionDialog', @resumeSessionErrDialog(containerRestartingMessage))
         else
           @set('errorDialog', @containerStoppedErrDialog())
 
-  handleHostStopped: ->
+  resumeContainer: ->
     @set('resumeSessionDialog', @resumeSessionErrDialog(resumingSessionMessage))
+    @startContainer().then =>
+      @set('containerStarted', true)
+    , (jqxhr) =>
+      @set('errorDialog', @containerStoppedErrDialog())
 
-    @startHost(App.container.host_id).then =>
+  startHostAndContainer: ->
+    @set('resumeSessionDialog', @resumeSessionErrDialog(resumingSessionMessage))
+    @startHost().then =>
       ###
       Even though host and container state values are set to true on
       receiving the relevant event, we additionally set these values
@@ -167,30 +191,23 @@ App.IdeController = Em.ObjectController.extend
       changes if for some reason the event is not received.
       ###
       @set('hostStarted', true)
-      @startContainer(App.container.slug).then =>
+      @startContainer().then =>
         @set('containerStarted', true)
       , (jqxhr) =>
         @set('errorDialog', @containerStoppedErrDialog())
     , (jqxhr) =>
       @set('errorDialog', @hostStoppedErrDialog())
 
-  handleContainerStopped: ->
-    @set('resumeSessionDialog', @resumeSessionErrDialog(resumingSessionMessage))
-    @startContainer(App.container.slug).then =>
-      @set('containerStarted', true)
-    , (jqxhr) =>
-      @set('errorDialog', @containerStoppedErrDialog())
-
-  startHost: (host_id)->
+  startHost: ->
     Em.RSVP.Promise.cast Em.$.ajax
       type: 'POST',
-      url: "/api/v0/hosts/#{host_id}/start",
+      url: "/api/v0/hosts/#{App.container.host_id}/start",
       headers: { Authorization: "Bearer #{App.get 'token'}" }
 
-  startContainer: (slug)->
+  startContainer: ->
     Em.RSVP.Promise.cast Em.$.ajax
       type: 'POST',
-      url: "/api/v0/containers/#{slug}/start",
+      url: "/api/v0/containers/#{App.container.slug}/start",
       headers: { Authorization: "Bearer #{App.get 'token'}" }
 
   resumeSessionErrDialog: (msg)->
@@ -227,7 +244,7 @@ App.IdeController = Em.ObjectController.extend
         if repo.get('state') == 'failed'
           cacheKey = "repo:#{repo.get('id')}:shownError"
           if !App.localStorage.get(cacheKey)
-            App.set 'flashMessage', { type: 'error', text: "Cloning the repository failed: #{repo.get('failure_reason')}" }
+            App.set 'flashMessage', { type: 'error', text: "Failed to clone repository: #{repo.get('failure_reason')}" }
             App.localStorage.set(cacheKey, true)
   ).observes 'opsSocketReady'
 
