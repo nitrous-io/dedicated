@@ -405,6 +405,35 @@ func (s *Server) handleStopMessage(m *queue.Message) error {
 		logrus.Debugf("uuid=%s queueTracer: published host stopped event", m.UUID)
 	case controllers.EventHostStopping:
 		logrus.Debugf("uuid=%s queueTracer: stopping a host(%s) with message(%+v)", m.UUID, queueInfo.Slug, m)
+
+		h, err := host.Find(db, u, queueInfo.Slug)
+		if err != nil {
+			return err
+		}
+
+		cns, err := container.FindAllByHostID(db, h.ID)
+		if err != nil {
+			return err
+		}
+
+		for _, cn := range cns {
+			state := container.State(cn.TempState.Int64)
+			if !cn.TempState.Valid || (cn.TempState.Valid && state != container.StateStopping) {
+				cn.State = container.StateStopping
+				err := s.PublishContainerEvent(controllers.EventContainerStopping, cn, &queueInfo)
+				if err != nil {
+					logrus.Debugf("uuid=%s queueTracer: failed to send an event(%s) for container(%+v)", m.UUID, controllers.EventContainerStopping, cn)
+				}
+			}
+		}
+
+		s.Events.Publish(
+			controllers.NewEvent(controllers.EventHostStopping, map[string]*serializers.Host{
+				"host": serializers.SerializeHost(h),
+			}),
+			u.Topic(),
+		)
+		logrus.Debugf("uuid=%s queueTracer: published host stopping event", m.UUID)
 	case controllers.EventHostStopFailed:
 		logrus.Debugf("uuid=%s queueTracer: failed to stop a host(%s) with message(%+v) due to ", m.UUID, queueInfo.Slug, m, queueInfo.Message)
 		if queueInfo.Host == nil {
