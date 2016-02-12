@@ -789,6 +789,47 @@ var _ = Describe("HostQueueHandler", func() {
 				err := handler(message)
 				Expect(err).To(BeNil())
 			})
+
+			It("publishes container stopping, host stopping event to user", func() {
+				ch := svr.Events.Subscribe(u.Topic())
+				defer svr.Events.Unsubscribe(ch, u.Topic())
+
+				err := handler(message)
+				Expect(err).To(BeNil())
+
+				evtCh := make(chan []*controllers.Event)
+				events := make([]*controllers.Event, 0)
+				go func() {
+					var evt *controllers.Event
+					for msg := range ch { // Ignore events we don't care about.
+						evt = msg.(*controllers.Event)
+						if evt.Name == controllers.EventContainerStopping ||
+							evt.Name == controllers.EventName(event.HostStopping) {
+							events = append(events, evt)
+							if len(events) >= 3 {
+								evtCh <- events
+								break
+							}
+						}
+					}
+				}()
+
+				select {
+				case <-time.After(50 * time.Millisecond):
+					Fail("Timeout while getting container/host stopping event")
+				case events := <-evtCh:
+					for _, event := range events[0:2] {
+						evtData, ok := event.Data.(map[string]interface{})
+						Expect(ok).To(BeTrue())
+						cn, ok := evtData["container"].(*serializers.Container)
+						Expect(cn.State).To(Equal(container.StateStopping.String()))
+					}
+
+					evtData, ok := events[2].Data.(map[string]*serializers.Host)
+					Expect(ok).To(BeTrue())
+					Expect(evtData["host"].State).To(Equal(host.StateStopping))
+				}
+			})
 		})
 
 		Context("a host is stopped", func() {
@@ -855,7 +896,7 @@ var _ = Describe("HostQueueHandler", func() {
 				Expect(count).To(Equal(1))
 			})
 
-			It("publishes containaer stopped event host stopeed event to user", func() {
+			It("publishes container stopped event host stopped event to user", func() {
 				ch := svr.Events.Subscribe(u.Topic())
 				defer svr.Events.Unsubscribe(ch, u.Topic())
 
