@@ -261,9 +261,6 @@ App.IdeController = Em.ObjectController.extend
         @set 'collabEnabled', true
         @set 'collabSocket', collabSocket = App.CollabSocket.create(container: container)
         collabSocket.connect()
-
-      if features.contains('ping')
-        App.set 'pinger', pinger = App.Pinger.create(container: container)
     , (jqxhr) =>
       return if @loadFreighterFeaturesRetry
       @loadFreighterFeaturesRetry = window.setTimeout(=>
