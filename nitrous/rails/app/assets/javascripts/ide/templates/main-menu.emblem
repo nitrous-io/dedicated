@@ -19,15 +19,16 @@
             = App.user.username
             .ui.dropdown-triangle
           ul.dropdown-menu.right
-            li
-              a.with-progress-bar href='/app/#/dashboard/earn-bonuses'
-                = App.user.usageRemainingHours
-                '  free hours remaining
-                = ui-progress value=App.user.usage_remaining max=App.user.usage_quota
-
-              a href='#' click='showConfirmStopHostDialog'
-                | Stop Workstation
-            li.separator
+            if App.host.free
+              li
+                a.with-progress-bar href='/app/#/dashboard/earn-bonuses'
+                  = App.user.usageRemainingHours
+                  '  free hours remaining
+                  = ui-progress value=App.user.usage_remaining max=App.user.usage_quota
+              li
+                a href='#' click='showConfirmStopHostDialog'
+                  | Stop Workstation
+              li.separator
             li
               a href=view.dashboardURL
                 | Dashboard
