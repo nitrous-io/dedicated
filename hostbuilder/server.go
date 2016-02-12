@@ -108,7 +108,7 @@ func (s *Server) providerConfig(provider string) map[string]interface{} {
 func (s *Server) growPool(w http.ResponseWriter, r *http.Request) error {
 	driver, err := s.driverFromRequest(r, nil)
 	if err != nil {
-		return mh.Error(err, fmt.Sprintf("create.%s", r.Form.Get("provider")))
+		return mh.Error(err, fmt.Sprintf("grow.%s", r.Form.Get("provider")))
 	}
 	if driver.DriverName() != "amazon" {
 		return mh.Error(fmt.Errorf("only amazon driver supports grow"), fmt.Sprintf("grow.%s", driver.DriverName()))
