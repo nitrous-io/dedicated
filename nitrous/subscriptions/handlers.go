@@ -664,7 +664,7 @@ func (s *SubscriptionProvider) stopHosts(d *db.Database, sub *subscription.Subsc
 			continue
 		}
 
-		if err := s.HostStopFunc(d, h, headers, nil, initiatorID); err != nil {
+		if err := s.HostStopFunc(d, h, headers, initiatorID); err != nil {
 			logrus.Errorf("Unable to stop host %d for subscription %d, err: %v", h.ID, sub.ID, err)
 		}
 	}

@@ -61,7 +61,7 @@ type Provider interface {
 
 type couponGetFunc func(string, *stripe.CouponParams) (*stripe.Coupon, error)
 
-type hostStopFunc func(db *db.Database, h *host.Host, headers http.Header, ev hostcontrol.EventFunc, initiatorID int64) error
+type hostStopFunc func(db *db.Database, h *host.Host, headers http.Header, initiatorID int64) error
 
 type SubscriptionProvider struct {
 	HostStopFunc hostStopFunc

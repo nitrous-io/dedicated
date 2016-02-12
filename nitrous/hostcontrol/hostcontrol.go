@@ -36,9 +36,8 @@ var (
 	errHostLocked     = httperror.New(http.StatusConflict, "workspace_locked", "workspace is locked by another request")
 )
 
-func StopWithQueue(db *db.Database, h *host.Host, headers http.Header, ev EventFunc, initiatorID int64) error {
-	origState := h.State
-	if err := beforeStop(db, h, ev, initiatorID, origState); err != nil {
+func StopWithQueue(db *db.Database, h *host.Host, headers http.Header, initiatorID int64) error {
+	if err := UpdateAndRecordState(db, h, host.StateStopping, initiatorID); err != nil {
 		return err
 	}
 
@@ -46,18 +45,6 @@ func StopWithQueue(db *db.Database, h *host.Host, headers http.Header, ev EventF
 	urlArgs.Set("requester_id", strconv.FormatInt(initiatorID, 10))
 	if _, err := HostbuilderClient.Stop(h.Provider, h.MachineConfig(), headers, urlArgs); err != nil {
 		return err
-	}
-
-	return nil
-}
-
-func beforeStop(db *db.Database, h *host.Host, ev EventFunc, initiatorID int64, origState string) error {
-	if err := UpdateAndRecordState(db, h, host.StateStopping, initiatorID); err != nil {
-		return err
-	}
-
-	if ev != nil {
-		ev(EventHostStopping)
 	}
 
 	return nil

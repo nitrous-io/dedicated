@@ -310,7 +310,7 @@ func Stop(h *host.Host, env *middleware.Env, w http.ResponseWriter, r *http.Requ
 		}
 	}
 
-	if err := hostcontrol.StopWithQueue(env.DB, h, hostbuilderHeaders(env), nil, env.User.ID); err != nil {
+	if err := hostcontrol.StopWithQueue(env.DB, h, hostbuilderHeaders(env), env.User.ID); err != nil {
 		return err
 	}
 
