@@ -311,9 +311,6 @@ func Stop(h *host.Host, env *middleware.Env, w http.ResponseWriter, r *http.Requ
 	}
 
 	evHandler := func(ev hostcontrol.EventType) {
-		if ev == hostcontrol.EventHostStopping {
-			PublishHostEvent(env, controllers.EventHostStopping, h)
-		}
 		if ev == hostcontrol.EventHostUpdated {
 			PublishHostEvent(env, controllers.EventHostUpdated, h)
 		}
