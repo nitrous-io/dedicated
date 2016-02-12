@@ -335,12 +335,12 @@ func (p *DockerProvider) Start(id, configJSON string) (*provider.ContainerInfo, 
 		if err != nil {
 			return nil, err
 		}
-		logrus.Info("DockerProvider: starting container", id)
+		logrus.Infof("DockerProvider: starting container %q", id)
 		start := time.Now()
 		if err := p.client.StartContainer(id, startConfig); err != nil {
 			return nil, err
 		}
-		logrus.Info("DockerProvider: started container", id, "in", time.Since(start))
+		logrus.Infof("DockerProvider: started container %q in %v", id, time.Since(start))
 	}
 
 	return p.GetInfo(id)
@@ -353,7 +353,7 @@ func (p *DockerProvider) Stop(id string) (*provider.ContainerInfo, error) {
 	}
 
 	if container.State.Running {
-		logrus.Info("DockerProvider: stopping container", id)
+		logrus.Infof("DockerProvider: stopping container %q", id)
 		start := time.Now()
 
 		err := p.client.StopContainer(id, 15)
@@ -377,7 +377,7 @@ func (p *DockerProvider) Stop(id string) (*provider.ContainerInfo, error) {
 						return
 					}
 					if info.State == provider.ContainerStateStopped && info.Host == "" {
-						logrus.Info("DockerProvider: stopped container", id, time.Since(start))
+						logrus.Infof("DockerProvider: stopped container %q in %v", id, time.Since(start))
 						ch <- nil
 						return
 					}
@@ -395,7 +395,7 @@ func (p *DockerProvider) Stop(id string) (*provider.ContainerInfo, error) {
 }
 
 func (p *DockerProvider) Restart(id string) (*provider.ContainerInfo, error) {
-	logrus.Info("DockerProvider: restarting container", id)
+	logrus.Infof("DockerProvider: restarting container %q", id)
 	start := time.Now()
 	// Stop and then start until https://github.com/docker/docker/issues/7693
 	// is fixed.
@@ -407,7 +407,7 @@ func (p *DockerProvider) Restart(id string) (*provider.ContainerInfo, error) {
 	if err != nil {
 		return nil, err
 	}
-	logrus.Info("DockerProvider: restarted container", id, "in", time.Since(start))
+	logrus.Infof("DockerProvider: restarted container %q in %v", id, time.Since(start))
 	return info, nil
 }
 
@@ -427,7 +427,7 @@ func execForm(cmd, usr string) []string {
 }
 
 func (p *DockerProvider) Terminate(id string, removeSettings bool) (*provider.ContainerInfo, error) {
-	logrus.Info("DockerProvider: terminating container", id)
+	logrus.Infof("DockerProvider: terminating container %q", id)
 	terminationStart := time.Now()
 
 	info, err := p.Stop(id)
@@ -435,7 +435,7 @@ func (p *DockerProvider) Terminate(id string, removeSettings bool) (*provider.Co
 		return nil, err
 	}
 
-	logrus.Info("DockerProvider: removing container", id)
+	logrus.Infof("DockerProvider: removing container %q", id)
 	start := time.Now()
 
 	err = p.client.RemoveContainer(dockerclient.RemoveContainerOptions{ID: id})
@@ -449,14 +449,14 @@ func (p *DockerProvider) Terminate(id string, removeSettings bool) (*provider.Co
 		}
 	}
 
-	logrus.Info("DockerProvider: removed container", id, "in", time.Since(start))
+	logrus.Infof("DockerProvider: removed container %q in %v", id, time.Since(start))
 
 	info.Host = ""
 	info.Gateway = ""
 	info.State = ""
 	info.Ports = nil
 
-	logrus.Info("DockerProvider: terminated container", id, "in", time.Since(terminationStart))
+	logrus.Infof("DockerProvider: terminated container %q in %v", id, time.Since(terminationStart))
 	return info, nil
 }
 
@@ -1400,7 +1400,7 @@ func (p *DockerProvider) ContainerSettingsDir(containerName string) string {
 }
 
 func (p *DockerProvider) storeSharedSecret(containerName string, secret string) error {
-	logrus.Info("DockerProvider: storing shared secret for", containerName)
+	logrus.Infof("DockerProvider: storing shared secret for %q", containerName)
 	dir := p.ContainerSettingsDir(containerName)
 	err := os.MkdirAll(dir, 0755)
 	if err != nil {
@@ -1655,14 +1655,14 @@ func (p *DockerProvider) FixImage(imageName string) error {
 		currentFilePath := fmt.Sprintf("/var/lib/docker/aufs/diff/%s/.nitrous-container-slug", info.ID)
 		if _, err := os.Stat(currentFilePath); err != nil {
 			if os.IsNotExist(err) {
-				logrus.Info("DockerProvider: file does not exist %s. Try to find from parent image %s", currentFilePath, info.Parent)
+				logrus.Infof("DockerProvider: file does not exist %s. Try to find from parent image %s", currentFilePath, info.Parent)
 				if info.Parent == "" {
 					break
 				}
 				currentImageName = info.Parent
 				continue
 			} else {
-				logrus.Errorf("DockerProvider: failed to get status of .nitrous-container-slug: %+v", err)
+				logrus.Errorf("DockerProvider: failed to get status of .nitrous-container-slug: %v", err)
 				return err
 			}
 		} else {
