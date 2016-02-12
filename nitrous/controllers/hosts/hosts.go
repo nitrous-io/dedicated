@@ -310,16 +310,11 @@ func Stop(h *host.Host, env *middleware.Env, w http.ResponseWriter, r *http.Requ
 		}
 	}
 
-	evHandler := func(ev hostcontrol.EventType) {
-		if ev == hostcontrol.EventHostUpdated {
-			PublishHostEvent(env, controllers.EventHostUpdated, h)
-		}
-	}
-
-	if err := hostcontrol.StopWithQueue(env.DB, h, hostbuilderHeaders(env), evHandler, env.User.ID); err != nil {
+	if err := hostcontrol.StopWithQueue(env.DB, h, hostbuilderHeaders(env), nil, env.User.ID); err != nil {
 		return err
 	}
 
+	PublishHostEvent(env, controllers.EventHostUpdated, h)
 	env.SetEmptyResponseBody()
 
 	return nil
