@@ -220,6 +220,8 @@ App.IdeMainMenuController = Em.Controller.extend
 
   stopHost: (hostSlug) ->
     url = "/hosts/#{hostSlug}/stop"
+    ui.hideModal '#confirm-stop-host-dialog'
+    ui.showModal '#stopping-host-dialog'
     Em.RSVP.Promise.resolve(
       Em.$.ajax(
         type: 'POST',
@@ -227,11 +229,12 @@ App.IdeMainMenuController = Em.Controller.extend
         headers: { Authorization: "Bearer #{App.get 'token'}" }
       )).then(
       (data) =>
+        ui.hideModal '#stopping-host-dialog'
         App.snackbar.post("Workstation #{hostSlug} stopped")
       , (jqxhr) =>
+        ui.hideModal '#stopping-host-dialog'
         App.snackbar.post("Failed to stop workstation #{hostSlug}!")
       )
-    ui.hideModal '#confirm-stop-host-dialog'
 
   _toggleEditorProperty: (property) ->
     if editorController = @get 'controllers.ideEditor'

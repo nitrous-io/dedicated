@@ -71,3 +71,13 @@
       .right
         button.ui.btn click='closeConfirmStopHostDialog' Cancel
         button.ui.btn.danger click='stopHost App.host.slug' Stop Now
+
+#stopping-host-dialog.ui.modal
+  .ui.card
+    .card-body
+      i.spinner
+      i.fa
+      ' Stopping workstation
+      strong
+        = App.host.slug
+      ' ... Please Wait
