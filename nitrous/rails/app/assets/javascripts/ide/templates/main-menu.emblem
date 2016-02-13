@@ -25,6 +25,8 @@
                 '  free hours remaining
                 = ui-progress value=App.user.usage_remaining max=App.user.usage_quota
 
+              a href='#' click='showConfirmStopHostDialog'
+                | Stop Workstation
             li.separator
             li
               a href=view.dashboardURL
@@ -53,3 +55,18 @@
     .card-footer
       .right
         button.ui.btn click='closeAboutDialog target="view"' OK
+
+#confirm-stop-host-dialog.ui.modal
+  .ui.card
+    h2.card-header
+      | Stop Workstation
+    .card-body
+      .ui.input-group
+        ' Are you sure you want to stop workstation
+        strong
+          = App.host.slug
+        ' ?
+    .card-footer
+      .right
+        button.ui.btn click='closeConfirmStopHostDialog' Cancel
+        button.ui.btn.danger click='stopHost App.host.slug' Stop Now

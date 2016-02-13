@@ -212,6 +212,27 @@ App.IdeMainMenuController = Em.Controller.extend
     if controller = @get 'controllers.ideGit'
       controller.showCloneFromGitHubDialog()
 
+  showConfirmStopHostDialog: ->
+    ui.showModal '#confirm-stop-host-dialog'
+
+  closeConfirmStopHostDialog: ->
+    ui.hideModal '#confirm-stop-host-dialog'
+
+  stopHost: (hostSlug) ->
+    url = "/hosts/#{hostSlug}/stop"
+    Em.RSVP.Promise.resolve(
+      Em.$.ajax(
+        type: 'POST',
+        url: "/api/v0/hosts/#{hostSlug}/stop",
+        headers: { Authorization: "Bearer #{App.get 'token'}" }
+      )).then(
+      (data) =>
+        App.snackbar.post("Workstation #{hostSlug} stopped")
+      , (jqxhr) =>
+        App.snackbar.post("Failed to stop workstation #{hostSlug}!")
+      )
+    ui.hideModal '#confirm-stop-host-dialog'
+
   _toggleEditorProperty: (property) ->
     if editorController = @get 'controllers.ideEditor'
       editorController.toggleProperty(property)
