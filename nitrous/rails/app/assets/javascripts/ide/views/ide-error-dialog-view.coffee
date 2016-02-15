@@ -21,7 +21,6 @@ App.IdeErrorDialogView = App.IdeModalDialogView.extend
 
   actions:
     didClickOK: ->
-      # unbind to prevent confirm-close-window popup
       @hide()
       return unless @get('content.redirectUrl')
 
@@ -29,6 +28,7 @@ App.IdeErrorDialogView = App.IdeModalDialogView.extend
         window.open(@get('content.redirectUrl'), '_blank')
         return
 
+      # unbind to prevent confirm-close-window popup
       $(window).unbind 'beforeunload.ide'
       window.location.href = @get('content.redirectUrl')
 
