@@ -20,7 +20,7 @@ App.Editor = klass = Em.Object.extend
   wrapLines: null
   wrapperStyling: null
   fontSize: null
-  autocomplete: false
+  autocomplete: null
 
   foldGutterClass: 'CodeMirror-foldgutter'
 
