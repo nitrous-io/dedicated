@@ -183,7 +183,7 @@ func stopHost(dbConn *db.Database, hst *host.Host) error {
 	headers := http.Header{}
 	headers.Set(constants.NitrousUUIDHeader, requestID)
 
-	if err := hostcontrol.StopWithQueue(dbConn, hst, headers, nil, initiatorID); err != nil {
+	if err := hostcontrol.StopWithQueue(dbConn, hst, headers, initiatorID); err != nil {
 		return fmt.Errorf("unable to shutdown host %d, err: %v", hst.ID, err)
 	}
 	logrus.Infof("Started shutdown on host %d for user %d after %s", hst.ID, hst.UserID, time.Since(start))
