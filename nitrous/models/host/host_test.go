@@ -15,7 +15,6 @@ import (
 	"github.com/nitrous-io/dedicated/nitrous/models/billingprofile"
 	"github.com/nitrous-io/dedicated/nitrous/models/container"
 	"github.com/nitrous-io/dedicated/nitrous/models/host"
-	"github.com/nitrous-io/dedicated/nitrous/models/hosttransition"
 	"github.com/nitrous-io/dedicated/nitrous/models/org"
 	"github.com/nitrous-io/dedicated/nitrous/models/orgmembership"
 	"github.com/nitrous-io/dedicated/nitrous/models/plan"
@@ -1862,11 +1861,6 @@ var _ = Describe("models/host", func() {
 			h2, err := host.FindByIdentifier(db, h.Slug)
 			Expect(err).To(BeNil())
 			Expect(h2.UnavailableAt.Valid).To(BeTrue())
-
-			ht, err := hosttransition.FindMostRecentForHost(db, h.ID)
-			Expect(err).To(BeNil())
-			Expect(ht.PreviousState.String).To(Equal("running"))
-			Expect(ht.State).To(Equal("unavailable"))
 		})
 
 		It("updates unavailable host to available", func() {
@@ -1878,11 +1872,6 @@ var _ = Describe("models/host", func() {
 			h2, err := host.FindByIdentifier(db, h.Slug)
 			Expect(err).To(BeNil())
 			Expect(h2.UnavailableAt.Valid).To(BeFalse())
-
-			ht, err := hosttransition.FindMostRecentForHost(db, h.ID)
-			Expect(err).To(BeNil())
-			Expect(ht.PreviousState.String).To(Equal("unavailable"))
-			Expect(ht.State).To(Equal("running"))
 		})
 
 		It("is no-op when setting unavailable host to unavailable", func() {
