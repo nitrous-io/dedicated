@@ -9,8 +9,6 @@ App.Router.map ->
   @route 'coupon', path: '/claim'
 
   @resource 'home', path: '/', ->
-    @resource 'free-tier', path: '/free-tier'
-
     @resource 'containers', path: '/containers', ->
       @route 'new'
 

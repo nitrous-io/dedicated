@@ -60,6 +60,7 @@ App.IdeMainMenuView = Em.View.extend
 
   previewPortBinding: Em.Binding.oneWay 'App.container.previewPort'
   dashboardURLBinding: Em.Binding.oneWay 'App.dashboardURL'
+  userBinding: Em.Binding.oneWay 'App.user'
 
   previewItems: (->
     baseItems = []
@@ -218,11 +219,6 @@ App.IdeMainMenuView = Em.View.extend
           callback: (controller) ->
             controller.editToggleRemoveTrailingWhitespaceOnSave()
           checkedBinding: Em.Binding.oneWay('App.router.ideEditorController.removeTrailingWhitespaceOnSave')
-        menuItem 'Autocomplete (temporarily disabled)',
-          callback: (controller) ->
-            controller.editToggleAutocomplete()
-          checked: false,
-          disabled: true
         separator
         menuItem 'Use Vim Key Bindings',
           callback: (controller) ->

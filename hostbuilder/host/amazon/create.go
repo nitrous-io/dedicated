@@ -7,6 +7,7 @@ import (
 	"github.com/mitchellh/goamz/ec2"
 	"github.com/nitrous-io/dedicated/event"
 	"github.com/nitrous-io/dedicated/hostbuilder/host"
+	mh "github.com/nitrous-io/dedicated/pkg/metricshelper"
 	"github.com/nitrous-io/dedicated/pkg/queue"
 	"golang.org/x/net/context"
 )
@@ -19,7 +20,11 @@ func (h *Host) CreateWithQueue(qp queue.Publisher, queueInfo *host.QueueInfo) (*
 	ctx, cancel = context.WithTimeout(context.Background(), h.createTimeout())
 	defer cancel()
 
-	var useInstancePool = true // will be set to false if no instances available in pool
+	var (
+		useInstancePool = true // will be set to false if no instances available in pool
+		label           = fmt.Sprintf("create.%s.with-pool", h.DriverName())
+		startedTime     = time.Now()
+	)
 
 	ami, err := getImage(h.provider, h.Config.SourceAMI)
 	if err != nil {
@@ -45,7 +50,10 @@ func (h *Host) CreateWithQueue(qp queue.Publisher, queueInfo *host.QueueInfo) (*
 		h.Printf("could not acquire instance from pool, err: %v", err)
 
 		useInstancePool = false
+		label = fmt.Sprintf("create.%s.without-pool", h.DriverName())
 	}
+
+	defer mh.UpdateSince(label, startedTime)
 
 	if !useInstancePool {
 		h.Printf("creating a new instance")

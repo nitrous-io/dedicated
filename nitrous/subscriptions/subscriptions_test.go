@@ -14,7 +14,6 @@ import (
 	"github.com/lib/pq"
 	ndb "github.com/nitrous-io/dedicated/nitrous/db"
 	"github.com/nitrous-io/dedicated/nitrous/envvars"
-	"github.com/nitrous-io/dedicated/nitrous/hostcontrol"
 	"github.com/nitrous-io/dedicated/nitrous/models/billingprofile"
 	"github.com/nitrous-io/dedicated/nitrous/models/coupon"
 	"github.com/nitrous-io/dedicated/nitrous/models/credit"
@@ -1675,8 +1674,7 @@ var _ = Describe("subscriptions", func() {
 
 			e := errors.New("Woops!")
 			termCalled := false
-			subProvider.HostStopFunc = func(db *ndb.Database, h *host.Host, headers http.Header, ev hostcontrol.EventFunc, initiatorID int64) error {
-				Expect(ev).To(BeNil())
+			subProvider.HostStopFunc = func(db *ndb.Database, h *host.Host, headers http.Header, initiatorID int64) error {
 				Expect(h.ID).To(Equal(hs.H.ID))
 				Expect(headers.Get(constants.NitrousUUIDHeader)).To(Equal(fmt.Sprintf("subscription_terminated_%d", sub.ID)))
 				Expect(initiatorID).To(Equal(prov.ID))
@@ -2789,8 +2787,7 @@ var _ = Describe("subscriptions", func() {
 
 			e := errors.New("Woops!")
 			termCalled := false
-			subProvider.HostStopFunc = func(db *ndb.Database, h *host.Host, headers http.Header, ev hostcontrol.EventFunc, initiatorID int64) error {
-				Expect(ev).To(BeNil())
+			subProvider.HostStopFunc = func(db *ndb.Database, h *host.Host, headers http.Header, initiatorID int64) error {
 				Expect(h.ID).To(Equal(hs.H.ID))
 				Expect(headers.Get(constants.NitrousUUIDHeader)).To(Equal(fmt.Sprintf("subscription_terminated_%d", sub.ID)))
 				Expect(initiatorID).To(Equal(prov.ID))

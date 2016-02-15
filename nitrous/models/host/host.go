@@ -10,7 +10,6 @@ import (
 	"strings"
 	"time"
 
-	"github.com/jmoiron/sqlx"
 	"github.com/lib/pq"
 
 	"github.com/nitrous-io/dedicated/nitrous/db"
@@ -626,34 +625,19 @@ func (h *Host) Validate() error {
 }
 
 // sets unavailable_at based on value of `avail` and inserts appropriate host
-// transition.  No-op if `avail` matches current state. When inserting host
-// transitions, assumes that the previous state is 'running'
+// transition.  No-op if `avail` matches current state.
 func (h *Host) UpdateAvailability(d *db.Database, avail bool) error {
 	switch {
 	case h.UnavailableAt.Valid && avail:
-		return d.WithTransaction(func(tx *sqlx.Tx) error {
-			_, err := tx.Exec(`UPDATE hosts SET unavailable_at = NULL WHERE id = $1`, h.ID)
-			if err != nil {
-				return err
-			}
-			_, err = tx.Exec(`INSERT INTO host_transitions
-				(host_id, previous_state, state) VALUES
-				($1, $2, $3)
-			`, h.ID, "unavailable", "running")
+		_, err := d.Exec(`UPDATE hosts SET unavailable_at = NULL WHERE id = $1`, h.ID)
+		if err != nil {
 			return err
-		})
+		}
 	case !h.UnavailableAt.Valid && !avail:
-		return d.WithTransaction(func(tx *sqlx.Tx) error {
-			_, err := tx.Exec(`UPDATE hosts SET unavailable_at = now() WHERE id = $1`, h.ID)
-			if err != nil {
-				return err
-			}
-			_, err = tx.Exec(`INSERT INTO host_transitions
-				(host_id, previous_state, state) VALUES
-				($1, $2, $3)
-			`, h.ID, "running", "unavailable")
+		_, err := d.Exec(`UPDATE hosts SET unavailable_at = now() WHERE id = $1`, h.ID)
+		if err != nil {
 			return err
-		})
+		}
 	case h.UnavailableAt.Valid && !avail:
 		// no-op
 	case !h.UnavailableAt.Valid && avail:

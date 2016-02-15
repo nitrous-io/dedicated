@@ -1740,6 +1740,35 @@ var _ = Describe("controllers/hosts", func() {
 			Expect(payload.Region).To(Equal("us-east-1"))
 		})
 
+		It("publishes a host updated event with the updated host", func() {
+			ch := svr.Events.Subscribe(u.Topic())
+			defer svr.Events.Unsubscribe(ch, u.Topic())
+
+			hb := hostbuilderclient.NewHostbuilder("www.example.com")
+			rt := &test.FakeRoundTripper{
+				Message: stopOkResponse,
+				Status:  http.StatusOK,
+			}
+			replaceTransport(hb, rt)
+			hosts.HostbuilderClient = hb
+
+			doRequest(hs.H.Slug, nil)
+
+			select {
+			case <-time.After(50 * time.Millisecond):
+				Fail("Timed out waiting for host updated event")
+			case msg := <-ch:
+				updated, err := queryHost(db, hs.H.ID)
+				Expect(err).To(BeNil())
+				Expect(msg).To(Equal(&controllers.Event{
+					Name: controllers.EventHostUpdated,
+					Data: map[string]*serializers.Host{
+						"host": serializers.SerializeHost(updated),
+					},
+				}))
+			}
+		})
+
 		Context("when host is already stopped", func() {
 			It("responds with HTTP 400 Bad Request", func() {
 				hb := hostbuilderclient.NewHostbuilder("www.example.com")
