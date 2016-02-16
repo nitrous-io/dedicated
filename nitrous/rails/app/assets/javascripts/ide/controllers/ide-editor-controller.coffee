@@ -161,7 +161,8 @@ App.IdeEditorController = Em.ArrayController.extend App.IdeTabControllerMixin,
   saveNewDocument: ->
     return unless @get 'opsSocketReady'
     saveDialog = @get 'saveDialog'
-    return unless saveDialog.validate()
+    errors = saveDialog.validate()
+    return if errors
 
     saveDialog.set 'saving', true
     doc = saveDialog.get 'document'
