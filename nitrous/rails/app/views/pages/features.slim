@@ -1,18 +1,6 @@
-ruby:
-  @title = 'Features · Nitrous'
-  @html_class = 'light'
-  @body_id = 'features'
-
-  ua = request.env['HTTP_USER_AGENT'].downcase
-  if ua.match(/mac/i)
-    @os = "osx"
-  elsif ua.match(/windows/i)
-    @os = "windows"
-  elsif ua.match(/linux/i)
-    @os = "linux"
-  else
-    @os = "nitrogen"
-  end
+- @title = 'Features · Nitrous'
+- @html_class = 'light'
+- @body_id = 'features'
 
 - content_for :body_after
   javascript:
@@ -170,23 +158,26 @@ ruby:
 
         .box.auto.nitrous-desktop
           .content
-            h3.section-title Nitrogen Plugin for Atom
+            h3.section-title Nitrous Desktop
 
             .item
               h4 Manage your cloud environments
               p
-                | Nitrogen (available for Windows, OS X, and Linux) lets you manage your Nitrous projects running in the cloud.
+                | Nitrous Desktop (available for Windows, OS X, and Linux) lets you manage your Nitrous projects running in the cloud.
 
             .item
               h4 Sync files, use your favorite editor
               p
                 ' Sync files between Nitrous and desktop computer, allowing you to edit files using
                 a href="https://atom.io/" target="_blank" Atom
-                '
-                | or your text editor of choice.
+                ' ,
+                a href="http://www.sublimetext.com/" target="_blank" Sublime Text
+                | &nbsp;or your text editor of choice.
 
               .download-btns
-                a.btn.download class="#{@os}" href="https://community.nitrous.io/docs/installing-the-nitrogen-atom-plugin-d9a97d12-b6ab-4ad2-b219-45f05451d692" target="_blank" Install Nitrogen
+                a.btn.download.windows href="http://getpro.nitrous.io/windows/download.html" target="_blank" For Windows
+                a.btn.download.osx href="http://getpro.nitrous.io/mac/download.html" target="_blank" For Mac
+                a.btn.download.linux href="http://getpro.nitrous.io/linux/download.html" target="_blank" For Linux
 
         .box.auto.nitrous-chrome
           .content
