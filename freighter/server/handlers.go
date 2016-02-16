@@ -52,6 +52,8 @@ var (
 	Utilization *stats.Utilization
 
 	ActiveCops *ActiveCopsList
+
+	PingInterval = 5 * time.Second // seconds
 )
 
 // maps container id to slice of 'quit' chan error returned by cops.Start
@@ -124,13 +126,20 @@ func (s *Server) features(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *Server) ping(w http.ResponseWriter, r *http.Request) {
-	go func() {
-		s.NotifyWebhook(map[string]interface{}{
-			"event": "ping",
-		})
-	}()
+	if r.FormValue("notify_webhook") == "true" {
+		if s.pingTimer == nil {
+			s.pingTimer = time.AfterFunc(PingInterval, s.pingToWebhook)
+		}
+	}
 
 	s.respond(w, http.StatusOK, jsonStatusOK)
+}
+
+func (s *Server) pingToWebhook() {
+	s.NotifyWebhook(map[string]interface{}{
+		"event": "ping",
+	})
+	s.pingTimer = nil
 }
 
 func (s *Server) handleCORSPreflight(w http.ResponseWriter, r *http.Request) {
