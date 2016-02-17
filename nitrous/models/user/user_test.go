@@ -8,7 +8,6 @@ import (
 	"testing"
 	"time"
 
-	"github.com/jmoiron/sqlx"
 	"github.com/lib/pq"
 	"github.com/nitrous-io/dedicated/nitrous/db"
 	"github.com/nitrous-io/dedicated/nitrous/envvars"
@@ -17,7 +16,6 @@ import (
 	"github.com/nitrous-io/dedicated/nitrous/models/container"
 	"github.com/nitrous-io/dedicated/nitrous/models/containercollab"
 	"github.com/nitrous-io/dedicated/nitrous/models/host"
-	"github.com/nitrous-io/dedicated/nitrous/models/org"
 	"github.com/nitrous-io/dedicated/nitrous/models/user"
 	"github.com/nitrous-io/dedicated/nitrous/models/userprofile"
 	"github.com/nitrous-io/dedicated/nitrous/pkg/bcrypt"
@@ -1651,119 +1649,6 @@ var _ = Describe("models/user", func() {
 			Expect(err).To(BeNil())
 
 			Expect(u2.CanLogin()).To(BeFalse())
-		})
-	})
-
-	Describe("CheckCanUseDesktopApp()", func() {
-		var (
-			u *user.User
-		)
-		BeforeEach(func() {
-			u = &user.User{
-				Username: "qux",
-				Password: "123456",
-				Email:    "qux@example.com",
-			}
-			err := test.WrapInTransaction(db, u.Insert)
-			Expect(err).To(BeNil())
-		})
-
-		for _, state := range user.AllowedDesktopAppBillingStates {
-			It(fmt.Sprintf("should be true for %s state", state), func() {
-				_, err := db.Exec(`UPDATE billing_profiles SET state = $1 WHERE user_id = $2;`, state, u.ID)
-				Expect(err).To(BeNil())
-
-				can, err := u.CheckCanUseDesktopApp(db)
-				Expect(err).To(BeNil())
-				Expect(can).To(BeTrue())
-			})
-		}
-
-		for _, state := range []string{billingprofile.StateFree, billingprofile.StateNoCard, billingprofile.StateDelinquent} {
-			It(fmt.Sprintf("should be false for %s state", state), func() {
-				_, err := db.Exec(`UPDATE billing_profiles SET state = $1 WHERE user_id = $2;`, state, u.ID)
-				Expect(err).To(BeNil())
-
-				can, err := u.CheckCanUseDesktopApp(db)
-				Expect(err).To(BeNil())
-				Expect(can).To(BeFalse())
-			})
-		}
-
-		It("should be true if the column on the user overrides", func() {
-			u.CanUseDesktopApp = sql.NullBool{true, true}
-			_, err := db.Exec(`UPDATE billing_profiles SET state = $1 WHERE user_id = $2;`, billingprofile.StateFree, u.ID)
-			Expect(err).To(BeNil())
-
-			can, err := u.CheckCanUseDesktopApp(db)
-			Expect(err).To(BeNil())
-			Expect(can).To(BeTrue())
-		})
-
-		It("should be false if the column on the user overrides but is false", func() {
-			u.CanUseDesktopApp = sql.NullBool{false, true}
-			_, err := db.Exec(`UPDATE billing_profiles SET state = $1 WHERE user_id = $2;`, billingprofile.StateFree, u.ID)
-			Expect(err).To(BeNil())
-
-			can, err := u.CheckCanUseDesktopApp(db)
-			Expect(err).To(BeNil())
-			Expect(can).To(BeFalse())
-		})
-
-		Context("user is a member of orgs", func() {
-			var (
-				o, o2 *org.Org
-			)
-
-			BeforeEach(func() {
-				o = &org.Org{
-					Slug:  "Foobar",
-					Name:  "Foo Bar, Inc.",
-					Email: "eng@foobar.com",
-				}
-				err := o.Insert(db)
-				Expect(err).To(BeNil())
-				err = db.WithTransaction(func(tx *sqlx.Tx) error {
-					return billingprofile.Create(tx, u.ID, sql.NullInt64{o.ID, true})
-				})
-				Expect(err).To(BeNil())
-
-				o2 = &org.Org{
-					Name:  "Macrosoft Corp.",
-					Slug:  "macrosoft",
-					Email: "bill@macrosoft.com",
-				}
-				err = o2.Insert(db)
-				Expect(err).To(BeNil())
-				err = db.WithTransaction(func(tx *sqlx.Tx) error {
-					return billingprofile.Create(tx, u.ID, sql.NullInt64{o2.ID, true})
-				})
-				Expect(err).To(BeNil())
-
-				_, err = db.Exec("INSERT INTO org_memberships (org_id, user_id, role) values ($1, $2, $3);", o.ID, u.ID, "owner")
-				Expect(err).To(BeNil())
-				_, err = db.Exec("INSERT INTO org_memberships (org_id, user_id, role) values ($1, $2, $3);", o2.ID, u.ID, "member")
-				Expect(err).To(BeNil())
-			})
-			It("should be false if none of the orgs are paid", func() {
-				_, err := db.Exec(`UPDATE billing_profiles SET state = $1 WHERE org_id IS NULL AND user_id = $2;`, billingprofile.StateFree, u.ID)
-				Expect(err).To(BeNil())
-
-				can, err := u.CheckCanUseDesktopApp(db)
-				Expect(err).To(BeNil())
-				Expect(can).To(BeFalse())
-			})
-
-			It("should be true if one of the orgs is paid", func() {
-				_, err := db.Exec(`UPDATE billing_profiles SET state = $1 WHERE org_id IS NULL AND user_id = $2;`, billingprofile.StateFree, u.ID)
-				Expect(err).To(BeNil())
-				_, err = db.Exec(`UPDATE billing_profiles SET state = $1 WHERE org_id = $2;`, billingprofile.StatePaid, o2.ID)
-				Expect(err).To(BeNil())
-
-				can, err := u.CheckCanUseDesktopApp(db)
-				Expect(err).To(BeNil())
-				Expect(can).To(BeTrue())
-			})
 		})
 	})
 
