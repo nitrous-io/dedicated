@@ -1104,11 +1104,10 @@ var _ = Describe("HostQueueHandler", func() {
 			Expect(p.Insert(db)).To(BeNil())
 
 			pt := &providertemplate.ProviderTemplate{
-				RegionID:        hs.PT.RegionID,
-				PlanID:          p.ID,
-				Name:            "new-host-size",
-				Provider:        "ec2",
-				PreprovisionMax: 2,
+				RegionID: hs.PT.RegionID,
+				PlanID:   p.ID,
+				Name:     "new-host-size",
+				Provider: "ec2",
 			}
 			Expect(pt.Insert(db))
 

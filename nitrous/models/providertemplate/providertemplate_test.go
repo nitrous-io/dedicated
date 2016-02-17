@@ -224,12 +224,11 @@ var _ = Describe("models/providertemplate", func() {
 		BeforeEach(func() {
 			var err error
 			pt = &providertemplate.ProviderTemplate{
-				RegionID:        r.ID,
-				PlanID:          p1.ID,
-				Name:            "ec2-micro-apse1",
-				Provider:        "ec2",
-				PreprovisionMax: 2,
-				Disabled:        false,
+				RegionID: r.ID,
+				PlanID:   p1.ID,
+				Name:     "ec2-micro-apse1",
+				Provider: "ec2",
+				Disabled: false,
 			}
 			err = pt.Insert(db)
 			Expect(err).To(BeNil())
@@ -244,7 +243,6 @@ var _ = Describe("models/providertemplate", func() {
 			Expect(pt.PlanID).To(Equal(p1.ID))
 			Expect(pt.Name).To(Equal("ec2-micro-apse1"))
 			Expect(pt.Provider).To(Equal("ec2"))
-			Expect(pt.PreprovisionMax).To(Equal(2))
 			Expect(pt.Disabled).To(BeFalse())
 		})
 
@@ -261,11 +259,10 @@ var _ = Describe("models/providertemplate", func() {
 		BeforeEach(func() {
 			var err error
 			pt = &providertemplate.ProviderTemplate{
-				RegionID:        r.ID,
-				PlanID:          p1.ID,
-				Name:            "ec2-micro-apse1",
-				Provider:        "ec2",
-				PreprovisionMax: 2,
+				RegionID: r.ID,
+				PlanID:   p1.ID,
+				Name:     "ec2-micro-apse1",
+				Provider: "ec2",
 			}
 			err = pt.Insert(db)
 			Expect(err).To(BeNil())
@@ -274,7 +271,6 @@ var _ = Describe("models/providertemplate", func() {
 		It("updates the provider template in the database", func() {
 			pt.Name = "do-sgp-512mb"
 			pt.Provider = "digitalocean"
-			pt.PreprovisionMax = 1
 
 			err := pt.Update(db)
 			Expect(err).To(BeNil())
@@ -285,7 +281,6 @@ var _ = Describe("models/providertemplate", func() {
 			// Update fields.
 			Expect(pt2.Name).To(Equal("do-sgp-512mb"))
 			Expect(pt2.Provider).To(Equal("digitalocean"))
-			Expect(pt2.PreprovisionMax).To(Equal(1))
 
 			// Unchanged fields.
 			Expect(pt2.RegionID).To(Equal(r.ID))

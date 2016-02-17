@@ -52,7 +52,6 @@ var (
 )
 
 var (
-	ErrPreprovisionerNotConfigured    = errors.New("pre-provisioner is not configured")
 	ErrMultipleHostCreationNotAllowed = errors.New("only one host can be created at any time")
 	ErrOrgPermissionDenied            = errors.New("you do not have access to this organization")
 	ErrOrgCreatePermissionDenied      = errors.New("limited user cannot create")

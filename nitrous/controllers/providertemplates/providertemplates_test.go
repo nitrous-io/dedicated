@@ -100,9 +100,8 @@ var _ = Describe("controllers/", func() {
 
 			BeforeEach(func() {
 				insertedPt1 = &providertemplate.ProviderTemplate{
-					Name:            "do-512MB",
-					Provider:        "digitalocean",
-					PreprovisionMax: 1,
+					Name:     "do-512MB",
+					Provider: "digitalocean",
 					Config: hstore.Hstore{
 						map[string]sql.NullString{
 							"foo": sql.NullString{"bar", true},
@@ -118,11 +117,10 @@ var _ = Describe("controllers/", func() {
 				Expect(err).To(BeNil())
 
 				insertedPt2 = &providertemplate.ProviderTemplate{
-					Name:            "do-1GB",
-					RegionID:        insertedPt1.RegionID,
-					PlanID:          insertedPt1.PlanID,
-					Provider:        "ec2",
-					PreprovisionMax: 2,
+					Name:     "do-1GB",
+					RegionID: insertedPt1.RegionID,
+					PlanID:   insertedPt1.PlanID,
+					Provider: "ec2",
 				}
 
 				err = insertedPt2.Insert(db)
@@ -147,12 +145,10 @@ var _ = Describe("controllers/", func() {
 
 				Expect(pt1.Name).To(Equal("do-512MB"))
 				Expect(pt1.Provider).To(Equal("digitalocean"))
-				Expect(pt1.PreprovisionMax).To(Equal(1))
 				Expect(pt1.Config["foo"]).To(Equal("bar"))
 
 				Expect(pt2.Name).To(Equal("do-1GB"))
 				Expect(pt2.Provider).To(Equal("ec2"))
-				Expect(pt2.PreprovisionMax).To(Equal(2))
 			})
 
 			It("Get individual provider template", func() {
@@ -170,14 +166,12 @@ var _ = Describe("controllers/", func() {
 
 				Expect(pt.Name).To(Equal("do-512MB"))
 				Expect(pt.Provider).To(Equal("digitalocean"))
-				Expect(pt.PreprovisionMax).To(Equal(1))
 				Expect(pt.Config["foo"]).To(Equal("bar"))
 			})
 
 			It("Update provider templates", func() {
 				jsonForm := `{
 					"provider_template": {
-						"preprovision_max": 3,
 						"hourly_price": 100,
 						"config": {
 							"bar": "baz"
@@ -203,7 +197,6 @@ var _ = Describe("controllers/", func() {
 
 				Expect(pt1.Name).To(Equal("do-512MB"))
 				Expect(pt1.Provider).To(Equal("digitalocean"))
-				Expect(pt1.PreprovisionMax).To(Equal(3))
 				Expect(pt1.Config.Map["bar"].String).To(Equal("baz"))
 			})
 		})

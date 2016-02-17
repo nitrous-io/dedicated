@@ -10,24 +10,15 @@ import (
 )
 
 type ProviderTemplate struct {
-	ID              int64         `db:"id"`
-	RegionID        int64         `db:"region_id"`
-	PlanID          int64         `db:"plan_id"`
-	Name            string        `db:"name"`
-	Provider        string        `db:"provider"`
-	Config          hstore.Hstore `db:"config"`
-	PreprovisionMax int           `db:"preprovision_max"`
-	Disabled        bool          `db:"disabled"`
-	CreatedAt       *time.Time    `db:"created_at"`
-	UpdatedAt       *time.Time    `db:"updated_at"`
-}
-
-func Preprovisioned(d db.QueryReceiver) ([]ProviderTemplate, error) {
-	pts := []ProviderTemplate{}
-	if err := d.Select(&pts, `SELECT * FROM provider_templates WHERE preprovision_max > 0`); err != nil {
-		return nil, err
-	}
-	return pts, nil
+	ID        int64         `db:"id"`
+	RegionID  int64         `db:"region_id"`
+	PlanID    int64         `db:"plan_id"`
+	Name      string        `db:"name"`
+	Provider  string        `db:"provider"`
+	Config    hstore.Hstore `db:"config"`
+	Disabled  bool          `db:"disabled"`
+	CreatedAt *time.Time    `db:"created_at"`
+	UpdatedAt *time.Time    `db:"updated_at"`
 }
 
 func FindByID(d db.QueryReceiver, id int64) (*ProviderTemplate, error) {
@@ -85,8 +76,8 @@ func (pt *ProviderTemplate) RespecTemplate(d db.QueryReceiver, newPlan *plan.Pla
 
 func (pt *ProviderTemplate) Insert(d db.QueryReceiver) error {
 	nstmt, err := d.PrepareNamed(`INSERT INTO provider_templates
-		(region_id, plan_id, name, provider, config, preprovision_max, disabled)
-		VALUES (:region_id, :plan_id, :name, :provider, :config, :preprovision_max, :disabled)
+		(region_id, plan_id, name, provider, config, disabled)
+		VALUES (:region_id, :plan_id, :name, :provider, :config, :disabled)
 		RETURNING *;`)
 	if err != nil {
 		return err
@@ -96,8 +87,8 @@ func (pt *ProviderTemplate) Insert(d db.QueryReceiver) error {
 
 func (pt *ProviderTemplate) Update(d db.QueryReceiver) error {
 	nstmt, err := d.PrepareNamed(`UPDATE provider_templates
-		SET (name, provider, config, preprovision_max, disabled, updated_at)
-		= (:name, :provider, :config, :preprovision_max, :disabled, now())
+		SET (name, provider, config, disabled, updated_at)
+		= (:name, :provider, :config, :disabled, now())
 		WHERE id = :id
 		RETURNING *;`)
 	if err != nil {
