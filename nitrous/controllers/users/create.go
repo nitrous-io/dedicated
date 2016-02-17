@@ -33,8 +33,6 @@ var (
 	bannedEmailAddress = httperror.New(http.StatusBadRequest, "email_banned", "this email address is banned")
 	bannedPhone        = httperror.New(http.StatusBadRequest, "phone_banned", "this phone number is banned")
 
-	phoneAlreadyAuthed = httperror.New(http.StatusBadRequest, "phone_authed", "phone number has already been verified")
-
 	invalidCaptchaToken = httperror.New(http.StatusBadRequest, "invalid_captcha_token", "failed to verify captcha token")
 
 	CVerifier googlerecaptcha.CaptchaVerifier

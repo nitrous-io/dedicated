@@ -183,12 +183,7 @@ var _ = Describe("POST /api/v0/hosts", func() {
 	})
 
 	It("should return vague error if user is suspicious and plan is free", func() {
-		_, err := db.Exec(`
-			UPDATE users SET
-				suspicious = 'bad email',
-				phone_authed = true
-			WHERE id = $1
-		`, u.ID)
+		_, err := db.Exec(`UPDATE users SET suspicious = 'bad email' WHERE id = $1`, u.ID)
 		Expect(err).To(BeNil())
 
 		_, err = db.Exec(`UPDATE billing_profiles SET state = $1 WHERE user_id = $2`, billingprofile.StateFree, u.ID)
@@ -1293,8 +1288,6 @@ var _ = Describe("POST /api/v0/hosts", func() {
 				BeforeEach(func() {
 					_, err := db.Exec(`UPDATE billing_profiles SET state=$1, max_hours=10 WHERE user_id=$2;`,
 						billingprofile.StateFree, u.ID)
-					Expect(err).To(BeNil())
-					_, err = db.Exec(`UPDATE users SET phone_authed = true WHERE id = $1;`, u.ID)
 					Expect(err).To(BeNil())
 				})
 
