@@ -291,7 +291,7 @@ var _ = Describe("controllers/admin", func() {
 
 				Expect(res.Code).To(Equal(http.StatusOK))
 				var j struct {
-					DBHosts   []serializers.AdminHost `json:"db_hosts"`
+					DBHosts   []serializers.Host `json:"db_hosts"`
 					LiveHosts []struct {
 						Provider       string `json:"provider"`
 						ID             string `json:"id"`
