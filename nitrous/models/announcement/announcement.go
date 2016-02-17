@@ -141,7 +141,7 @@ func FindAllOwners(db *ndb.Database) ([]*HostOwner, error) {
 	err := db.Select(&owners, `SELECT
 		hosts.id AS host_id, users.id AS user_id, hosts.slug, username, users.name as fullname, email
 		FROM hosts INNER JOIN users ON (hosts.user_id = users.id)
-		WHERE hosts.terminated_at IS NULL AND preprovisioned=false AND users.deleted_at IS NULL;
+		WHERE hosts.terminated_at IS NULL AND users.deleted_at IS NULL;
 	`)
 
 	if err != nil {
@@ -211,7 +211,6 @@ func FindAllForHosts(db *ndb.Database) ([]*HostAnnouncement, error) {
 			show_to_all=false
 			AND expires_at > now()
 			AND hosts.terminated_at IS NULL
-			AND preprovisioned=false
 			AND users.deleted_at IS NULL
 		ORDER BY announcements.created_at DESC;`)
 

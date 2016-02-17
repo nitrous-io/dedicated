@@ -47,7 +47,7 @@ func main() {
 	for !hostsExhausted {
 		hosts := []host.Host{}
 		err := dbConn.Select(&hosts, `SELECT * FROM hosts h WHERE NOT EXISTS (SELECT t.id FROM host_transitions t WHERE t.host_id = h.id)
-			AND h.id > $1 AND h.preprovisioned = FALSE ORDER BY id ASC LIMIT 100;`, lastId)
+			AND h.id > $1 ORDER BY id ASC LIMIT 100;`, lastId)
 		if err != nil && err != sql.ErrNoRows {
 			logrus.Fatal(err)
 		}

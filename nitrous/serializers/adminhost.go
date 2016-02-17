@@ -16,7 +16,7 @@ func SerializeAdminHost(h *host.Host) *AdminHost {
 	serializedHost := SerializeHost(h)
 	return &AdminHost{
 		Host:           *serializedHost,
-		Preprovisioned: h.Preprovisioned,
+		Preprovisioned: false,
 	}
 }
 

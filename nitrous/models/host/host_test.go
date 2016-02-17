@@ -185,25 +185,6 @@ var _ = Describe("models/host", func() {
 				u1.ID, "aruns-first-host", hs.R.ID, hs.P.ID, hs.PT.ID, time.Now())
 			Expect(err).To(BeNil())
 
-			// Create some pre-provisioned hosts.
-			u2 := &user.User{
-				Username: "pre-provisioner",
-				Email:    "pp@example.com",
-				Password: "pp1234",
-			}
-			err = test.WrapInTransaction(db, u2.Insert)
-			Expect(err).To(BeNil())
-			_, err = db.Exec(`INSERT INTO hosts
-				(user_id, slug, region_id, plan_id, provider_template_id, preprovisioned, state)
-				VALUES ($1, $2, $3, $4, $5, $6, $7);`,
-				u2.ID, "preprovisioned-host-1", hs.R.ID, hs.P.ID, hs.PT.ID, true, host.StateRunning)
-			Expect(err).To(BeNil())
-			_, err = db.Exec(`INSERT INTO hosts
-				(user_id, slug, region_id, plan_id, provider_template_id,preprovisioned, terminated_at)
-				VALUES ($1, $2, $3, $4, $5, $6, $7);`, // Terminated host.
-				u2.ID, "preprovisioned-host-2", hs.R.ID, hs.P.ID, hs.PT.ID, true, time.Now())
-			Expect(err).To(BeNil())
-
 			// Create a host belonging to a different provider.
 			_, err = test.CreateHostStack(db, &test.HostStack{
 				H:  &host.Host{Slug: "other-1"},
@@ -214,9 +195,8 @@ var _ = Describe("models/host", func() {
 			hosts, err := host.FindAllByProvider(db, hs.PT.Provider)
 			Expect(err).To(BeNil())
 
-			Expect(hosts).To(HaveLen(2))
+			Expect(hosts).To(HaveLen(1))
 			Expect(hosts[0].Slug).To(Equal("aruns-second-host"))
-			Expect(hosts[1].Slug).To(Equal("preprovisioned-host-1"))
 		})
 	})
 
@@ -1246,18 +1226,6 @@ var _ = Describe("models/host", func() {
 				Expect(h.ProviderTemplate.Config.Map["disable_eip"]).To(Equal(sql.NullString{"true", true}))
 			})
 
-			It("returns pre-provisioned host with the given ID", func() {
-				hs.H.Preprovisioned = true
-				err := hs.H.Update(db)
-				Expect(err).To(BeNil())
-
-				h, err := host.FindByIdentifier(db, strconv.FormatInt(hs.H.ID, 10))
-				Expect(err).To(BeNil())
-				Expect(h).NotTo(BeNil())
-				Expect(h.ID).To(Equal(hs.H.ID))
-				Expect(h.Preprovisioned).To(BeTrue())
-			})
-
 			It("returns an error when there's no matching record", func() {
 				h, err := host.FindByIdentifier(db, "10001")
 				Expect(err).To(MatchError(sql.ErrNoRows))
@@ -1271,18 +1239,6 @@ var _ = Describe("models/host", func() {
 				Expect(err).To(BeNil())
 				Expect(h.Slug).To(Equal(hs.H.Slug))
 				Expect(h.ProviderTemplate.Config.Map["disable_eip"]).To(Equal(sql.NullString{"true", true}))
-			})
-
-			It("returns pre-provisioned host with the given slug", func() {
-				hs.H.Preprovisioned = true
-				err := hs.H.Update(db)
-				Expect(err).To(BeNil())
-
-				h, err := host.FindByIdentifier(db, hs.H.Slug)
-				Expect(err).To(BeNil())
-				Expect(h).NotTo(BeNil())
-				Expect(h.Slug).To(Equal(hs.H.Slug))
-				Expect(h.Preprovisioned).To(BeTrue())
 			})
 
 			It("returns an error when there's no matching record'", func() {
@@ -1392,7 +1348,6 @@ var _ = Describe("models/host", func() {
 				HourlyPrice:        100,
 				Free:               false,
 				TerminatedAt:       nil,
-				Preprovisioned:     false,
 				LastPingedAt:       pq.NullTime{Valid: false},
 				AutoShutdown:       false,
 			}
@@ -1410,7 +1365,6 @@ var _ = Describe("models/host", func() {
 			h.ProviderIdentifier = sql.NullString{"digitalocean", true}
 			h.MaxContainers = sql.NullInt64{2, true}
 			h.FreighterdPort = sql.NullInt64{60000, true}
-			h.Preprovisioned = true
 			h.HourlyPrice = 0
 			h.Free = true
 			h.LastPingedAt = pq.NullTime{t, true}
@@ -1431,7 +1385,6 @@ var _ = Describe("models/host", func() {
 			Expect(h2.ProviderIdentifier.String).To(Equal("digitalocean"))
 			Expect(h2.MaxContainers.Int64).To(Equal(int64(2)))
 			Expect(h2.FreighterdPort.Int64).To(Equal(int64(60000)))
-			Expect(h2.Preprovisioned).To(BeTrue())
 			Expect(h2.LastPingedAt.Valid).To(BeTrue())
 			Expect(h2.LastPingedAt.Time.Unix()).To(Equal(t.Unix()))
 			Expect(h2.AutoShutdown).To(BeTrue())
@@ -1482,7 +1435,6 @@ var _ = Describe("models/host", func() {
 				HourlyPrice:        100,
 				Free:               false,
 				TerminatedAt:       nil,
-				Preprovisioned:     false,
 				LastPingedAt:       pq.NullTime{Valid: false},
 				AutoShutdown:       false,
 				MaxContainers:      sql.NullInt64{int64(3), true},
@@ -1539,7 +1491,6 @@ var _ = Describe("models/host", func() {
 				HourlyPrice:        100,
 				Free:               false,
 				TerminatedAt:       nil,
-				Preprovisioned:     false,
 			}
 			err = h.Insert(db)
 			Expect(err).To(BeNil())
@@ -1630,7 +1581,6 @@ var _ = Describe("models/host", func() {
 				HourlyPrice:        100,
 				Free:               false,
 				TerminatedAt:       nil,
-				Preprovisioned:     false,
 			}
 			err = h.Insert(db)
 			Expect(err).To(BeNil())
@@ -1644,7 +1594,6 @@ var _ = Describe("models/host", func() {
 			h.ProviderIdentifier = sql.NullString{"digitalocean", true}
 			h.MaxContainers = sql.NullInt64{2, true}
 			h.FreighterdPort = sql.NullInt64{60000, true}
-			h.Preprovisioned = true
 			h.HourlyPrice = 0
 			h.Free = true
 			err := h.UpdateWithPrice(db)
@@ -1663,7 +1612,6 @@ var _ = Describe("models/host", func() {
 			Expect(h2.ProviderIdentifier.String).To(Equal("digitalocean"))
 			Expect(h2.MaxContainers.Int64).To(Equal(int64(2)))
 			Expect(h2.FreighterdPort.Int64).To(Equal(int64(60000)))
-			Expect(h2.Preprovisioned).To(BeTrue())
 			Expect(h2.HourlyPrice).To(Equal(int64(0)))
 			Expect(h2.Free).To(Equal(true))
 
@@ -1708,7 +1656,6 @@ var _ = Describe("models/host", func() {
 				State:              host.StateRespeccing,
 				HourlyPrice:        100,
 				TerminatedAt:       nil,
-				Preprovisioned:     false,
 			}
 			err = h.Insert(db)
 			Expect(err).To(BeNil())
@@ -1751,7 +1698,6 @@ var _ = Describe("models/host", func() {
 			Expect(h2.HourlyPrice).To(Equal(h.HourlyPrice))
 			Expect(h2.MaxContainers.Int64).To(Equal(h.MaxContainers.Int64))
 			Expect(h2.FreighterdPort.Int64).To(Equal(h.FreighterdPort.Int64))
-			Expect(h2.Preprovisioned).To(Equal(h.Preprovisioned))
 		})
 
 		It("updates UpdatedAt", func() {

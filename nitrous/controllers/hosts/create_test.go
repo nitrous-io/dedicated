@@ -854,7 +854,7 @@ var _ = Describe("POST /api/v0/hosts", func() {
 		It("creates a host in the orphan state", func() {
 			doRequest(params)
 			hosts := []host.Host{}
-			err := db.Select(&hosts, "SELECT * FROM hosts WHERE user_id = $1 AND terminated_at IS NULL AND preprovisioned = FALSE ORDER BY id;", u.ID)
+			err := db.Select(&hosts, "SELECT * FROM hosts WHERE user_id = $1 AND terminated_at IS NULL ORDER BY id;", u.ID)
 			Expect(err).To(BeNil())
 			Expect(hosts).To(HaveLen(1))
 
@@ -875,7 +875,7 @@ var _ = Describe("POST /api/v0/hosts", func() {
 
 			doRequest(params)
 			hosts := []host.Host{}
-			err := db.Select(&hosts, "SELECT * FROM hosts WHERE user_id = $1 AND terminated_at IS NULL AND preprovisioned = FALSE ORDER BY id;", u.ID)
+			err := db.Select(&hosts, "SELECT * FROM hosts WHERE user_id = $1 AND terminated_at IS NULL ORDER BY id;", u.ID)
 			Expect(err).To(BeNil())
 			Expect(hosts).To(HaveLen(1))
 
@@ -1398,7 +1398,7 @@ var _ = Describe("POST /api/v0/hosts", func() {
 
 				Eventually(func() (string, error) {
 					hosts := []host.Host{}
-					err := db.Select(&hosts, "SELECT * FROM hosts WHERE user_id = $1 AND terminated_at IS NULL AND preprovisioned = FALSE ORDER BY id;", u.ID)
+					err := db.Select(&hosts, "SELECT * FROM hosts WHERE user_id = $1 AND terminated_at IS NULL ORDER BY id;", u.ID)
 					Expect(err).To(BeNil())
 					Expect(hosts).To(HaveLen(1))
 					h := hosts[0]
@@ -1423,7 +1423,7 @@ var _ = Describe("POST /api/v0/hosts", func() {
 				select {
 				case <-finished:
 					hosts := []host.Host{}
-					err := db.Select(&hosts, "SELECT * FROM hosts WHERE user_id = $1 AND terminated_at IS NULL AND preprovisioned = FALSE ORDER BY id;", u.ID)
+					err := db.Select(&hosts, "SELECT * FROM hosts WHERE user_id = $1 AND terminated_at IS NULL ORDER BY id;", u.ID)
 					Expect(err).To(BeNil())
 					Expect(hosts).To(HaveLen(1))
 					h := &hosts[0]
