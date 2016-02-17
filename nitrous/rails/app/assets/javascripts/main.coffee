@@ -164,7 +164,7 @@ window.Nitrous = Em.Application.extend Em.Evented,
 
   reloadEligiblePlans: (->
     @get('eligiblePlans')?.reload()
-  ).observes 'billingProfile.state', 'user.phoneAuthed'
+  ).observes 'billingProfile.state'
 
   restrictedAccount: Em.computed.equal 'billingProfile.state', 'delinquent'
 

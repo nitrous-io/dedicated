@@ -24,6 +24,3 @@ App.AuthedRoute = Em.Route.extend
   checkForBillingIssues: ->
     if App.get('user._billingProfile.has_billing_issues')
       @transitionTo 'billing'
-
-  phoneAuthRequired: (routeName) ->
-    routeName != 'account'

@@ -25,11 +25,6 @@ App.HostsNewView = Em.View.extend App.InjectTerminalIframeMixin,
     !@get('controller.saving')
   ).property 'controller.saving', 'controller.selectedPlan.isFreePlan'
 
-  country: (->
-    countries = @get('controller.countryDict')
-    countries[App.get('user.phoneCountryCode')]
-  ).property 'controller.countryDict', 'App.user.phoneCountryCode'
-
   freePlanUnavailable: (->
     return true if @get 'controller.freePlanNotAllowed'
     App.get('billingProfile.isNoCardState') && @get('controller.freePlans.length') == 0

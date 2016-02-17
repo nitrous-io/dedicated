@@ -16,7 +16,6 @@ App.HostsNewController = Em.ObjectController.extend App.PromoCodeInfoMixin,
   plansBinding: Em.Binding.oneWay 'App.eligiblePlans'
   promoCodeBinding: Em.Binding.oneWay 'App.user.promoCode'
   sortedPlans: null
-  countryDict: null
   freePlanNotAllowed: false
 
   nameFieldEdited: false
@@ -74,7 +73,6 @@ App.HostsNewController = Em.ObjectController.extend App.PromoCodeInfoMixin,
       saving: false
       templateName: null
       nameFieldEdited: false
-      countryDict: null
       freePlanNotAllowed: false
 
     if @get('hasPendingContainer')
@@ -143,12 +141,6 @@ App.HostsNewController = Em.ObjectController.extend App.PromoCodeInfoMixin,
           orgSlug: @get('selectedOrg.slug')
           name: @get 'name'
       @set 'host', host
-
-      if @get('selectedPlan.isFreePlan') && !App.get('user.phoneAuthed')
-        App.set('pendingHost', host)
-
-        @transitionTo 'add-phone'
-        return
 
       if @get('cardRequired')
         App.set('pendingHost', host)
