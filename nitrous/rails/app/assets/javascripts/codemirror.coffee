@@ -1,4 +1,5 @@
 #= require codemirror/codemirror
+#= require codemirror/addon/mode/simple
 #= require codemirror/mode/clike/clike
 #= require codemirror/mode/clojure/clojure
 #= require codemirror/mode/coffeescript/coffeescript
