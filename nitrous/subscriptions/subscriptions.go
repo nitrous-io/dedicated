@@ -63,9 +63,12 @@ type couponGetFunc func(string, *stripe.CouponParams) (*stripe.Coupon, error)
 
 type hostStopFunc func(db *db.Database, h *host.Host, headers http.Header, initiatorID int64) error
 
+type hostTerminateFunc func(tx *sqlx.Tx, h *host.Host, headers http.Header, initiatorID int64, origState string) error
+
 type SubscriptionProvider struct {
-	HostStopFunc hostStopFunc
-	Mailer       mailer.Mailer
+	HostStopFunc      hostStopFunc
+	HostTerminateFunc hostTerminateFunc
+	Mailer            mailer.Mailer
 }
 
 const (
@@ -109,6 +112,7 @@ func init() {
 func NewProvider() *SubscriptionProvider {
 	s := &SubscriptionProvider{}
 	s.HostStopFunc = hostcontrol.StopWithQueue
+	s.HostTerminateFunc = hostcontrol.Terminate
 	s.Mailer = mailer.NewSendGridMailer(envvars.SendgridUsername, envvars.SendgridPassword)
 	return s
 }

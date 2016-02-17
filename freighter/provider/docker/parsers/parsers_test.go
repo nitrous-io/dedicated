@@ -170,6 +170,9 @@ var _ = Describe("ParseWOutput", func() {
 			{false, "", 900, "nitrous",
 				`nitrous  pts/1                     03:11    2days  0.08s  0.08s -zsh
 				 nitrous  pts/1                     03:11    2:49m  0.08s  0.08s -zsh`},
+			// contain empty line, none active
+			{false, "", 900, "nitrous",
+				"nitrous  pts/0                     03:06    44:25   0.18s  0.10s -zsh\n"},
 		}
 
 		for _, tc0 := range testCases {

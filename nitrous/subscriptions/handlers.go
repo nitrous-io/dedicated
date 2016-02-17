@@ -128,7 +128,7 @@ func (s *SubscriptionProvider) HandleSubscriptionDeleted(d *db.Database, subID s
 		return nil, err
 	}
 
-	if err := s.stopHosts(d, sub); err != nil {
+	if err := s.stopOrTerminateHosts(d, sub); err != nil {
 		return nil, err
 	}
 
@@ -627,7 +627,7 @@ func (s *SubscriptionProvider) HandleSubscriptionInvoiceFailed(d *db.Database, i
 	}
 
 	if sub != nil && (sInv.Attempts > 1 || sInv.Closed) {
-		if err := s.stopHosts(d, sub); err != nil {
+		if err := s.stopOrTerminateHosts(d, sub); err != nil {
 			return nil, err
 		}
 	}
@@ -639,13 +639,15 @@ func (s *SubscriptionProvider) HandleSubscriptionInvoiceFailed(d *db.Database, i
 	return inv, nil
 }
 
-func (s *SubscriptionProvider) stopHosts(d *db.Database, sub *subscription.Subscription) error {
+func (s *SubscriptionProvider) stopOrTerminateHosts(d *db.Database, sub *subscription.Subscription) error {
 	hosts := []*host.Host{}
 	err := d.Select(&hosts, `SELECT
-    hosts.*, pt.provider, pt.config
-    FROM hosts
-    INNER JOIN provider_templates AS pt ON hosts.provider_template_id = pt.id
-    INNER JOIN subscriptions ON subscriptions.id = hosts.subscription_id WHERE subscriptions.id = $1 AND terminated_at IS NULL;`, sub.ID)
+		hosts.*, pt.provider, pt.config
+		FROM hosts
+			INNER JOIN provider_templates AS pt ON hosts.provider_template_id = pt.id
+			INNER JOIN subscriptions ON subscriptions.id = hosts.subscription_id
+		WHERE subscriptions.id = $1
+		AND terminated_at IS NULL;`, sub.ID)
 	if err != nil {
 		return err
 	}
@@ -659,13 +661,26 @@ func (s *SubscriptionProvider) stopHosts(d *db.Database, sub *subscription.Subsc
 			return err
 		}
 
-		if h.State == host.StateStopped {
-			logrus.Infof("Host %d for subscription %d is already stopped", h.ID, sub.ID)
-			continue
-		}
+		if h.Free {
+			if h.State == host.StateTerminated {
+				logrus.Infof("Host %d for subscription %d is already terminated", h.ID, sub.ID)
+				continue
+			}
 
-		if err := s.HostStopFunc(d, h, headers, initiatorID); err != nil {
-			logrus.Errorf("Unable to stop host %d for subscription %d, err: %v", h.ID, sub.ID, err)
+			err = d.WithTransaction(func(tx *sqlx.Tx) error {
+				return s.HostTerminateFunc(tx, h, headers, initiatorID, h.State)
+			})
+			if err != nil {
+				logrus.Errorf("Unable to terminate host %d for subscription %d, err: %v", h.ID, sub.ID, err)
+			}
+		} else {
+			if h.State == host.StateStopped {
+				logrus.Infof("Host %d for subscription %d is already stopped", h.ID, sub.ID)
+				continue
+			}
+			if err := s.HostStopFunc(d, h, headers, initiatorID); err != nil {
+				logrus.Errorf("Unable to stop host %d for subscription %d, err: %v", h.ID, sub.ID, err)
+			}
 		}
 	}
 

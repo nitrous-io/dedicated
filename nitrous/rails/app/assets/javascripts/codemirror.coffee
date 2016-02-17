@@ -1,4 +1,5 @@
 #= require codemirror/codemirror
+#= require codemirror/addon/mode/simple
 #= require codemirror/mode/clike/clike
 #= require codemirror/mode/clojure/clojure
 #= require codemirror/mode/coffeescript/coffeescript
@@ -14,8 +15,10 @@
 #= require codemirror/mode/julia/julia
 #= require codemirror/mode/javascript/javascript
 #= require codemirror/mode/jinja2/jinja2
+#= require codemirror/mode/jsx/jsx
 #= require codemirror/mode/lua/lua
 #= require codemirror/mode/markdown/markdown
+#= require codemirror/mode/mllike/mllike
 #= require codemirror/mode/perl/perl
 #= require codemirror/mode/php/php
 #= require codemirror/mode/python/python
@@ -84,12 +87,14 @@ CodeMirror.MODES =
   'text/x-java'             : 'Java'
   'text/javascript'         : 'JavaScript'
   'text/x-jinja2'           : 'Jinja2'
+  'text/jsx'                : 'JSX'
   'application/json'        : 'JSON'
   'application/x-jsp'       : 'JSP'
   'text/x-julia'            : 'Julia'
   'text/x-less'             : 'LESS'
   'text/x-lua'              : 'Lua'
   'text/x-markdown'         : 'Markdown'
+  'text/x-ocaml'            : 'OCaml'
   'text/x-perl'             : 'Perl'
   'application/x-httpd-php' : 'PHP'
   'text/x-python'           : 'Python'
@@ -104,6 +109,7 @@ CodeMirror.MODES =
   'text/x-sql'              : 'SQL'
   'text/x-slim'             : 'Slim'
   'text/x-styl'             : 'Stylus'
+  'application/typescript'  : 'TypeScript'
   'application/xml'         : 'XML'
   'text/x-yaml'             : 'YAML'
 

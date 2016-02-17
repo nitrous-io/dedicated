@@ -12,6 +12,7 @@ import (
 	"os"
 	"strings"
 	"syscall"
+	"time"
 
 	"github.com/Sirupsen/logrus"
 	"github.com/gorilla/mux"
@@ -56,6 +57,7 @@ type Server struct {
 	secret    string
 	listeners []net.Listener
 	runner    Runner
+	pingTimer *time.Timer
 }
 
 func NewServer(provider provider.Provider, conf *freighter.Config) *Server {
