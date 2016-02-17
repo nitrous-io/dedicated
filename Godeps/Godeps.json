@@ -1,15 +1,10 @@
 {
 	"ImportPath": "github.com/nitrous-io/dedicated",
-	"GoVersion": "go1.5.2",
+	"GoVersion": "go1.4.2",
 	"Packages": [
 		"./..."
 	],
 	"Deps": [
-		{
-			"ImportPath": "bitbucket.org/pkg/inflect",
-			"Comment": "go.r60-12",
-			"Rev": "8961c3750a47b8c0b3e118d52513b97adf85a7e8"
-		},
 		{
 			"ImportPath": "code.google.com/p/go.text/encoding/japanese",
 			"Comment": "null-116",
@@ -236,15 +231,6 @@
 		{
 			"ImportPath": "github.com/stvp/tempredis",
 			"Rev": "67c04d1c96c503a11ebce2de1ad3b8c56100ba5a"
-		},
-		{
-			"ImportPath": "github.com/subosito/figo",
-			"Rev": "4f2709582c104a76b1ef6c24d47a682ec1b085c3"
-		},
-		{
-			"ImportPath": "github.com/subosito/twilio",
-			"Comment": "v0.0.1-22-gca29365",
-			"Rev": "ca29365f195cd8e9dfb805d4b8aca69ce8057564"
 		},
 		{
 			"ImportPath": "github.com/tent/http-link-go",
