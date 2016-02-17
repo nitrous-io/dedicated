@@ -117,16 +117,31 @@ var _ = Describe("server", func() {
 	})
 
 	Describe("POST /ping", func() {
-		doRequest := func() {
-			req, err = NewRequest("POST", "/ping", nil)
+		var (
+			notified   bool
+			webhookSvr *httptest.Server
+			orgPing    time.Duration
+			pingCount  int
+		)
+
+		doRequest := func(params *url.Values) {
+			var encodedData io.Reader
+			if params != nil {
+				encodedData = strings.NewReader(params.Encode())
+			}
+			req, err = http.NewRequest("POST", "/ping", encodedData)
 			Expect(err).To(BeNil())
+
+			req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+
 			handler.ServeHTTP(res, req)
 		}
 
-		It("responds with 200 ok immediately and notifies the webhook", func() {
-			var notified bool
+		BeforeEach(func() {
+			notified = false
+			pingCount = 0
 
-			webhookSvr := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			webhookSvr = httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 				r.ParseForm()
 				w.Write([]byte("OK"))
 				var m map[string]interface{}
@@ -134,8 +149,8 @@ var _ = Describe("server", func() {
 				Expect(err).To(BeNil())
 				Expect(m["event"]).To(Equal("ping"))
 				notified = true
+				pingCount++
 			}))
-			defer webhookSvr.Close()
 
 			svr = server.NewServer(prov, &freighter.Config{
 				NotifyURL: webhookSvr.URL,
@@ -145,13 +160,51 @@ var _ = Describe("server", func() {
 
 			svr.SetRunner(&fakeRunner{err: errors.New("command failed to execute")})
 
-			doRequest()
-			Expect(res.Code).To(Equal(http.StatusOK))
-			Expect(notified).To(BeFalse())
+			orgPing = server.PingInterval
+			server.PingInterval = 50 * time.Millisecond
+		})
 
-			Eventually(func() bool {
-				return notified
-			}).Should(BeTrue())
+		AfterEach(func() {
+			if webhookSvr != nil {
+				webhookSvr.Close()
+			}
+			server.PingInterval = orgPing
+		})
+
+		It("responds with 200 ok immediately", func() {
+			doRequest(nil)
+			Expect(res.Code).To(Equal(http.StatusOK))
+		})
+
+		It("does not notify the webhook", func() {
+			doRequest(nil)
+			time.Sleep(10 * time.Millisecond)
+
+			Expect(notified).To(BeFalse())
+		})
+
+		Context("`notify_webhook` is true", func() {
+			It("notifies the webhook", func() {
+				data := &url.Values{}
+				data.Set("notify_webhook", "true")
+
+				doRequest(data)
+				Eventually(func() bool {
+					return notified
+				}).Should(BeTrue())
+			})
+
+			It("notifies the webhook once", func() {
+				data := &url.Values{}
+				data.Set("notify_webhook", "true")
+
+				doRequest(data)
+				doRequest(data)
+				doRequest(data)
+
+				time.Sleep(server.PingInterval + 10*time.Millisecond)
+				Expect(pingCount).To(Equal(1))
+			})
 		})
 	})
 

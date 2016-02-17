@@ -151,6 +151,11 @@ func ParseWOutput(output, username string, threshold int) (bool, error) {
 	// session, so we return true
 	for _, line := range lines {
 		parts := strings.Fields(line)
+		// This can happen when last character is `\n`
+		if len(parts) == 0 {
+			continue
+		}
+
 		if len(parts) < 7 {
 			return false, fmt.Errorf("line did not match expected format: %s", line)
 		}
