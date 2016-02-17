@@ -1658,7 +1658,7 @@ var _ = Describe("subscriptions", func() {
 			Expect(sub).To(Equal(s))
 		})
 
-		It("should terminate the host assigned to the subscription", func() {
+		It("stops the paid host assigned to the subscription", func() {
 			_, err := db.Exec("UPDATE hosts SET subscription_id = $1 WHERE id = $2;", sub.ID, hs.H.ID)
 			Expect(err).To(BeNil())
 
@@ -1673,8 +1673,62 @@ var _ = Describe("subscriptions", func() {
 			Expect(err).To(BeNil())
 
 			e := errors.New("Woops!")
-			termCalled := false
+			stopCalled := false
 			subProvider.HostStopFunc = func(db *ndb.Database, h *host.Host, headers http.Header, initiatorID int64) error {
+				Expect(h.ID).To(Equal(hs.H.ID))
+				Expect(headers.Get(constants.NitrousUUIDHeader)).To(Equal(fmt.Sprintf("subscription_terminated_%d", sub.ID)))
+				Expect(initiatorID).To(Equal(prov.ID))
+				stopCalled = true
+				return e
+			}
+
+			termCalled := false
+			subProvider.HostTerminateFunc = func(tx *sqlx.Tx, h *host.Host, headers http.Header, initiatorID int64, origState string) error {
+				termCalled = true
+				return e
+			}
+
+			s, err := subProvider.HandleSubscriptionDeleted(db, "abc1")
+			Expect(err).To(BeNil())
+			Expect(stopCalled).To(BeTrue())
+			Expect(termCalled).To(BeFalse())
+
+			sub := &subscription.Subscription{}
+			err = db.Get(sub, "SELECT * FROM subscriptions WHERE stripe_id = 'abc1';")
+			Expect(err).To(BeNil())
+			Expect(sub.CancelPending).To(BeFalse())
+			Expect(sub.CancelledAt.Time).To(BeTemporally("~", time.Now(), time.Second))
+			Expect(sub.State).To(Equal(subscription.StateDeleted))
+			Expect(sub).To(Equal(s))
+		})
+
+		It("terminates the free host assigned to the subscription", func() {
+			hs.H.Free = true
+			hs.H.HourlyPrice = 0
+			_, err := db.Exec(`UPDATE hosts
+				SET subscription_id = $1, free = true, hourly_price = 0
+				WHERE id = $2;`, sub.ID, hs.H.ID)
+			Expect(err).To(BeNil())
+
+			prov := &user.User{
+				Username: "host-provisioner",
+				Password: "123456",
+				Email:    "hp@example.com",
+			}
+			err = test.WrapInTransaction(db, prov.Insert)
+			Expect(err).To(BeNil())
+			_, err = db.Exec(`UPDATE users SET service_account = true WHERE id = $1;`, u.ID)
+			Expect(err).To(BeNil())
+
+			e := errors.New("Woops!")
+			stopCalled := false
+			subProvider.HostStopFunc = func(db *ndb.Database, h *host.Host, headers http.Header, initiatorID int64) error {
+				stopCalled = true
+				return e
+			}
+
+			termCalled := false
+			subProvider.HostTerminateFunc = func(tx *sqlx.Tx, h *host.Host, headers http.Header, initiatorID int64, origState string) error {
 				Expect(h.ID).To(Equal(hs.H.ID))
 				Expect(headers.Get(constants.NitrousUUIDHeader)).To(Equal(fmt.Sprintf("subscription_terminated_%d", sub.ID)))
 				Expect(initiatorID).To(Equal(prov.ID))
@@ -1684,6 +1738,7 @@ var _ = Describe("subscriptions", func() {
 
 			s, err := subProvider.HandleSubscriptionDeleted(db, "abc1")
 			Expect(err).To(BeNil())
+			Expect(stopCalled).To(BeFalse())
 			Expect(termCalled).To(BeTrue())
 
 			sub := &subscription.Subscription{}
