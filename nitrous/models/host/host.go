@@ -91,9 +91,6 @@ type Host struct {
 	// from the associated Plan since size is often read.
 	Size sql.NullString `db:"size"`
 
-	// FIXME delete preprovisioned field and column
-	Preprovisioned bool `db:"preprovisioned"`
-
 	TerminatedAt *time.Time `db:"terminated_at"`
 	CreatedAt    *time.Time `db:"created_at"`
 	UpdatedAt    *time.Time `db:"updated_at"`
@@ -176,7 +173,6 @@ func FindAllByUser(db db.QueryReceiver, userID int64) ([]*Host, error) {
 			LEFT JOIN subscriptions AS sub ON hosts.subscription_id = sub.id
 			LEFT JOIN orgs ON hosts.org_id = orgs.id
 			WHERE user_id = $1 AND terminated_at IS NULL
-				AND preprovisioned = FALSE
 				AND hosts.state NOT IN ($2, $3)
 				AND (
 					sub.state IS NULL OR -- users with no subscriptions still exist
@@ -200,7 +196,6 @@ func FindAllByUserAndOrg(db db.QueryReceiver, userID, orgID int64) ([]*Host, err
 			WHERE user_id = $1
 				AND org_id = $2
 				AND terminated_at IS NULL
-				AND preprovisioned = FALSE
 				AND hosts.state NOT IN ($3, $4)
 				AND (
 					sub.state IS NULL OR -- users with no subscriptions still exist
@@ -216,7 +211,7 @@ func FindAllByUserAndOrg(db db.QueryReceiver, userID, orgID int64) ([]*Host, err
 
 func FindAllWithTerminated(db *db.Database, userID int64) ([]*Host, error) {
 	hosts := []*Host{}
-	err := db.Select(&hosts, "SELECT * FROM hosts WHERE user_id = $1 AND preprovisioned = FALSE ORDER BY id;", userID)
+	err := db.Select(&hosts, "SELECT * FROM hosts WHERE user_id = $1 ORDER BY id;", userID)
 	if err != nil {
 		return nil, err
 	}
@@ -228,7 +223,6 @@ func FindAllWithoutOrphaned(db *db.Database, userID int64) ([]*Host, error) {
 	err := db.Select(&hosts, `SELECT * FROM hosts
 		WHERE user_id = $1
 			AND state != $2
-			AND preprovisioned = FALSE
 			AND terminated_at IS NULL
 		ORDER BY id;`,
 		userID, StateOrphan)
@@ -303,7 +297,7 @@ func Find(db *db.Database, user *user.User, identifier string) (*Host, error) {
 				(hosts.user_id = $2 OR
 					(hosts.org_id IS NOT NULL AND EXISTS (SELECT 1 FROM org_memberships WHERE org_id = hosts.org_id AND user_id = $2 AND role = 'owner'))
 				)
-			AND terminated_at IS NULL AND preprovisioned = FALSE;`, identifier, user.ID)
+			AND terminated_at IS NULL;`, identifier, user.ID)
 	} else {
 		err = db.Get(host,
 			`SELECT hosts.*, pt.provider, pt.config, sub.slug AS subscription_slug, orgs.slug AS org_slug
@@ -315,7 +309,7 @@ func Find(db *db.Database, user *user.User, identifier string) (*Host, error) {
 				(hosts.user_id = $2 OR
 					(hosts.org_id IS NOT NULL AND EXISTS (SELECT 1 FROM org_memberships WHERE org_id = hosts.org_id AND user_id = $2 AND role = 'owner'))
 				)
-			AND terminated_at IS NULL AND preprovisioned = FALSE;`, id, user.ID)
+			AND terminated_at IS NULL;`, id, user.ID)
 	}
 
 	if err != nil {
@@ -344,7 +338,7 @@ func FindShared(db *db.Database, user *user.User, identifier string) (*Host, err
 			LEFT JOIN subscriptions AS sub ON hosts.subscription_id = sub.id
                         LEFT JOIN orgs ON hosts.org_id = orgs.id
 			WHERE cc.user_id = $1 AND hosts.slug = $2
-			AND hosts.terminated_at IS NULL AND preprovisioned = FALSE;`, user.ID, identifier)
+			AND hosts.terminated_at IS NULL;`, user.ID, identifier)
 	} else {
 		err = db.Get(host,
 			`SELECT hosts.*, pt.provider, pt.config, sub.slug AS subscription_slug, orgs.slug AS org_slug
@@ -355,7 +349,7 @@ func FindShared(db *db.Database, user *user.User, identifier string) (*Host, err
 			LEFT JOIN subscriptions AS sub ON hosts.subscription_id = sub.id
                         LEFT JOIN orgs ON hosts.org_id = orgs.id
 			WHERE cc.user_id = $1 AND hosts.id = $2
-			AND hosts.terminated_at IS NULL AND preprovisioned = FALSE;`, user.ID, id)
+			AND hosts.terminated_at IS NULL;`, user.ID, id)
 	}
 
 	if err != nil {
@@ -452,13 +446,13 @@ func (h *Host) Insert(d db.QueryReceiver) error {
 	nstmt, err := d.PrepareNamed(`INSERT INTO hosts (
 			user_id, org_id, region_id, plan_id, provider_template_id, slug, name, secret,
 			state, ip_address, static_ip, provider_identifier, max_containers, size, freighterd_port,
-			hourly_price, free, preprovisioned,
+			hourly_price, free,
 			region_identifier, last_pinged_at, last_running_at, auto_shutdown,
 			subscription_id
 		) VALUES (
 			:user_id, :org_id, :region_id, :plan_id, :provider_template_id, :slug, :name, :secret,
 			:state, :ip_address, :static_ip, :provider_identifier, :max_containers, :size, :freighterd_port,
-			:hourly_price, :free, :preprovisioned,
+			:hourly_price, :free,
 			:region_identifier, :last_pinged_at, :last_running_at, :auto_shutdown,
 			:subscription_id
 		)
@@ -471,11 +465,9 @@ func (h *Host) Insert(d db.QueryReceiver) error {
 
 func (h *Host) Update(d db.QueryReceiver) error {
 	nstmt, err := d.PrepareNamed(`UPDATE hosts
-		SET (slug, name, state, ip_address, provider_identifier, max_containers, freighterd_port,
-			preprovisioned, updated_at,
+		SET (slug, name, state, ip_address, provider_identifier, max_containers, freighterd_port, updated_at,
 			region_identifier, last_pinged_at, auto_shutdown)
-		= (:slug, :name, :state, :ip_address, :provider_identifier, :max_containers, :freighterd_port,
-			:preprovisioned, now(),
+		= (:slug, :name, :state, :ip_address, :provider_identifier, :max_containers, :freighterd_port, now(),
 			:region_identifier, :last_pinged_at, :auto_shutdown)
 		WHERE id = :id
 		RETURNING *;`)
@@ -520,10 +512,10 @@ func (h *Host) UpdateState(d db.QueryReceiver, newState string) error {
 func (h *Host) UpdateWithPrice(d db.QueryReceiver) error {
 	nstmt, err := d.PrepareNamed(`UPDATE hosts
 		SET (slug, name, state, ip_address, provider_identifier, max_containers, freighterd_port,
-			preprovisioned, hourly_price, free, updated_at,
+			hourly_price, free, updated_at,
 			region_identifier, last_pinged_at, auto_shutdown)
 		= (:slug, :name, :state, :ip_address, :provider_identifier, :max_containers, :freighterd_port,
-			:preprovisioned, :hourly_price, :free, now(),
+			:hourly_price, :free, now(),
 			:region_identifier, :last_pinged_at, :auto_shutdown)
 		WHERE id = :id
 		RETURNING *;`)

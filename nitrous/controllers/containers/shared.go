@@ -122,7 +122,6 @@ func fetchContainersWithHosts(db *db.Database, userID int64) (*HostUserContainer
     INNER JOIN users ON users.id = hosts.user_id
     WHERE hosts.id IN (%s)
     AND terminated_at IS NULL
-    AND preprovisioned = FALSE
     AND state NOT IN ($1, $2)
     AND users.deleted_at IS NULL
     ORDER BY id;`,

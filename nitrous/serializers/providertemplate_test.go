@@ -16,14 +16,13 @@ var _ = Describe("provider template serializer", func() {
 		now := time.Now()
 
 		var model = &providertemplate.ProviderTemplate{
-			ID:              1,
-			RegionID:        2,
-			PlanID:          3,
-			Name:            "do-512MB",
-			Provider:        "digitalocean",
-			PreprovisionMax: 50,
-			CreatedAt:       &now,
-			UpdatedAt:       &now,
+			ID:        1,
+			RegionID:  2,
+			PlanID:    3,
+			Name:      "do-512MB",
+			Provider:  "digitalocean",
+			CreatedAt: &now,
+			UpdatedAt: &now,
 		}
 
 		It("serializes to JSON", func() {
@@ -41,7 +40,6 @@ var _ = Describe("provider template serializer", func() {
         "name": "do-512MB",
         "provider": "digitalocean",
         "config": {},
-        "preprovision_max": 50,
         "created_at": %s,
         "updated_at": %s
       }`, nowJSON, nowJSON)))

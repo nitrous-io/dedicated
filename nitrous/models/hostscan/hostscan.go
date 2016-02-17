@@ -129,7 +129,6 @@ func FindScannableHosts(d *db.Database, now time.Time) ([]*host.Host, error) {
 		WHERE
 			free IS TRUE
 			AND terminated_at IS NULL
-			AND preprovisioned = FALSE
 			AND state != 'orphan'
 			AND scan_exempted = FALSE
 			AND terminating_at IS NULL
@@ -152,7 +151,6 @@ func FindTerminatingHosts(d *db.Database, now time.Time) ([]*host.Host, error) {
 		WHERE
 			free IS TRUE
 			AND terminated_at IS NULL
-			AND preprovisioned = FALSE
 			AND hosts.state != 'orphan'
 			AND scan_exempted = FALSE
 			AND billing_profiles.state = $1
