@@ -382,13 +382,6 @@ func GetAuthenticatedUser(env *middleware.Env, w http.ResponseWriter, r *http.Re
 		}
 	}
 
-	canUseDesktopApp, err := u.CheckCanUseDesktopApp(env.DB)
-	if err != nil {
-		logrus.Errorf("Failed to determine if user %d can use desktop app, err: %v", u.ID, err)
-		canUseDesktopApp = true // we should't punish users for server side errors
-	}
-	u.CanUseDesktopApp = sql.NullBool{canUseDesktopApp, true}
-
 	serializedUser := serializers.SerializeUserWithProfiles(u, up, bp)
 	serializedUser.UsageRemaining = usageRemaining
 

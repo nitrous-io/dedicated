@@ -1553,10 +1553,6 @@ var _ = Describe("controllers/users", func() {
 				})
 
 				ItReturnsUserDetails()
-
-				It("should indicate if the user can use the desktop app", func() {
-					Expect(userinfo["can_use_desktop_app"]).To(BeTrue())
-				})
 			})
 
 			Describe("when user is free", func() {
@@ -1568,10 +1564,6 @@ var _ = Describe("controllers/users", func() {
 				})
 
 				ItReturnsUserDetails()
-
-				It("should indicate if the user can use the desktop app", func() {
-					Expect(userinfo["can_use_desktop_app"]).To(BeFalse())
-				})
 			})
 
 			Describe("when user is member of paid org", func() {
@@ -1601,10 +1593,6 @@ var _ = Describe("controllers/users", func() {
 				})
 
 				ItReturnsUserDetails()
-
-				It("should indicate if the user can use the desktop app", func() {
-					Expect(userinfo["can_use_desktop_app"]).To(BeTrue())
-				})
 			})
 		})
 
