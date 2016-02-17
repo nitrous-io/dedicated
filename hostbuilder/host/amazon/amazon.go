@@ -710,11 +710,9 @@ func mountUserVolume(ctx *host.HostContext) error {
 
 	// Sets the hostname of the host to ENVIRONMENT-HOSTID. This is useful for recognizing
 	// the host on our log collector.
-	if h != nil {
-		hostnameCmd := fmt.Sprintf(`sudo hostname %s-%d && sudo service rsyslog restart`, h.Env, h.Config.HostID)
-		if out, err := conn.CombinedOutput(hostnameCmd); err != nil {
-			h.Printf("failed to set hostname, err: %v, output: %s", err, out)
-		}
+	hostnameCmd := fmt.Sprintf(`sudo hostname %s-%d && sudo service rsyslog restart`, h.Env, h.Config.HostID)
+	if out, err := conn.CombinedOutput(hostnameCmd); err != nil {
+		h.Printf("failed to set hostname, err: %v, output: %s", err, out)
 	}
 
 	if out, err := conn.CombinedOutput(`sudo service docker start`); err != nil {
