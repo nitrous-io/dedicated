@@ -64,6 +64,7 @@ var _ = Describe("user serializer", func() {
 				"phone_country_code": "65",
 				"phone_authed": false,
 				"max_containers": 99,
+				"can_use_desktop_app": true,
 				"usage_quota": 123,
 				"usage_remaining": 100,
 				"created_at": "2013-11-01T00:00:00Z",
@@ -90,6 +91,7 @@ var _ = Describe("user serializer", func() {
 				"phone_country_code": "65",
 				"phone_authed": false,
 				"max_containers": 99,
+				"can_use_desktop_app": true,
 				"usage_quota": 123,
 				"usage_remaining": 100,
 				"created_at": "2013-11-01T00:00:00Z",
@@ -117,6 +119,7 @@ var _ = Describe("user serializer", func() {
 				"phone_country_code": "65",
 				"phone_authed": false,
 				"max_containers": 99,
+				"can_use_desktop_app": true,
 				"usage_quota": 123,
 				"usage_remaining": 100,
 				"created_at": "2013-11-01T00:00:00Z",
@@ -142,62 +145,9 @@ var _ = Describe("user serializer", func() {
 				"phone": "88884444",
 				"phone_country_code": "65",
 				"phone_authed": false,
-				"usage_quota": 123,
-				"usage_remaining": 100,
-				"created_at": "2013-11-01T00:00:00Z",
-				"updated_at": "2013-11-02T00:00:00Z"
-			}`))
-		})
-
-		It("should include when a user can't use the desktop app", func() {
-			model.CanUseDesktopApp = sql.NullBool{false, true}
-			u := serializers.SerializeUser(model)
-			u.UsageRemaining = 100
-			b, err := json.Marshal(u)
-			Expect(err).To(BeNil())
-			Expect(b).To(MatchJSON(`{
-				"id": 10,
-				"name": "Emma Watson",
-				"username": "emmawatson",
-				"email": "h.granger@hogwarts.edu",
-				"unconfirmed_email": "h.granger+nospam@hogwarts.edu",
-				"admin": true,
-				"confirmed": false,
-				"first_time": true,
-				"phone": "88884444",
-				"phone_country_code": "65",
-				"phone_authed": false,
-				"max_containers": 99,
-				"usage_quota": 123,
-				"usage_remaining": 100,
-				"can_use_desktop_app": false,
-				"created_at": "2013-11-01T00:00:00Z",
-				"updated_at": "2013-11-02T00:00:00Z"
-			}`))
-		})
-
-		It("should include when a user can use the desktop app", func() {
-			model.CanUseDesktopApp = sql.NullBool{true, true}
-			u := serializers.SerializeUser(model)
-			u.UsageRemaining = 100
-			b, err := json.Marshal(u)
-			Expect(err).To(BeNil())
-			Expect(b).To(MatchJSON(`{
-				"id": 10,
-				"name": "Emma Watson",
-				"username": "emmawatson",
-				"email": "h.granger@hogwarts.edu",
-				"unconfirmed_email": "h.granger+nospam@hogwarts.edu",
-				"admin": true,
-				"confirmed": false,
-				"first_time": true,
-				"phone": "88884444",
-				"phone_country_code": "65",
-				"phone_authed": false,
-				"max_containers": 99,
-				"usage_quota": 123,
-				"usage_remaining": 100,
 				"can_use_desktop_app": true,
+				"usage_quota": 123,
+				"usage_remaining": 100,
 				"created_at": "2013-11-01T00:00:00Z",
 				"updated_at": "2013-11-02T00:00:00Z"
 			}`))
@@ -266,6 +216,7 @@ var _ = Describe("user serializer", func() {
 				"phone_country_code": "65",
 				"phone_authed": false,
 				"max_containers": 99,
+				"can_use_desktop_app": true,
 				"usage_quota": 123,
 				"usage_remaining": 100,
 				"created_at": "2013-11-01T00:00:00Z",

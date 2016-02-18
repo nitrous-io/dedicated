@@ -7,15 +7,14 @@ import (
 )
 
 type ProviderTemplate struct {
-	ID              int64             `json:"id"`
-	RegionID        int64             `json:"region_id"`
-	PlanID          int64             `json:"plan_id"`
-	Name            string            `json:"name"`
-	Provider        string            `json:"provider"`
-	Config          map[string]string `json:"config"`
-	PreprovisionMax int               `json:"preprovision_max"`
-	CreatedAt       *time.Time        `json:"created_at"`
-	UpdatedAt       *time.Time        `json:"updated_at"`
+	ID        int64             `json:"id"`
+	RegionID  int64             `json:"region_id"`
+	PlanID    int64             `json:"plan_id"`
+	Name      string            `json:"name"`
+	Provider  string            `json:"provider"`
+	Config    map[string]string `json:"config"`
+	CreatedAt *time.Time        `json:"created_at"`
+	UpdatedAt *time.Time        `json:"updated_at"`
 }
 
 func SerializeProviderTemplate(pt *providertemplate.ProviderTemplate) *ProviderTemplate {
@@ -24,15 +23,14 @@ func SerializeProviderTemplate(pt *providertemplate.ProviderTemplate) *ProviderT
 	}
 
 	spt := &ProviderTemplate{
-		ID:              pt.ID,
-		RegionID:        pt.RegionID,
-		PlanID:          pt.PlanID,
-		Name:            pt.Name,
-		Provider:        pt.Provider,
-		PreprovisionMax: pt.PreprovisionMax,
-		Config:          map[string]string{},
-		CreatedAt:       pt.CreatedAt,
-		UpdatedAt:       pt.UpdatedAt,
+		ID:        pt.ID,
+		RegionID:  pt.RegionID,
+		PlanID:    pt.PlanID,
+		Name:      pt.Name,
+		Provider:  pt.Provider,
+		Config:    map[string]string{},
+		CreatedAt: pt.CreatedAt,
+		UpdatedAt: pt.UpdatedAt,
 	}
 
 	for key, value := range pt.Config.Map {

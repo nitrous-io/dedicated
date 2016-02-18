@@ -19,15 +19,15 @@ type LiveHost struct {
 }
 
 type HostEntry struct {
-	DBHost   *AdminHost `json:"db_host,omitempty"`
-	LiveHost *LiveHost  `json:"live_host,omitempty"`
+	DBHost   *Host     `json:"db_host,omitempty"`
+	LiveHost *LiveHost `json:"live_host,omitempty"`
 }
 
 type HostList struct {
 	AllHosts          []*HostEntry `json:"all_hosts"`
 	HealthyHosts      []*HostEntry `json:"healthy_hosts"`
 	InconsistentHosts []*HostEntry `json:"inconsistent_hosts"`
-	DanglingHosts     []*AdminHost `json:"dangling_hosts"`
+	DanglingHosts     []*Host      `json:"dangling_hosts"`
 	UnaccountedHosts  []*LiveHost  `json:"unaccounted_hosts"`
 }
 
@@ -70,7 +70,7 @@ func SerializeLiveHosts(liveHosts []*hostbuilder.Response) []*LiveHost {
 func SerializeHostEntry(entry *groupedhosts.HostEntry) *HostEntry {
 	return &HostEntry{
 		LiveHost: SerializeLiveHost(entry.LiveHost),
-		DBHost:   SerializeAdminHost(entry.DBHost),
+		DBHost:   SerializeHost(entry.DBHost),
 	}
 }
 
@@ -87,7 +87,7 @@ func SerializeHostList(list *groupedhosts.HostList) *HostList {
 		AllHosts:          SerializeHostEntries(list.AllHosts),
 		HealthyHosts:      SerializeHostEntries(list.HealthyHosts),
 		InconsistentHosts: SerializeHostEntries(list.InconsistentHosts),
-		DanglingHosts:     SerializeAdminHosts(list.DanglingHosts),
+		DanglingHosts:     SerializeHosts(list.DanglingHosts),
 		UnaccountedHosts:  SerializeLiveHosts(list.UnaccountedHosts),
 	}
 }

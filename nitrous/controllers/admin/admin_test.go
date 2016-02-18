@@ -231,7 +231,6 @@ var _ = Describe("controllers/admin", func() {
 					H: &host.Host{
 						ProviderIdentifier: sql.NullString{String: "digitalocean-4", Valid: true},
 						Slug:               "ok-host-2",
-						Preprovisioned:     true,
 						State:              host.StateRunning,
 					},
 					U:  u2,
@@ -244,7 +243,6 @@ var _ = Describe("controllers/admin", func() {
 					H: &host.Host{
 						ProviderIdentifier: sql.NullString{String: "digitalocean-5", Valid: true},
 						Slug:               "terminated-host-1",
-						Preprovisioned:     true,
 						State:              host.StateRunning,
 					},
 					U:  u2,
@@ -293,7 +291,7 @@ var _ = Describe("controllers/admin", func() {
 
 				Expect(res.Code).To(Equal(http.StatusOK))
 				var j struct {
-					DBHosts   []serializers.AdminHost `json:"db_hosts"`
+					DBHosts   []serializers.Host `json:"db_hosts"`
 					LiveHosts []struct {
 						Provider       string `json:"provider"`
 						ID             string `json:"id"`
@@ -308,11 +306,8 @@ var _ = Describe("controllers/admin", func() {
 				Expect(j.DBHosts).To(HaveLen(3))
 
 				Expect(j.DBHosts[0].ID).To(Equal(hs1.H.ID))
-				Expect(j.DBHosts[0].Preprovisioned).To(BeFalse())
 				Expect(j.DBHosts[1].ID).To(Equal(hs2.H.ID))
-				Expect(j.DBHosts[1].Preprovisioned).To(BeFalse())
 				Expect(j.DBHosts[2].ID).To(Equal(hs3.H.ID))
-				Expect(j.DBHosts[2].Preprovisioned).To(BeTrue())
 
 				Expect(j.LiveHosts).To(HaveLen(2))
 
@@ -421,7 +416,7 @@ var _ = Describe("controllers/admin", func() {
 			})
 
 			It("blanks the host's provider_identifier and ip_address columns if new state is stopped", func() {
-				_, err := db.Exec(`UPDATE hosts 
+				_, err := db.Exec(`UPDATE hosts
 					SET provider_identifier = 'i-abcdef12', ip_address = '1.2.3.4', state = $1
 					WHERE slug = $2
 				`, host.StateStopping, hostSlug)
@@ -483,7 +478,6 @@ var _ = Describe("controllers/admin", func() {
 					H: &host.Host{
 						ProviderIdentifier: sql.NullString{String: "digitalocean-1", Valid: true},
 						Slug:               "ok-host",
-						Preprovisioned:     true,
 						State:              host.StateRunning,
 					},
 					PT: &providertemplate.ProviderTemplate{
@@ -497,7 +491,6 @@ var _ = Describe("controllers/admin", func() {
 					H: &host.Host{
 						ProviderIdentifier: sql.NullString{String: "digitalocean-2", Valid: true},
 						Slug:               "orphan-host",
-						Preprovisioned:     true,
 						State:              host.StateOrphan,
 					},
 					U:  u2,

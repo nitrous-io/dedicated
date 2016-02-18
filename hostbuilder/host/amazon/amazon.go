@@ -708,6 +708,13 @@ func mountUserVolume(ctx *host.HostContext) error {
 		h.Printf("failed to write host information, err: %v, output: %s", err, out)
 	}
 
+	// Sets the hostname of the host to ENVIRONMENT-HOSTID. This is useful for recognizing
+	// the host on our log collector.
+	hostnameCmd := fmt.Sprintf(`sudo hostname %s-%d && sudo service rsyslog restart`, h.Env, h.Config.HostID)
+	if out, err := conn.CombinedOutput(hostnameCmd); err != nil {
+		h.Printf("failed to set hostname, err: %v, output: %s", err, out)
+	}
+
 	if out, err := conn.CombinedOutput(`sudo service docker start`); err != nil {
 		return fmt.Errorf("failed to start docker, err: %v, output: %s", err, out)
 	}

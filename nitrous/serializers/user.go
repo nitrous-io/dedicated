@@ -27,7 +27,7 @@ type User struct {
 	NextUsageQuotaAt *time.Time      `json:"next_usage_quota_at,omitempty"`
 
 	MaxContainers    int64 `json:"max_containers,omitempty"`
-	CanUseDesktopApp *bool `json:"can_use_desktop_app,omitempty"`
+	CanUseDesktopApp bool  `json:"can_use_desktop_app"`
 
 	CreatedAt *time.Time `json:"created_at"`
 	UpdatedAt *time.Time `json:"updated_at"`
@@ -55,9 +55,8 @@ func SerializeUser(u *user.User) *User {
 		UpdatedAt: u.UpdatedAt,
 	}
 
-	if u.CanUseDesktopApp.Valid {
-		s.CanUseDesktopApp = &u.CanUseDesktopApp.Bool
-	}
+	// This is to allow all users to use desktop app
+	s.CanUseDesktopApp = true
 
 	if u.UsageQuota.Valid {
 		s.UsageQuota = u.UsageQuota.Int64
