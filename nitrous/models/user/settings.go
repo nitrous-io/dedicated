@@ -13,22 +13,6 @@ type Settings struct {
 
 	IdeSettings string `db:"ide_settings"`
 
-	Migrated bool `db:"migrated"`
-
-	// DEPRECATED (kept around for migrating)
-	AutoCloseBrackets              bool   `db:"auto_close_brackets"`
-	HighlightLine                  bool   `db:"highlight_line"`
-	Keybindings                    string `db:"keybindings"`
-	MatchBrackets                  bool   `db:"match_brackets"`
-	RulerColumn                    int64  `db:"ruler_column"`
-	ShowLineNumbers                bool   `db:"show_line_numbers"`
-	ShowTrailingSpace              bool   `db:"show_trailing_space"`
-	SoftTabs                       bool   `db:"soft_tabs"`
-	TabSize                        int64  `db:"tab_size"`
-	Theme                          string `db:"theme"`
-	WrapLines                      bool   `db:"wrap_lines"`
-	RemoveTrailingWhitespaceOnSave bool   `db:"remove_trailing_whitespace_on_save"`
-
 	CreatedAt pq.NullTime `db:"created_at"`
 	UpdatedAt pq.NullTime `db:"updated_at"`
 }
@@ -76,12 +60,7 @@ func (s *Settings) IdeSettingsMapWithDefaults() (map[string]interface{}, error) 
 
 func (s *Settings) Update(db ndb.QueryReceiver) error {
 	nstmt, err := db.PrepareNamed(`UPDATE user_settings
-		SET (ide_settings, migrated, auto_close_brackets, highlight_line, keybindings, match_brackets,
-			ruler_column, show_line_numbers, show_trailing_space, soft_tabs,
-			tab_size, theme, wrap_lines, remove_trailing_whitespace_on_save, updated_at)
-                = (:ide_settings, :migrated, :auto_close_brackets, :highlight_line, :keybindings, :match_brackets,
-			:ruler_column, :show_line_numbers, :show_trailing_space, :soft_tabs,
-			:tab_size, :theme, :wrap_lines, :remove_trailing_whitespace_on_save, now())
+		SET (ide_settings, updated_at) = (:ide_settings, now())
 		WHERE id = :id
 		RETURNING *;`)
 	if err != nil {

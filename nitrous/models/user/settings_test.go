@@ -99,7 +99,6 @@ var _ = Describe("models/user settings", func() {
 			err = db.Get(settings, `SELECT * FROM user_settings WHERE user_id = $1;`, u.ID)
 			Expect(err).To(BeNil())
 			Expect(settings.IdeSettings).To(Equal("{}"))
-			Expect(settings.Migrated).To(BeTrue())
 		})
 	})
 
