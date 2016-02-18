@@ -41,6 +41,8 @@ App.IdeEditorController = Em.ArrayController.extend App.IdeTabControllerMixin,
 
   beta: false
 
+  trackActivityQueued: false
+
   initialize: ->
     editorPane = App.EditorPane.create(tabs: Em.A())
     @set 'rootPane', editorPane
@@ -266,6 +268,11 @@ App.IdeEditorController = Em.ArrayController.extend App.IdeTabControllerMixin,
     @set 'fontSize', null
 
   trackActivity: ->
-    pingerSocket = @get('pingerSocket')
-    return unless pingerSocket && pingerSocket.get('started')
-    @get('pingerSocket').ping()
+    if !@get('trackActivityQueued') # Debounce so that we don't track excessively.
+      window.setTimeout(=>
+        pingerSocket = @get('pingerSocket')
+        return unless pingerSocket && pingerSocket.get('started')
+        @get('pingerSocket').ping()
+        @set('trackActivityQueued', false)
+      , 1000)
+      @set('trackActivityQueued', true)
