@@ -60,7 +60,6 @@ var (
 	ErrPasswordBlank    = errors.New("password can't be blank")
 	ErrPasswordTooShort = errors.New("password is too short (minimum is 6 characters)")
 	ErrPasswordTooLong  = errors.New("password is too long (maximum is 100 characters)")
-	ErrPhoneInvalid     = errors.New("phone number is not valid")
 	ErrCardBanned       = errors.New("credit card is banned")
 
 	ErrMaxHostsReached            = errors.New("reached maximum number of hosts")
@@ -385,34 +384,6 @@ func (u *User) Update(d db.QueryReceiver) error {
 	return nstmt.QueryRowx(u).StructScan(u)
 }
 
-func (u *User) UpdatePhone(d db.QueryReceiver, phone, country_code string) error {
-	// Both phone and country code are required.
-	if phone == "" || country_code == "" {
-		return ErrPhoneInvalid
-	}
-
-	// `phone_authed = false` condition prevents phone number from being updated
-	// if already been authed. This is because we use phone numbers to uniquely
-	// identify users, so we just prevent it from being changed once it's been
-	// authenticated. We might want to allow this to be changed in future.
-	return d.QueryRowx(`UPDATE users
-		SET phone = $1, phone_country_code = $2, updated_at = now()
-		WHERE id = $3 AND phone_authed = $4
-		RETURNING *`, phone, country_code, u.ID, false).StructScan(u)
-}
-
-func (u *User) UpdatePhoneAuthed(d db.QueryReceiver, b bool) error {
-	// Both phone and country code are required.
-	if !u.Phone.Valid || !u.PhoneCountryCode.Valid {
-		return ErrPhoneInvalid
-	}
-
-	return d.QueryRowx(`UPDATE users
-		SET phone_authed = $1, updated_at = now()
-		WHERE id = $2
-		RETURNING *`, b, u.ID).StructScan(u)
-}
-
 // There are some host_transitions with running state and null ended_at.
 // Before compute free host usage, we have to clean up bad host_transitions row of a user.
 // We do it by filling up ended_at with created_at of the next host_transition.
@@ -569,15 +540,6 @@ func (u *User) DisplayName() string {
 		name = u.Username
 	}
 	return name
-}
-
-// PhoneNumber returns the phone number including a "+" and the country code in
-// front, e.g. +16175551212 (US number) and +6588884444 (SG number).
-func (u *User) PhoneNumber() string {
-	if u.Phone.String == "" || u.PhoneCountryCode.String == "" {
-		return ""
-	}
-	return fmt.Sprintf("+%s%s", u.PhoneCountryCode.String, u.Phone.String)
 }
 
 func (u *User) Topic() pubsub.Topic {

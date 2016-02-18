@@ -62,7 +62,6 @@ func Delete(env *middleware.Env, w http.ResponseWriter, r *http.Request) error {
 	queries := []string{
 		"DELETE FROM tokens WHERE user_id = $1",
 		"DELETE FROM container_collabs WHERE user_id = $1",
-		"DELETE FROM verifications WHERE user_id = $1;",
 		"UPDATE users SET deleted_at = now() WHERE id = $1",
 	}
 

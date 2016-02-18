@@ -171,7 +171,6 @@ func banUser(env *middleware.Env, w http.ResponseWriter, r *http.Request) (err e
 	queries := []string{
 		"DELETE FROM tokens WHERE user_id = $1",
 		"DELETE FROM container_collabs WHERE user_id = $1",
-		"DELETE FROM verifications WHERE user_id = $1;",
 	}
 
 	for _, query := range queries {

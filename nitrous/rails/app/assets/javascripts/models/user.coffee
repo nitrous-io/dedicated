@@ -14,9 +14,6 @@ App.User = klass = App.Model.extend
   unconfirmedEmail: attr(as: 'unconfirmed_email', default: null, overwrite: true)
   promoCode: attr(as: 'promo_code')
   firstTime: attr('boolean', as: 'first_time', default: false)
-  phone: attr()
-  phoneCountryCode: attr(as: 'phone_country_code')
-  phoneAuthed: attr('boolean', as: 'phone_authed', serialize: false)
 
   # used for sideloading the records, should not access directly
   # instead use `App.userProfile` and `App.billingProfile`.
@@ -36,18 +33,6 @@ App.User = klass = App.Model.extend
   dismissFirstTime: ->
     @set 'firstTime', false
     @ajax 'POST', 'dismiss_first_time'
-
-  updatePhone: (phone, phoneCountryCode) ->
-    @ajax 'POST', 'phone',
-      phone: phone
-      phone_country_code: phoneCountryCode
-
-  resendPhoneCode: ->
-    @ajax 'POST', 'resend_phone_code'
-
-  verifyPhone: (code) ->
-    @ajax 'POST', 'verify_phone',
-      code: code
 
   delete: ->
     @ajax 'DELETE'
