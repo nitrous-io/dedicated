@@ -50,49 +50,6 @@ var (
 	}
 )
 
-func (s *Settings) MigrateDivergedSettings(db ndb.QueryReceiver) error {
-	if s.Migrated {
-		return nil
-	}
-
-	userSettings := map[string]interface{}{
-		"auto_close_brackets":                s.AutoCloseBrackets,
-		"highlight_line":                     s.HighlightLine,
-		"keybindings":                        s.Keybindings,
-		"match_brackets":                     s.MatchBrackets,
-		"ruler_column":                       s.RulerColumn,
-		"show_line_numbers":                  s.ShowLineNumbers,
-		"show_trailing_space":                s.ShowTrailingSpace,
-		"soft_tabs":                          s.SoftTabs,
-		"tab_size":                           s.TabSize,
-		"theme":                              s.Theme,
-		"wrap_lines":                         s.WrapLines,
-		"remove_trailing_whitespace_on_save": s.RemoveTrailingWhitespaceOnSave,
-	}
-
-	diff := map[string]interface{}{}
-	for k, v := range DefaultSettings {
-		userVal := userSettings[k]
-		if v != userVal {
-			diff[k] = userVal
-		}
-	}
-
-	if len(diff) == 0 {
-		s.Migrated = true
-		return s.Update(db)
-	}
-
-	// perform migration
-	jsonBytes, err := json.Marshal(diff)
-	if err != nil {
-		return err
-	}
-	s.Migrated = true
-	s.IdeSettings = string(jsonBytes[:])
-	return s.Update(db)
-}
-
 func (s *Settings) IdeSettingsMap() (map[string]interface{}, error) {
 	m := map[string]interface{}{}
 	if err := json.Unmarshal([]byte(s.IdeSettings), &m); err != nil {
