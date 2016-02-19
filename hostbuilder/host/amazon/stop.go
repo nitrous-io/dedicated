@@ -1,7 +1,6 @@
 package amazon
 
 import (
-	"fmt"
 	"time"
 
 	"github.com/nitrous-io/dedicated/event"
@@ -55,10 +54,6 @@ func (h *Host) StopWithQueue(qp queue.Publisher, queueInfo *host.QueueInfo) (*ho
 			Func:        unmountUserVolume,
 		},
 		{
-			Description: "Detaching user volume",
-			Func:        detachUserVolume,
-		},
-		{
 			Description: "Disassociate Elastic IP",
 			Func:        detachElasticIP,
 		},
@@ -66,24 +61,6 @@ func (h *Host) StopWithQueue(qp queue.Publisher, queueInfo *host.QueueInfo) (*ho
 	for _, step := range steps {
 		if err := hctx.Run(step); err != nil {
 			h.Printf("ERROR: failed in step %q: %v", step.Description, err)
-
-			// best not to recover from a timeout of a detach volume
-			// as it may detach part way through
-			canRecover := true
-			if step.Description == "Detaching user volume" && err == context.DeadlineExceeded {
-				h.Printf("choosing not to recover from detachUserVolume, timeout exceeded")
-				canRecover = false
-			}
-
-			// Attempt to recover workspace back to its original condition
-			// prior to being stopped.
-			if canRecover {
-				if err := h.recoverFromStop(); err != nil {
-					h.Printf("failed to recover from stop failure, err: %v", err)
-				}
-			} else {
-				h.Printf("will not recover from stop")
-			}
 
 			h.publishHostError(qp, queueInfo, event.HostStopFailed, queue.Stop, err)
 
@@ -96,20 +73,28 @@ func (h *Host) StopWithQueue(qp queue.Publisher, queueInfo *host.QueueInfo) (*ho
 		host.PublishMessage(qp, event.HostStopping, h.requestID, queueInfo, step.Description, queue.Stop)
 	}
 
+	// Terminate the EC2 instance of the host, which will leave the user's
+	// volume alone since it was created with `DeleteOnTermination` set to
+	// false.
+	// Note that we terminate instances instead of returning them to the
+	// instance pool to avoid any security issues from users breaking out of
+	// their container. The core invariant is: an instance will only ever be
+	// used by a single user.
 	instanceID := h.instance.InstanceId
-	h.Printf("successfully detached user volume %s from instance %s", userVolume.VolumeId, instanceID)
-
-	go func() {
-		// we do not reuse pooled instances to avoid any security issues from
-		// users breaking out of their container.  The core invariant is: an
-		// instance will only ever be used by a single user.
-
-		h.Printf("terminating instance %s after stopping hotswapped workspace", instanceID)
-		if _, err := h.provider.TerminateInstances([]string{instanceID}); err != nil {
-			h.Printf("failed to terminate instance %s, err: %v", instanceID, err)
-		}
-		return
-	}()
+	h.Printf("stopping host by terminating instance %s (user volume will be preserved)", instanceID)
+	if _, err := h.provider.TerminateInstances([]string{instanceID}); err != nil {
+		h.Printf("failed to terminate instance %s, err: %v", instanceID, err)
+		return nil, mh.Error(err, label)
+	}
+	h.Printf("waiting for state to become terminated")
+	s := StateChangeConf{
+		Pending: []string{"pending", "running", "shutting-down", "stopped", "stopping"},
+		Refresh: instanceStateRefreshFunc(h.provider, h.instance),
+		Target:  "terminated",
+	}
+	if _, err := WaitForState(&s); err != nil {
+		return nil, mh.Error(err, label)
+	}
 
 	info := &host.Info{
 		VolumeID: userVolume.VolumeId,
@@ -137,63 +122,4 @@ func (h *Host) Stop() (*host.Info, error) {
 	}
 
 	return h.Info()
-}
-
-// recoverFromStop attempts to recover from an error from any of the steps that
-// make up a Stop operation by:
-// 1. Re-attaching user volume if it was detached.
-// 2. Mounting user device if it was unmounted.
-// 3. Starting docker if it was stopped.
-// 4. Starting freighterd if it was stopped.
-func (h *Host) recoverFromStop() error {
-	instanceID := h.Config.ID
-	volumeID := h.Config.VolumeID
-
-	vol, err := h.getVolume(volumeID)
-	if err != nil {
-		h.Printf("Stop() recovery: failed to get volume %s info, err: %v", volumeID, err)
-		return err
-	}
-
-	if len(vol.Attachments) == 0 {
-		h.Printf("Stop() recovery: re-attaching user's volume %s to instance %s", volumeID, instanceID)
-		if _, err := attachVolume(h.provider, volumeID, instanceID, userDeviceName); err != nil {
-			return fmt.Errorf("amazon: failed to re-attach user volume %s to %s, err: %v", volumeID, instanceID, err)
-		}
-		h.Printf("Stop() recovery: re-attached user's volume %s to instance %s", volumeID, instanceID)
-	}
-
-	hctx := host.NewContext(context.Background(), h, h, nil)
-
-	if err := host.WaitForSSH(hctx); err != nil {
-		h.Printf("Stop() recovery: failed to SSH into instance %s, err: %v", instanceID, err)
-		return err
-	}
-	defer hctx.Executor.Close()
-
-	h.Printf("Stop() recovery: mounting %s if necessary", userDeviceOSName)
-	mountCmd := fmt.Sprintf(`sudo grep -qs '^%s\s' /proc/mounts || sudo mount %s`, userDeviceOSName, userDeviceOSName)
-	if out, err := hctx.Executor.CombinedOutput(mountCmd); err != nil {
-		h.Printf("Stop() recovery: failed to mount %s on instance %s, err: %v, output: %s",
-			userDeviceOSName, instanceID, err, out)
-		return err
-	}
-
-	h.Printf("Stop() recovery: starting docker if necessary")
-	dCmd := fmt.Sprintf(`sudo service docker status | grep -q 'docker start' || sudo service docker start`)
-	if out, err := hctx.Executor.CombinedOutput(dCmd); err != nil {
-		h.Printf("Stop() recovery: failed to start docker on instance %s, err: %v, output: %s",
-			instanceID, err, out)
-		return fmt.Errorf("failed to start docker, err: %v, output: %s", err, out)
-	}
-
-	h.Printf("Stop() recovery: starting freighterd if necessary")
-	fCmd := fmt.Sprintf(`sudo service freighterd status | grep -q 'freighterd start' || sudo service freighterd start`)
-	if out, err := hctx.Executor.CombinedOutput(fCmd); err != nil {
-		h.Printf("Stop() recovery: failed to start freighterd on instance %s, err: %v, output: %s",
-			instanceID, err, out)
-		return fmt.Errorf("failed to start freighterd, err: %v, output: %s", err, out)
-	}
-
-	return nil
 }
