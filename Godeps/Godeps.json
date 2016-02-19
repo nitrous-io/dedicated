@@ -258,7 +258,7 @@
 		},
 		{
 			"ImportPath": "golang.org/x/oauth2",
-			"Rev": "53c5ae1b315c6a27ac936e8c04dc6ccf73ce7e70"
+			"Rev": "188fb45fbef6ffd967b3a8abcfe176fd473361df"
 		},
 		{
 			"ImportPath": "golang.org/x/text/encoding",
