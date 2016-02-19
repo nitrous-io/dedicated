@@ -288,24 +288,6 @@ var _ = Describe("controllers/users", func() {
 			Expect(count).To(Equal(0))
 		})
 
-		It("should delete all verifications", func() {
-			_, err := db.Exec(`INSERT INTO verifications
-				(user_id, phone, code)
-				VALUES ($1, '123456789', '61');`, u.ID)
-			Expect(err).To(BeNil())
-
-			doRequest()
-			Expect(res.Code).To(Equal(http.StatusOK))
-
-			_, err = user.FindByID(db, u.ID)
-			Expect(err).To(Equal(sql.ErrNoRows))
-
-			var count int
-			err = db.QueryRow(`SELECT COUNT(*) FROM verifications WHERE user_id = $1;`, u.ID).Scan(&count)
-			Expect(err).To(BeNil())
-			Expect(count).To(Equal(0))
-		})
-
 		It("should soft delete the user", func() {
 			doRequest()
 			Expect(res.Code).To(Equal(http.StatusOK))

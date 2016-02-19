@@ -76,10 +76,6 @@ var (
 	GitHubOAuthClientID     = os.Getenv("GITHUB_CLIENT_ID")
 	GitHubOAuthClientSecret = os.Getenv("GITHUB_CLIENT_SECRET")
 
-	TwilioNumber     = os.Getenv("TWILIO_NUMBER")
-	TwilioAccountSID = os.Getenv("TWILIO_ACCOUNT_SID")
-	TwilioAuthToken  = os.Getenv("TWILIO_AUTH_TOKEN")
-
 	SecretToken = os.Getenv("SECRET_TOKEN")
 
 	QueueType    = os.Getenv("QUEUE_TYPE")

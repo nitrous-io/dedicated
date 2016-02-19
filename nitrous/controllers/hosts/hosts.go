@@ -424,13 +424,17 @@ func SoftRestart(h *host.Host, env *middleware.Env, w http.ResponseWriter, r *ht
 }
 
 func Respec(h *host.Host, env *middleware.Env, w http.ResponseWriter, r *http.Request) error {
-	db := env.DB
-
 	if !(h.State == host.StateRunning || h.State == host.StateStopped) {
 		return errHostRespecInvalidState
 	}
 
-	rs, err := respec.Find(db, h.ID)
+	tx, err := env.DB.Beginx()
+	if err != nil {
+		return err
+	}
+	defer tx.Rollback()
+
+	rs, err := respec.Find(tx, h.ID)
 	if err != nil {
 		if err == sql.ErrNoRows {
 			return errHostNoPendingRespec
@@ -438,25 +442,29 @@ func Respec(h *host.Host, env *middleware.Env, w http.ResponseWriter, r *http.Re
 		return err
 	}
 
-	pt, err := providertemplate.FindByID(db, rs.ProviderTemplateID)
+	if err := h.UpdateState(tx, host.StateRespeccing); err != nil {
+		return err
+	}
+
+	if err := rs.UpdateState(tx, respec.StateProcessing); err != nil {
+		return err
+	}
+
+	pt, err := providertemplate.FindByID(tx, rs.ProviderTemplateID)
 	if err != nil {
 		return err
 	}
 
-	if err := h.UpdateState(db, host.StateRespeccing); err != nil {
-		return err
-	}
-
-	if err := rs.UpdateState(db, respec.StateProcessing); err != nil {
+	if err := tx.Commit(); err != nil {
 		return err
 	}
 
 	h.ProviderTemplate = pt // So that MachineConfig() returns config with the new provider template.
 	config := h.MachineConfig()
 
-	if _, err := HostbuilderClient.Respec(h.Provider, config, hostbuilderHeaders(env), host.URLArgsFromHost(h)); err != nil {
-		return err
-	}
+	// Perform the respec request asynchronously, since we expect to get the
+	// result from hostbuilder asynchronously (i.e. via the queue).
+	go HostbuilderClient.Respec(h.Provider, config, hostbuilderHeaders(env), host.URLArgsFromHost(h))
 
 	PublishHostEvent(env, controllers.EventHostRespeccing, h)
 	env.Status = http.StatusAccepted

@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"net/http"
 	"net/http/httptest"
-	"net/url"
 	"testing"
 
 	"github.com/gorilla/mux"
@@ -177,53 +176,6 @@ var _ = Describe("controllers/userprofiles", func() {
 			Expect(m["keybindings"]).To(Equal("default"))
 			Expect(m["ruler_column"]).To(Equal(float64(150)))
 			Expect(m["theme"]).To(Equal("solarized dark"))
-		})
-
-		It("should handle legacy params sent by older IDE clients", func() {
-			settings, err := u.Settings(db)
-			Expect(err).To(BeNil())
-			Expect(settings.AutoCloseBrackets).To(BeTrue())
-			Expect(settings.Keybindings).To(Equal("default"))
-			Expect(settings.RulerColumn).To(Equal(int64(0)))
-			Expect(settings.Theme).To(Equal("solarized dark"))
-
-			params := &url.Values{}
-			params.Set("tab_size", "3")
-			params.Set("auto_close_brackets", "false")
-			params.Set("remove_trailing_whitespace_on_save", "false")
-			params.Set("keybindings", "vim")
-			params.Set("ruler_column", "120")
-			params.Set("theme", "visual studio")
-
-			req, err := test.NewAuthedFormRequest(t, "POST", "/api/v0/user/settings", params)
-			Expect(err).To(BeNil())
-			res := httptest.NewRecorder()
-			handler.ServeHTTP(res, req)
-			Expect(res.Code).To(Equal(http.StatusOK))
-
-			j := struct {
-				UserSettings map[string]interface{} `json:"user_settings"`
-			}{}
-			err = json.NewDecoder(res.Body).Decode(&j)
-			Expect(err).To(BeNil())
-			serialized := j.UserSettings
-			Expect(serialized["tab_size"]).To(Equal(float64(3)))
-			Expect(serialized["auto_close_brackets"]).To(BeFalse())
-			Expect(serialized["remove_trailing_whitespace_on_save"]).To(BeFalse())
-			Expect(serialized["keybindings"]).To(Equal("vim"))
-			Expect(serialized["ruler_column"]).To(Equal(float64(120)))
-			Expect(serialized["theme"]).To(Equal("visual studio"))
-
-			settings, err = u.Settings(db)
-			Expect(err).To(BeNil())
-			m, err := settings.IdeSettingsMap()
-			Expect(err).To(BeNil())
-			Expect(m["tab_size"]).To(Equal(float64(3)))
-			Expect(m["auto_close_brackets"]).To(BeFalse())
-			Expect(m["remove_trailing_whitespace_on_save"]).To(BeFalse())
-			Expect(m["keybindings"]).To(Equal("vim"))
-			Expect(m["ruler_column"]).To(Equal(float64(120)))
-			Expect(m["theme"]).To(Equal("visual studio"))
 		})
 	})
 })

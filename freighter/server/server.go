@@ -230,8 +230,10 @@ func (s *Server) makeLogUUIDHandler(handlerFunc http.HandlerFunc) http.HandlerFu
 		if noLogs {
 			w.Header().Set(NitrousUUIDHeader, "nolog")
 		} else {
-			logrus.Infof("uuid=%s Request: %v %v\n", uuidStr, r.Method, r.URL.String())
-			defer logrus.Infof("uuid=%s Request: done\n", uuidStr)
+			logrus.WithFields(logrus.Fields{
+				"uuid": uuidStr,
+			}).Infof("Request: %v %v\n", r.Method, r.URL.String())
+			defer logrus.WithFields(logrus.Fields{"uuid":uuidStr,}).Infof("uuid=%s Request: done\n", uuidStr)
 		}
 		handlerFunc(w, r)
 	}

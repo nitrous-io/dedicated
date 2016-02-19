@@ -3,17 +3,13 @@ package users
 import (
 	"database/sql"
 	"errors"
-	"fmt"
 	"net/http"
-	"strings"
 	"time"
 
 	"github.com/Sirupsen/logrus"
 	"github.com/lib/pq"
 	"github.com/nitrous-io/dedicated/nitrous/controllers"
 	"github.com/nitrous-io/dedicated/nitrous/controllers/containers"
-	"github.com/nitrous-io/dedicated/nitrous/db"
-	"github.com/nitrous-io/dedicated/nitrous/envvars"
 	"github.com/nitrous-io/dedicated/nitrous/middleware"
 	"github.com/nitrous-io/dedicated/nitrous/models/billingprofile"
 	"github.com/nitrous-io/dedicated/nitrous/models/bonus"
@@ -22,20 +18,17 @@ import (
 	"github.com/nitrous-io/dedicated/nitrous/models/token"
 	"github.com/nitrous-io/dedicated/nitrous/models/user"
 	"github.com/nitrous-io/dedicated/nitrous/models/userprofile"
-	"github.com/nitrous-io/dedicated/nitrous/models/verification"
 	"github.com/nitrous-io/dedicated/nitrous/permission"
 	"github.com/nitrous-io/dedicated/nitrous/pkg/bcrypt"
 	"github.com/nitrous-io/dedicated/nitrous/pkg/httperror"
 	"github.com/nitrous-io/dedicated/nitrous/pkg/logintoken"
 	"github.com/nitrous-io/dedicated/nitrous/serializers"
-	"github.com/subosito/twilio"
 )
 
 var (
 	validations = map[string]error{
-		"index_users_on_username":                     httperror.New(http.StatusBadRequest, "validation_failed", "username is taken"),
-		"index_users_on_email":                        httperror.New(http.StatusBadRequest, "validation_failed", "email is taken"),
-		"index_users_on_phone_and_phone_country_code": httperror.New(http.StatusBadRequest, "validation_failed", "phone number already exists"),
+		"index_users_on_username": httperror.New(http.StatusBadRequest, "validation_failed", "username is taken"),
+		"index_users_on_email":    httperror.New(http.StatusBadRequest, "validation_failed", "email is taken"),
 	}
 	reconfirmInvalidUser       = httperror.New(http.StatusBadRequest, "validation_failed", "specified user does not exist")
 	errUpdateForbidden         = httperror.New(http.StatusForbidden, "update_forbidden", "You do not have permission to change user settings")
@@ -202,152 +195,6 @@ func IncrementUsageQuota(env *middleware.Env, w http.ResponseWriter, r *http.Req
 	env.Data = map[string]interface{}{
 		"user":           serializedUser,
 		"earned_bonuses": serializers.SerializeEarnedBonuses(ebns),
-	}
-	return nil
-}
-
-func UpdatePhone(env *middleware.Env, w http.ResponseWriter, r *http.Request) error {
-	u := env.User
-
-	if !permission.ProfileSettings(env.Token, u) {
-		return errUpdateForbidden
-	}
-
-	phone := sanitizePhone(r.PostFormValue("phone"))
-	phoneCountryCode := r.PostFormValue("phone_country_code")
-	if phone == "" {
-		return httperror.New(http.StatusBadRequest, "validation_failed", "phone must be provided")
-	}
-	if phoneCountryCode == "" {
-		return httperror.New(http.StatusBadRequest, "validation_failed", "phone country code must be provided")
-	}
-
-	var banned bool
-	err := env.DB.Get(&banned, `SELECT COUNT(*) > 0
-		FROM users
-		WHERE banned_at IS NOT NULL
-		AND phone_authed = TRUE AND phone = $1 AND phone_country_code = $2
-		LIMIT 1;`,
-		phone, phoneCountryCode)
-	if err != nil {
-		return err
-	}
-	if banned {
-		return bannedPhone
-	}
-
-	if err := u.UpdatePhone(env.DB, phone, phoneCountryCode); err != nil {
-		if e, ok := err.(*pq.Error); ok && e.Code.Name() == "unique_violation" {
-			if validationErr, ok := validations[e.Constraint]; ok {
-				return validationErr
-			}
-		}
-		if err == sql.ErrNoRows {
-			return phoneAlreadyAuthed
-		}
-		return err
-	}
-
-	if err := sendVerificationCode(env.DB, u); err != nil {
-		return err
-	}
-
-	return setUserResponse(env, u)
-}
-
-func ResendPhoneCode(env *middleware.Env, w http.ResponseWriter, r *http.Request) error {
-	if err := sendVerificationCode(env.DB, env.User); err != nil {
-		return err
-	}
-
-	env.Status = http.StatusOK
-	env.Data = map[string]interface{}{
-		"sent": true,
-	}
-	return nil
-}
-
-func sendVerificationCode(d *db.Database, u *user.User) error {
-	if !u.Phone.Valid || !u.PhoneCountryCode.Valid {
-		return httperror.New(http.StatusBadRequest, "invalid_request",
-			"we do not have your phone number in our records")
-	}
-
-	// Send verification code to user via SMS to verify he's a real person™.
-	v, err := verification.Generate(d, u.ID, u.PhoneNumber())
-	if err != nil {
-		return err
-	}
-
-	client := twilio.NewClient(envvars.TwilioAccountSID, envvars.TwilioAuthToken, nil)
-	msg := fmt.Sprintf("Your Nitrous verification code is: %s", v.Code)
-	m, _, err := client.Messages.SendSMS(envvars.TwilioNumber, u.PhoneNumber(), msg)
-	if err != nil {
-		errlog := fmt.Sprintf("user.UpdatePhone: failed to send SMS, message: %+v, err: %+v", m, err)
-		logAsErr, msg := twilioError(err)
-		if logAsErr {
-			logrus.Errorf(errlog)
-		} else {
-			logrus.Debugf(errlog)
-		}
-		return httperror.New(http.StatusServiceUnavailable, "sms_failed", msg)
-	}
-
-	return nil
-}
-
-func inWhitelist(code string) bool {
-	for _, c := range PhoneCountryWhitelist {
-		if c == code {
-			return true
-		}
-	}
-	return false
-}
-
-func VerifyPhone(env *middleware.Env, w http.ResponseWriter, r *http.Request) error {
-	u := env.User
-	d := env.DB
-
-	code := r.PostFormValue("code")
-	if code == "" {
-		return httperror.New(http.StatusBadRequest, "validation_failed", "code must be provided")
-	}
-	if !u.Phone.Valid || !u.PhoneCountryCode.Valid {
-		return httperror.New(http.StatusBadRequest, "invalid_request",
-			"we do not have your phone number in our records")
-	}
-
-	v, err := verification.Find(d, u.ID, u.PhoneNumber())
-	if err != nil {
-		return err
-	}
-	if v.Code != code {
-		return httperror.New(http.StatusBadRequest, "validation_failed", "code is incorrect")
-	}
-
-	if err := u.UpdatePhoneAuthed(d, true); err != nil {
-		return err
-	}
-
-	// If user's phone country is in whitelist, we set user's billing profile to
-	// free so that user is eligible for the free tier plan.
-	bp, err := billingprofile.Find(d, u.ID)
-	if err != nil {
-		return err
-	}
-	if bp.State == billingprofile.StateNoCard &&
-		inWhitelist(u.PhoneCountryCode.String) {
-		bp.State = billingprofile.StateFree
-		err := bp.Update(d)
-		if err != nil {
-			return err
-		}
-	}
-
-	env.Status = http.StatusOK
-	env.Data = map[string]interface{}{
-		"verified": true,
 	}
 	return nil
 }
@@ -596,16 +443,6 @@ func setUserResponse(env *middleware.Env, u *user.User) error {
 	return nil
 }
 
-func sanitizePhone(phoneNum string) string {
-	onlyNumeric := func(r rune) rune {
-		if r >= '0' && r <= '9' {
-			return r
-		}
-		return -1
-	}
-	return strings.Map(onlyNumeric, phoneNum)
-}
-
 func notifySharedContainers(env *middleware.Env, u *user.User) {
 	cns, err := container.FindAllShared(env.DB, u.ID)
 	if err != nil {
@@ -614,22 +451,4 @@ func notifySharedContainers(env *middleware.Env, u *user.User) {
 	for _, cn := range cns {
 		containers.PublishContainerEvent(env, controllers.EventCollaboratorAdded, cn, nil)
 	}
-}
-
-// twilioError parses an error and returns if it should be treated as error, and a user-facing message https://github.com/subosito/twilio/blob/ca29365f195cd8e9dfb805d4b8aca69ce8057564/exception.go
-func twilioError(e error) (bool, string) {
-	defaultMsg := "there was an error sending the verification code to your phone"
-	terr, ok := e.(*twilio.Exception)
-	if !ok {
-		return true, defaultMsg
-	}
-	switch terr.Code {
-	case 21211: // https://www.twilio.com/docs/errors/21211
-		return false, fmt.Sprintf("%s: number is invalid", defaultMsg)
-	case 21614: // https://www.twilio.com/docs/errors/21614
-		return false, fmt.Sprintf("%s: number cannot receive SMS", defaultMsg)
-	default:
-		return true, defaultMsg
-	}
-
 }

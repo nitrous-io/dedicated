@@ -266,12 +266,6 @@ var _ = Describe("controllers/admin", func() {
 
 			_, err = db.Exec(`INSERT INTO container_collabs (container_id, user_id) VALUES ($1, $2);`, cnr.ID, trgt.ID)
 			Expect(err).To(BeNil())
-
-			_, err = db.Exec(`INSERT INTO verifications
-					(user_id, phone, code)
-					VALUES ($1, '123456789', '61');`, trgt.ID)
-			Expect(err).To(BeNil())
-
 			_, err = db.Exec("INSERT INTO tokens (user_id, token) values ($1, $2), ($1, $3);", trgt.ID, "toke1", "toke2")
 			Expect(err).To(BeNil())
 
@@ -297,7 +291,6 @@ var _ = Describe("controllers/admin", func() {
 
 			queries := []string{
 				"SELECT COUNT(*) FROM container_collabs WHERE user_id = $1",
-				"SELECT COUNT(*) FROM verifications WHERE user_id = $1",
 				"SELECT COUNT(*) FROM tokens WHERE user_id = $1",
 			}
 

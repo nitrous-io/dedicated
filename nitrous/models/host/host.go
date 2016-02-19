@@ -124,8 +124,6 @@ type Host struct {
 	// Optional username field
 	Username sql.NullString `db:"username"`
 
-	ScanExempted  bool        `db:"scan_exempted"`
-	NextScan      pq.NullTime `db:"next_scan"`
 	TerminatingAt pq.NullTime `db:"terminating_at"`
 
 	IdleNoticesSent int         `db:"idle_notices_sent"`

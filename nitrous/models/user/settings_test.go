@@ -35,35 +35,6 @@ var _ = Describe("models/user settings", func() {
 		}
 	})
 
-	Describe("MigrateDivergedSettings", func() {
-		It("should migrate users who have diverged from the default settings", func() {
-			settings, err := u.Settings(db)
-			Expect(err).To(BeNil())
-
-			m, err := settings.IdeSettingsMap()
-			Expect(err).To(BeNil())
-			Expect(m).To(BeEmpty())
-
-			settings.AutoCloseBrackets = false
-			settings.WrapLines = false
-			settings.Theme = "Visual Studio"
-			settings.Migrated = false
-			Expect(settings.Update(db)).To(BeNil())
-
-			Expect(settings.MigrateDivergedSettings(db)).To(BeNil())
-
-			settings, err = u.Settings(db)
-			Expect(err).To(BeNil())
-
-			m, err = settings.IdeSettingsMap()
-			Expect(err).To(BeNil())
-			Expect(m).ToNot(BeEmpty())
-			Expect(m["auto_close_brackets"]).To(BeFalse())
-			Expect(m["wrap_lines"]).To(BeFalse())
-			Expect(m["theme"]).To(Equal("Visual Studio"))
-		})
-	})
-
 	Describe("IdeSettingsMap()", func() {
 		It("should only unpack user set values by default", func() {
 			settings, err := u.Settings(db)
@@ -128,7 +99,6 @@ var _ = Describe("models/user settings", func() {
 			err = db.Get(settings, `SELECT * FROM user_settings WHERE user_id = $1;`, u.ID)
 			Expect(err).To(BeNil())
 			Expect(settings.IdeSettings).To(Equal("{}"))
-			Expect(settings.Migrated).To(BeTrue())
 		})
 	})
 

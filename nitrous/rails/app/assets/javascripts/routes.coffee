@@ -47,7 +47,6 @@ App.Router.map ->
       @route 'add-card', path: '/billing/add-card'
 
     @resource 'account'
-    @resource 'add-phone'
     @resource 'billing'
     @resource 'add-card'
     @resource 'provider-templates', path: '/provider-templates'
