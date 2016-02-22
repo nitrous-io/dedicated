@@ -88,6 +88,10 @@ func (h *Host) Start() (*host.Info, error) {
 			Description: "Setting workspace's name",
 			Func:        associateInstanceTags,
 		},
+		{
+			Description: "Checking service health",
+			Func:        checkFreighterHTTP,
+		},
 	}
 	for _, step := range steps {
 		if err := hctx.Run(step); err != nil {
@@ -156,6 +160,16 @@ func (h *Host) attachToNewInstance(volumeID string) (*host.Info, error) {
 			Step: host.Step{
 				Description: "Mounting user volume",
 				Func:        mountUserVolume,
+			},
+			RecoveryFunc: func(ctx *host.HostContext) error {
+				h := ctx.Host.(*Host)
+				return h.recoverFromStart()
+			},
+		},
+		{
+			Step: host.Step{
+				Description: "Checking service health",
+				Func:        checkFreighterHTTP,
 			},
 			RecoveryFunc: func(ctx *host.HostContext) error {
 				h := ctx.Host.(*Host)
