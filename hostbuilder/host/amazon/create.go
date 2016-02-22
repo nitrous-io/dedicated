@@ -22,7 +22,7 @@ func (h *Host) CreateWithQueue(qp queue.Publisher, queueInfo *host.QueueInfo) (*
 
 	var (
 		useInstancePool = true // will be set to false if no instances available in pool
-		label           = fmt.Sprintf("create.%s.with-pool", h.DriverName())
+		label           = h.MetricsLabel("create.with-pool")
 		startedTime     = time.Now()
 	)
 
@@ -50,7 +50,7 @@ func (h *Host) CreateWithQueue(qp queue.Publisher, queueInfo *host.QueueInfo) (*
 		h.Printf("could not acquire instance from pool, err: %v", err)
 
 		useInstancePool = false
-		label = fmt.Sprintf("create.%s.without-pool", h.DriverName())
+		label = h.MetricsLabel("create.without-pool")
 	}
 
 	defer mh.UpdateSince(label, startedTime)
