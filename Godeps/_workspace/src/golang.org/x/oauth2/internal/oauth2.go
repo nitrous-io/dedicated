@@ -1,4 +1,4 @@
-// Copyright 2014 The oauth2 Authors. All rights reserved.
+// Copyright 2014 The Go Authors. All rights reserved.
 // Use of this source code is governed by a BSD-style
 // license that can be found in the LICENSE file.
 
@@ -30,12 +30,12 @@ func ParseKey(key []byte) (*rsa.PrivateKey, error) {
 	if err != nil {
 		parsedKey, err = x509.ParsePKCS1PrivateKey(key)
 		if err != nil {
-			return nil, err
+			return nil, fmt.Errorf("private key should be a PEM or plain PKSC1 or PKCS8; parse error: %v", err)
 		}
 	}
 	parsed, ok := parsedKey.(*rsa.PrivateKey)
 	if !ok {
-		return nil, errors.New("oauth2: private key is invalid")
+		return nil, errors.New("private key is invalid")
 	}
 	return parsed, nil
 }
@@ -66,4 +66,11 @@ func ParseINI(ini io.Reader) (map[string]map[string]string, error) {
 		return nil, fmt.Errorf("error scanning ini: %v", err)
 	}
 	return result, nil
+}
+
+func CondVal(v string) []string {
+	if v == "" {
+		return nil
+	}
+	return []string{v}
 }

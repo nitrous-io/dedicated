@@ -49,6 +49,9 @@ type Repository struct {
 	Organization     *Organization    `json:"organization,omitempty"`
 	Permissions      *map[string]bool `json:"permissions,omitempty"`
 
+	// Only provided when using RepositoriesService.Get while in preview
+	License *License `json:"license,omitempty"`
+
 	// Additional mutable fields when creating and editing a repository
 	Private      *bool `json:"private"`
 	HasIssues    *bool `json:"has_issues"`
@@ -143,6 +146,9 @@ func (s *RepositoriesService) List(user string, opt *RepositoryListOptions) ([]R
 		return nil, nil, err
 	}
 
+	// TODO: remove custom Accept header when license support fully launches
+	req.Header.Set("Accept", mediaTypeLicensesPreview)
+
 	repos := new([]Repository)
 	resp, err := s.client.Do(req, repos)
 	if err != nil {
@@ -176,6 +182,9 @@ func (s *RepositoriesService) ListByOrg(org string, opt *RepositoryListByOrgOpti
 	if err != nil {
 		return nil, nil, err
 	}
+
+	// TODO: remove custom Accept header when license support fully launches
+	req.Header.Set("Accept", mediaTypeLicensesPreview)
 
 	repos := new([]Repository)
 	resp, err := s.client.Do(req, repos)
@@ -254,6 +263,10 @@ func (s *RepositoriesService) Get(owner, repo string) (*Repository, *Response, e
 	if err != nil {
 		return nil, nil, err
 	}
+
+	// TODO: remove custom Accept header when the license support fully launches
+	// https://developer.github.com/v3/licenses/#get-a-repositorys-license
+	req.Header.Set("Accept", mediaTypeLicensesPreview)
 
 	repository := new(Repository)
 	resp, err := s.client.Do(req, repository)
@@ -435,8 +448,27 @@ func (s *RepositoriesService) ListTags(owner string, repo string, opt *ListOptio
 
 // Branch represents a repository branch
 type Branch struct {
-	Name   *string `json:"name,omitempty"`
-	Commit *Commit `json:"commit,omitempty"`
+	Name       *string     `json:"name,omitempty"`
+	Commit     *Commit     `json:"commit,omitempty"`
+	Protection *Protection `json:"protection,omitempty"`
+}
+
+// Protection represents a repository branch's protection
+type Protection struct {
+	Enabled              *bool                 `json:"enabled,omitempty"`
+	RequiredStatusChecks *RequiredStatusChecks `json:"required_status_checks,omitempty"`
+}
+
+// RequiredStatusChecks represents the protection status of a individual branch
+type RequiredStatusChecks struct {
+	// Who required status checks apply to.
+	// Possible values are:
+	//     off
+	//     non_admins
+	//     everyone
+	EnforcementLevel *string `json:"enforcement_level,omitempty"`
+	// The list of status checks which are required
+	Contexts *[]string `json:"contexts,omitempty"`
 }
 
 // ListBranches lists branches for the specified repository.
@@ -453,6 +485,8 @@ func (s *RepositoriesService) ListBranches(owner string, repo string, opt *ListO
 	if err != nil {
 		return nil, nil, err
 	}
+
+	req.Header.Set("Accept", mediaTypeProtectedBranchesPreview)
 
 	branches := new([]Branch)
 	resp, err := s.client.Do(req, branches)
@@ -472,6 +506,29 @@ func (s *RepositoriesService) GetBranch(owner, repo, branch string) (*Branch, *R
 	if err != nil {
 		return nil, nil, err
 	}
+
+	req.Header.Set("Accept", mediaTypeProtectedBranchesPreview)
+
+	b := new(Branch)
+	resp, err := s.client.Do(req, b)
+	if err != nil {
+		return nil, resp, err
+	}
+
+	return b, resp, err
+}
+
+// EditBranch edits the branch (currently only Branch Protection)
+//
+// GitHub API docs: https://developer.github.com/v3/repos/#enabling-and-disabling-branch-protection
+func (s *RepositoriesService) EditBranch(owner, repo, branchName string, branch *Branch) (*Branch, *Response, error) {
+	u := fmt.Sprintf("repos/%v/%v/branches/%v", owner, repo, branchName)
+	req, err := s.client.NewRequest("PATCH", u, branch)
+	if err != nil {
+		return nil, nil, err
+	}
+
+	req.Header.Set("Accept", mediaTypeProtectedBranchesPreview)
 
 	b := new(Branch)
 	resp, err := s.client.Do(req, b)
