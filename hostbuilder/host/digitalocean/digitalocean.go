@@ -12,7 +12,7 @@ import (
 	"strings"
 	"time"
 
-	"code.google.com/p/goauth2/oauth"
+	"golang.org/x/oauth2"
 
 	"github.com/Sirupsen/logrus"
 	"github.com/digitalocean/godo"
@@ -43,6 +43,17 @@ type driverConfig struct {
 
 	// cachedCreateTimeout is used to cache a parsed CreateTimeout.
 	cachedCreateTimeout time.Duration
+}
+
+type TokenSource struct {
+	AccessToken string
+}
+
+func (t *TokenSource) Token() (*oauth2.Token, error) {
+	token := &oauth2.Token{
+		AccessToken: t.AccessToken,
+	}
+	return token, nil
 }
 
 func (c *driverConfig) createTimeout() time.Duration {
@@ -197,7 +208,7 @@ func (h *Host) Destroy() error {
 		}
 		return err
 	}
-	h.droplet = dropletRoot.Droplet
+	h.droplet = dropletRoot
 	if resp, err := h.Client.Droplets.Delete(id); err != nil {
 		// if the droplet does not exist, then consider that it is sucessfully
 		// destroyed
@@ -219,7 +230,7 @@ func (h *Host) Info() (*host.Info, error) {
 	if err != nil {
 		return nil, err
 	}
-	h.droplet = dropletRoot.Droplet
+	h.droplet = dropletRoot
 	return h.dropletToInfo(), nil
 }
 
@@ -528,10 +539,16 @@ func New(driverOptions string, hostOptions string) (host.Host, error) {
 		return nil, errors.New("digitalocean: requires valid access token")
 	}
 
-	t := &oauth.Transport{
-		Token: &oauth.Token{AccessToken: driverCfg.Token},
+	//t := &oauth2.Transport{
+	//Token: &oauth2.Token{AccessToken: driverCfg.Token},
+	//}
+
+	tokenSource := &TokenSource{
+		AccessToken: driverCfg.Token,
 	}
-	client := godo.NewClient(t.Client())
+
+	oauthClient := oauth2.NewClient(oauth2.NoContext, tokenSource)
+	client := godo.NewClient(oauthClient)
 	return &Host{
 		driverConfig: driverCfg,
 		Config:       hostCfg,
@@ -588,29 +605,31 @@ func createDroplet(ctx *host.HostContext) error {
 	sshKey := h.sshKey
 
 	h.Printf("digitalocean: creating droplet in region %s, size: %s, slug: %s", config.RegionID, config.SizeID, config.Name)
+	imageID, err := strconv.Atoi(config.ImageID)
+	dropletSSHKey := &godo.DropletCreateSSHKey{ID: sshKey.ID}
 	dropletRoot, _, err := h.Client.Droplets.Create(&godo.DropletCreateRequest{
 		Name:   config.Name,
 		Region: config.RegionID,
 		Size:   config.SizeID,
-		Image:  config.ImageID,
-		SSHKeys: []interface{}{
-			sshKey.ID,
+		Image: godo.DropletCreateImage{
+			ID: imageID,
 		},
+		SSHKeys: []godo.DropletCreateSSHKey{*dropletSSHKey},
 	})
 	if err != nil {
 		return mh.Error(err, label)
 	}
-	h.droplet = dropletRoot.Droplet
+	h.droplet = dropletRoot
 
-	if len(dropletRoot.Links.Actions) > 0 {
+	if len(dropletRoot.ActionIDs) > 0 {
 		info := map[string]interface{}{
 			"uuid": h.requestID,
 		}
-		la := dropletRoot.Links.Actions[0]
+		actionID := dropletRoot.ActionIDs[0]
 
 		ctx, cancel := context.WithTimeout(ctx, 15*time.Minute)
 		defer cancel()
-		if _, err := WaitForAction(ctx, h.Client.Actions, la.ID, StateWaitTime, info); err != nil {
+		if _, err := WaitForAction(ctx, h.Client.Actions, actionID, StateWaitTime, info); err != nil {
 			return mh.Error(err, label)
 		}
 	} else {
@@ -618,12 +637,12 @@ func createDroplet(ctx *host.HostContext) error {
 		return nil
 	}
 
-	dropletRoot, _, err = h.Client.Droplets.Get(dropletRoot.Droplet.ID)
+	dropletRoot, _, err = h.Client.Droplets.Get(dropletRoot.ID)
 	if err != nil {
 		err = fmt.Errorf("create: failed to get droplet after it was successfully created %s", err)
 		return mh.Error(err, label)
 	}
 
-	h.droplet = dropletRoot.Droplet
+	h.droplet = dropletRoot
 	return nil
 }

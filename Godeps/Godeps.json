@@ -6,21 +6,6 @@
 	],
 	"Deps": [
 		{
-			"ImportPath": "code.google.com/p/go.text/encoding/japanese",
-			"Comment": "null-116",
-			"Rev": "5b2527008a4c8988ca9dc6f010ebfb9dae67150b"
-		},
-		{
-			"ImportPath": "code.google.com/p/go.text/transform",
-			"Comment": "null-116",
-			"Rev": "5b2527008a4c8988ca9dc6f010ebfb9dae67150b"
-		},
-		{
-			"ImportPath": "code.google.com/p/goauth2/oauth",
-			"Comment": "weekly-56",
-			"Rev": "afe77d958c701557ec5dc56f6936fcc194d15520"
-		},
-		{
 			"ImportPath": "github.com/Sirupsen/logrus",
 			"Comment": "v0.8.2-10-g21d4508",
 			"Rev": "21d4508646ae56d79244bd9046c1df63a5fa8c37"
@@ -35,8 +20,8 @@
 		},
 		{
 			"ImportPath": "github.com/digitalocean/godo",
-			"Comment": "v0.5.0-7-g6ae442f",
-			"Rev": "6ae442f8d5dae46921484681156699b1ba8ecf0c"
+			"Comment": "v0.9.0-24-g6ca5b77",
+			"Rev": "6ca5b770f203b82a0fca68d0941736458efa8a4f"
 		},
 		{
 			"ImportPath": "github.com/docker/distribution",
@@ -94,7 +79,7 @@
 		},
 		{
 			"ImportPath": "github.com/google/go-github/github",
-			"Rev": "7ea4ee6d222607c11ea86e99a6f6723beeae785d"
+			"Rev": "5f4a113632721ba57574522ed9bc7e0f63b48bb2"
 		},
 		{
 			"ImportPath": "github.com/google/go-querystring/query",
@@ -148,8 +133,8 @@
 		},
 		{
 			"ImportPath": "github.com/monochromegane/the_platinum_searcher",
-			"Comment": "v1.7.5",
-			"Rev": "2d6d6b795e0d98b45e8a7fe967c85684ba0c5ceb"
+			"Comment": "v2.1.0-2-g6b2d0c7",
+			"Rev": "6b2d0c7f2096e10dbf27aa97779ba440129e6264"
 		},
 		{
 			"ImportPath": "github.com/nitrous-io/nitrous-common/cipher",
@@ -258,7 +243,7 @@
 		},
 		{
 			"ImportPath": "golang.org/x/oauth2",
-			"Rev": "53c5ae1b315c6a27ac936e8c04dc6ccf73ce7e70"
+			"Rev": "1f9b3a17f090a52da60820f681d766e04a3349b5"
 		},
 		{
 			"ImportPath": "golang.org/x/text/encoding",
