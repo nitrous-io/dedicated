@@ -751,11 +751,13 @@ func unmountUserVolume(ctx *host.HostContext) error {
 	label := h.MetricsLabel("unmount_user_volume")
 	defer mh.UpdateSince(label, time.Now())
 
-	if out, err := conn.CombinedOutput(`sudo service freighterd stop`); err != nil {
+	fCmd := fmt.Sprintf(`sudo service freighterd status | grep -q 'freighterd stop' || sudo service freighterd stop`)
+	if out, err := conn.CombinedOutput(fCmd); err != nil {
 		return fmt.Errorf("failed to stop freighterd, err: %v, output: %s", err, out)
 	}
 
-	if out, err := conn.CombinedOutput(`sudo service docker stop`); err != nil {
+	dCmd := fmt.Sprintf(`sudo service docker status | grep -q 'docker stop' || sudo service docker stop`)
+	if out, err := conn.CombinedOutput(dCmd); err != nil {
 		return fmt.Errorf("failed to stop docker, err: %v, output: %s", err, out)
 	}
 
