@@ -156,15 +156,17 @@ func (h *Host) respecStoppedHostWithPool(qp queue.Publisher, queueInfo *host.Que
 	label := h.MetricsLabel("respec_stopped_host")
 	defer mh.UpdateSince(label, time.Now())
 
-	h.Printf("respeccing stopped EBS hotswapping instance, volume %s", h.Config.VolumeID)
+	h.Printf("respeccing stopped host, volume %s", h.Config.VolumeID)
 
 	if h.Config.StorageSize == 0 {
-		return &host.Info{
+		info := &host.Info{
 			VolumeID: h.Config.VolumeID,
 			Provider: h.DriverName(),
 			Region:   h.provider.Region.Name,
 			State:    state.Stopped,
-		}, nil
+		}
+		host.PublishHost(qp, event.HostRespecced, h.requestID, queueInfo, info, queue.Respec, "")
+		return info, nil
 	}
 
 	userVolume, err := h.getVolume(h.Config.VolumeID)
@@ -180,13 +182,16 @@ func (h *Host) respecStoppedHostWithPool(qp queue.Publisher, queueInfo *host.Que
 
 	configuredSize := computeSize(h.Config.StorageSize)
 	if currentSize >= configuredSize {
-		h.Printf("respec: volume resize not required, current size is %d", currentSize)
-		return &host.Info{
+		h.Printf("respec: volume resize not required, current size is already %d", currentSize)
+
+		info := &host.Info{
 			VolumeID: h.Config.VolumeID,
 			Provider: h.DriverName(),
 			Region:   h.provider.Region.Name,
 			State:    state.Stopped,
-		}, nil
+		}
+		host.PublishHost(qp, event.HostRespecced, h.requestID, queueInfo, info, queue.Respec, "")
+		return info, nil
 	}
 
 	h.Printf("respec: volume resize required (%d to %d)", currentSize, configuredSize)
