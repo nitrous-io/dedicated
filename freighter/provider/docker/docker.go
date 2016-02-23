@@ -829,18 +829,6 @@ func (p *DockerProvider) RemoveImage(imageIDOrName string) error {
 		return nil
 	}
 
-	// TODO: This can be removed once this https://github.com/docker/docker/pull/7963/files
-	// has been released
-	if !useID {
-		_, lookupErr := p.lookupImage(imageIDOrName)
-		if lookupErr == provider.ErrImageNotFound {
-			tagErr := p.client.TagImage(image.ID, dockerclient.TagImageOptions{Repo: image.Name, Tag: image.Tag})
-			if tagErr != nil {
-				return tagErr
-			}
-		}
-	}
-
 	if strings.Contains(err.Error(), "tagged in multiple repositories") || // < 1.9.0, "Conflict, cannot delete image %s because it is tagged in multiple repositories, use -f to force"
 		strings.Contains(err.Error(), "referenced in one or more repositories") { // >= 1.9.0, "conflict: unable to delete %s (must be forced) - image is referenced in one or more repositories"
 		return provider.ErrImageShared
