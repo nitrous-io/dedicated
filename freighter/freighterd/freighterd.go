@@ -159,7 +159,7 @@ func pingIfActive(svr *server.Server, prov *docker.DockerProvider, threshold int
 		"event":  "ping",
 		"source": "freighter",
 	}); err != nil {
-		logrus.Error("pingIfActive: failed to notify nitrousd: %v", err)
+		logrus.Errorf("pingIfActive: failed to notify nitrousd: %v", err)
 	}
 	return
 }

@@ -71,6 +71,20 @@ var (
 		aws.USWest2.Name: aws.USWest2,
 		// aws.SAEast.Name:       aws.SAEast,
 	}
+
+	freighterPingTimeout  = 1 * time.Second
+	freighterPingAttempts = []time.Duration{
+		2 * time.Second, // Ping eagerly at the start because most of the time
+		2 * time.Second, // Freighter should be available pretty quickly.
+		2 * time.Second,
+		5 * time.Second,
+		10 * time.Second,
+		15 * time.Second,
+		20 * time.Second,
+		30 * time.Second,
+		30 * time.Second,
+		30 * time.Second,
+	}
 )
 
 type Host struct {
@@ -737,11 +751,13 @@ func unmountUserVolume(ctx *host.HostContext) error {
 	label := h.MetricsLabel("unmount_user_volume")
 	defer mh.UpdateSince(label, time.Now())
 
-	if out, err := conn.CombinedOutput(`sudo service freighterd stop`); err != nil {
+	fCmd := fmt.Sprintf(`sudo service freighterd status | grep -q 'freighterd stop' || sudo service freighterd stop`)
+	if out, err := conn.CombinedOutput(fCmd); err != nil {
 		return fmt.Errorf("failed to stop freighterd, err: %v, output: %s", err, out)
 	}
 
-	if out, err := conn.CombinedOutput(`sudo service docker stop`); err != nil {
+	dCmd := fmt.Sprintf(`sudo service docker status | grep -q 'docker stop' || sudo service docker stop`)
+	if out, err := conn.CombinedOutput(dCmd); err != nil {
 		return fmt.Errorf("failed to stop docker, err: %v, output: %s", err, out)
 	}
 
@@ -783,6 +799,23 @@ func detachUserVolume(ctx *host.HostContext) error {
 		return err
 	}
 	h.Printf("Detached user volume %s from %s", userVolume.VolumeId, h.instance.InstanceId)
+
+	return nil
+}
+
+func checkFreighterHTTP(ctx *host.HostContext) error {
+	h := ctx.Host.(*Host)
+
+	start := time.Now()
+	label := h.MetricsLabel("check-freighter-http")
+	defer mh.UpdateSince(label, start)
+
+	h.Printf("checking that Freighter is reachable via HTTP")
+	fURL := fmt.Sprintf("https://%s:%d", h.instance.PublicIpAddress, host.DefaultPort)
+	if !host.WaitForServer(fURL, freighterPingTimeout, freighterPingAttempts) {
+		return errors.New("failed to connect to Freighter via HTTP")
+	}
+	h.Printf("connected to Freighter after %v", time.Since(start))
 
 	return nil
 }

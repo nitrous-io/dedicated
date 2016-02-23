@@ -122,6 +122,7 @@ func (s *Server) performContainerControl(w http.ResponseWriter, r *http.Request,
 func (s *Server) terminateActiveCops(cid string) {
 	n := ActiveCops.Len(cid)
 	if n == 0 {
+		logrus.Debugf("no active cops processes for container %s", cid)
 		return
 	}
 	logrus.Debugf("Terminating %d active cops processes for container %s", n, cid)

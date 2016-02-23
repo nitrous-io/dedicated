@@ -66,7 +66,14 @@ func (h *Host) RespecWithQueue(qp queue.Publisher, queueInfo *host.QueueInfo) (*
 	// If we don't have an ID (i.e. provider_identifier from nitrousd), the
 	// host is a hotswap host that's stopped.
 	if h.Config.ID == "" {
-		return h.respecStoppedHostWithPool(qp, queueInfo)
+		info, err := h.respecStoppedHostWithPool(qp, queueInfo)
+
+		// Tag volume (this is mostly to update its tags, if necessary).
+		if err := h.tagVolume(info.VolumeID, "userdata"); err != nil {
+			h.Printf("error tagging volume after respec, err: %v", err)
+		}
+
+		return info, err
 	}
 
 	h.Printf("respeccing running EBS hotswapping instance: %+v", h.instance)
@@ -107,6 +114,9 @@ func (h *Host) RespecWithQueue(qp queue.Publisher, queueInfo *host.QueueInfo) (*
 	if !changeInstanceType && !changeStorageSize {
 		info, err := h.Info()
 		if err == nil {
+			if err := h.updateInstanceTags(); err != nil {
+				h.Printf("error tagging instance after respec, err: %v", err)
+			}
 			host.PublishHost(qp, event.HostRespecced, h.requestID, queueInfo, info, queue.Respec, "")
 		} else {
 			logrus.WithField("uuid", h.requestID).Errorf("amazon: failed to send a message due to failure on getting host info: %v", err)
@@ -149,6 +159,10 @@ func (h *Host) RespecWithQueue(qp queue.Publisher, queueInfo *host.QueueInfo) (*
 		logrus.WithField("uuid", h.requestID).Errorf("amazon: failed to send a message due to failure on getting host info: %v", err)
 	}
 
+	if err := h.updateInstanceTags(); err != nil {
+		h.Printf("error tagging instance after respec, err: %v", err)
+	}
+
 	return info, err
 }
 
@@ -156,15 +170,17 @@ func (h *Host) respecStoppedHostWithPool(qp queue.Publisher, queueInfo *host.Que
 	label := h.MetricsLabel("respec_stopped_host")
 	defer mh.UpdateSince(label, time.Now())
 
-	h.Printf("respeccing stopped EBS hotswapping instance, volume %s", h.Config.VolumeID)
+	h.Printf("respeccing stopped host, volume %s", h.Config.VolumeID)
 
 	if h.Config.StorageSize == 0 {
-		return &host.Info{
+		info := &host.Info{
 			VolumeID: h.Config.VolumeID,
 			Provider: h.DriverName(),
 			Region:   h.provider.Region.Name,
 			State:    state.Stopped,
-		}, nil
+		}
+		host.PublishHost(qp, event.HostRespecced, h.requestID, queueInfo, info, queue.Respec, "")
+		return info, nil
 	}
 
 	userVolume, err := h.getVolume(h.Config.VolumeID)
@@ -180,13 +196,16 @@ func (h *Host) respecStoppedHostWithPool(qp queue.Publisher, queueInfo *host.Que
 
 	configuredSize := computeSize(h.Config.StorageSize)
 	if currentSize >= configuredSize {
-		h.Printf("respec: volume resize not required, current size is %d", currentSize)
-		return &host.Info{
+		h.Printf("respec: volume resize not required, current size is already %d", currentSize)
+
+		info := &host.Info{
 			VolumeID: h.Config.VolumeID,
 			Provider: h.DriverName(),
 			Region:   h.provider.Region.Name,
 			State:    state.Stopped,
-		}, nil
+		}
+		host.PublishHost(qp, event.HostRespecced, h.requestID, queueInfo, info, queue.Respec, "")
+		return info, nil
 	}
 
 	h.Printf("respec: volume resize required (%d to %d)", currentSize, configuredSize)
@@ -206,6 +225,27 @@ func (h *Host) respecStoppedHostWithPool(qp queue.Publisher, queueInfo *host.Que
 	host.PublishHost(qp, event.HostRespecced, h.requestID, queueInfo, info, queue.Respec, "")
 
 	return info, nil
+}
+
+// updateInstanceTags tags the host's EC2 instance with configured tags, if any.
+func (h *Host) updateInstanceTags() error {
+	if h.Config.Tags == "" {
+		return nil
+	}
+
+	tags, err := parseTags(h.Config.Tags)
+	if err != nil {
+		h.Printf("error parsing tags %q, err: %v", h.Config.Tags, err)
+		return err
+	}
+
+	instanceID := h.instance.InstanceId
+	h.Printf("tagging instance %s with tags %#v", instanceID, tags)
+	if _, err := h.provider.CreateTags([]string{instanceID}, tags); err != nil {
+		return fmt.Errorf("amazon: failed to tag instance %s with tags %#v, err: %v", instanceID, tags, err)
+	}
+
+	return nil
 }
 
 type resizeStep struct {

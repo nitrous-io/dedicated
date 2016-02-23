@@ -1100,7 +1100,7 @@ func (p *DockerProvider) Activity(threshold int) (bool, error) {
 		}
 		createOpts := dockerclient.CreateExecOptions{
 			AttachStdout: true,
-			Cmd:          []string{"w", "--no-header", username},
+			Cmd:          []string{"w", "-h", username},
 			Container:    container.ID,
 		}
 		ex, err := p.client.CreateExec(createOpts)
