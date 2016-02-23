@@ -426,7 +426,7 @@ func execForm(cmd, usr string) []string {
 	return []string{"/bin/sh", "-c", cmd}
 }
 
-func (p *DockerProvider) Terminate(id string, removeSettings bool) (*provider.ContainerInfo, error) {
+func (p *DockerProvider) Terminate(id string) (*provider.ContainerInfo, error) {
 	logrus.Infof("DockerProvider: terminating container %q", id)
 	terminationStart := time.Now()
 
@@ -438,15 +438,12 @@ func (p *DockerProvider) Terminate(id string, removeSettings bool) (*provider.Co
 	logrus.Infof("DockerProvider: removing container %q", id)
 	start := time.Now()
 
-	err = p.client.RemoveContainer(dockerclient.RemoveContainerOptions{ID: id})
-	if err != nil {
+	if err := p.client.RemoveContainer(dockerclient.RemoveContainerOptions{ID: id}); err != nil {
 		return nil, err
 	}
 
-	if removeSettings {
-		if err := os.RemoveAll(p.ContainerSettingsDir(info.Name)); err != nil {
-			return nil, err
-		}
+	if err := os.RemoveAll(p.ContainerSettingsDir(info.Name)); err != nil {
+		return nil, err
 	}
 
 	logrus.Infof("DockerProvider: removed container %q in %v", id, time.Since(start))

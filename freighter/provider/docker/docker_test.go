@@ -607,7 +607,7 @@ var _ = Describe("provider/docker", func() {
 						// Get container info before terminating.
 						origInfo := inspectContainerInfo(id)
 
-						info, err := prov.Terminate(id, true)
+						info, err := prov.Terminate(id)
 						Expect(err).To(BeNil())
 						expectContainerToBeTerminatedAndPortReleased(info)
 						expectContainerInfoToHaveBeenReturned(info, origInfo)
@@ -624,7 +624,7 @@ var _ = Describe("provider/docker", func() {
 						// Get container info before terminating.
 						origInfo := inspectContainerInfo(id)
 
-						info, err := prov.Terminate(id, true)
+						info, err := prov.Terminate(id)
 						Expect(err).To(BeNil())
 						expectContainerToBeTerminatedAndPortReleased(info)
 						expectContainerInfoToHaveBeenReturned(info, origInfo)
