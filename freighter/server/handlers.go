@@ -77,10 +77,13 @@ func (ac *ActiveCopsList) Len(cid string) int {
 
 func (ac *ActiveCopsList) Terminate(cid string) {
 	ac.mu.Lock()
-	for _, quit := range ac.activeCops[cid] {
+	activeCops := make([]chan error, len(ac.activeCops[cid]))
+	copy(activeCops, ac.activeCops[cid])
+	ac.mu.Unlock()
+
+	for _, quit := range activeCops {
 		quit <- nil
 	}
-	ac.mu.Unlock()
 }
 
 func (ac *ActiveCopsList) AddChannel(cid string, ch chan error) {
@@ -657,22 +660,30 @@ func (s *Server) wsContainerOps(w http.ResponseWriter, r *http.Request) error {
 	// wait for process to exit
 	go func() {
 		err := cmd.Wait()
+		if err != nil {
+			logrus.Debugf("wsContainerOps: cops process exited with err: %v", err)
+		} else {
+			logrus.Debug("wsContainerOps: cops process exited cleanly")
+		}
 		quit <- err
 	}()
 
 	ActiveCops.AddChannel(id, quit)
+
 	for {
 		select {
 		case err := <-quit:
 			logrus.Debugf("container ops: exited with err %v", err)
 			ActiveCops.RemoveChannel(id, quit)
+			logrus.Debugf("%d active cops left", ActiveCops.Len(id))
 			ws.Close() // inform client that server has closed connection.
 			if cmd.Process != nil {
 				logrus.Debugf("wsContainerOps: killing cops process")
-				cmd.Process.Kill()
+				if err := cmd.Process.Kill(); err != nil {
+					logrus.Errorf("wsContainerOps: failed to kill cops process, err: %v", err)
+				}
 			}
 			return nil
-
 		case msg := <-msgsFromCops:
 			d, err := json.Marshal(msg)
 			if err != nil {
