@@ -23,6 +23,7 @@ import (
 	"github.com/nitrous-io/dedicated/nitrous/models/cvolume"
 	"github.com/nitrous-io/dedicated/nitrous/models/host"
 	"github.com/nitrous-io/dedicated/nitrous/models/image"
+	"github.com/nitrous-io/dedicated/nitrous/models/snapshot"
 	"github.com/nitrous-io/dedicated/nitrous/models/token"
 	"github.com/nitrous-io/dedicated/nitrous/models/user"
 	"github.com/nitrous-io/dedicated/nitrous/models/usercontainerdata"
@@ -1465,7 +1466,20 @@ var _ = Describe("controllers/containers", func() {
 			Expect(i.OriginalImage.String).To(Equal("nitrous-base"))
 		})
 
-		It("returns image and container on success", func() {
+		It("creates a new snapshot record of the snapshot", func() {
+			doRequest("elixir-staging")
+
+			s := &snapshot.Snapshot{}
+			err := db.Get(s, `SELECT * FROM snapshots LIMIT 1;`)
+			Expect(err).To(BeNil())
+
+			Expect(s.UserID).To(Equal(u.ID))
+			Expect(s.Name).To(MatchRegexp("elixir-staging-snapshot-20140813-000000"))
+			Expect(s.Slug).To(MatchRegexp("elixir-staging-snapshot-20140813-000000"))
+			Expect(s.PublishedAt.Valid).To(BeFalse())
+		})
+
+		It("returns image, container and snapshot on success", func() {
 			doRequest("elixir-staging")
 			Expect(res.Code).To(Equal(http.StatusOK))
 			Expect(mockClient.CommitCalled).To(Equal(1))
@@ -1474,6 +1488,7 @@ var _ = Describe("controllers/containers", func() {
 			var j struct {
 				Image     *serializers.Image     `json:"image"`
 				Container *serializers.Container `json:"container"`
+				Snapshot  *serializers.Snapshot  `json:"snapshot"`
 			}
 			err := json.NewDecoder(res.Body).Decode(&j)
 			Expect(err).To(BeNil())
@@ -1484,6 +1499,8 @@ var _ = Describe("controllers/containers", func() {
 			Expect(j.Container).NotTo(BeNil())
 			Expect(j.Container.Slug).To(Equal("elixir-web-1"))
 			Expect(j.Container.State).To(Equal("running"))
+			Expect(j.Snapshot.UserID).To(Equal(u.ID))
+			Expect(j.Snapshot.Slug).To(MatchRegexp("elixir-staging-snapshot-20140813-000000"))
 		})
 
 		It("creates a slug from the name param", func() {

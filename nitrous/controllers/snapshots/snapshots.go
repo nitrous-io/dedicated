@@ -6,9 +6,11 @@ import (
 	"io/ioutil"
 	"net/http"
 	"strconv"
+	"time"
 
 	"github.com/Sirupsen/logrus"
 	"github.com/gorilla/mux"
+	"github.com/lib/pq"
 	"github.com/nitrous-io/dedicated/freighter/freighterclient"
 	"github.com/nitrous-io/dedicated/nitrous/controllers"
 	ndb "github.com/nitrous-io/dedicated/nitrous/db"
@@ -93,7 +95,7 @@ func Publish(env *middleware.Env, w http.ResponseWriter, r *http.Request) error 
 	}
 
 	// Check whether image has already been published as a snapshot.
-	if _, err := snapshot.FindByImageID(db, img.ID); err == nil {
+	if _, err := snapshot.FindByImageIDAndOrgID(db, img.ID, o.ID); err == nil {
 		return errSnapshotAlreadyPublished
 	}
 
@@ -209,13 +211,14 @@ func Publish(env *middleware.Env, w http.ResponseWriter, r *http.Request) error 
 			DisplayName:   img.Name,
 			OriginalImage: img.OriginalImage.String,
 			Size:          sql.NullInt64{fImg.VirtualSize, true},
+			PublishedAt:   pq.NullTime{time.Now(), true},
 		}
 		if err := s.Insert(tx); err != nil {
 			publishFailure(err)
 			return
 		}
 
-		swo, err := snapshot.FindByImageID(tx, s.ImageID)
+		swo, err := snapshot.FindByImageIDAndOrgID(tx, s.ImageID, o.ID)
 		if err != nil {
 			publishFailure(err)
 			return

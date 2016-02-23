@@ -258,6 +258,74 @@ var _ = Describe("models/snapshot", func() {
 		})
 	})
 
+	Describe("FindByImageIDAndOrgID()", func() {
+		It("returns an error when there's no snapshot with the given image ID and orgID", func() {
+			_, err := snapshot.FindByImageIDAndOrgID(db, i1.ID, o1.ID)
+			Expect(err).To(Equal(sql.ErrNoRows))
+		})
+
+		It("returns an error when there's a snapshot with the given image ID but not org ID", func() {
+			s := &snapshot.Snapshot{
+				ImageID:       i1.ID,
+				UserID:        u.ID,
+				OrgID:         sql.NullInt64{o2.ID, true},
+				Slug:          "zerobotlabs/nestorbot",
+				Namespace:     "zerobotlabs",
+				Name:          "nestorbot",
+				Tag:           "latest",
+				DisplayName:   "Nestorbot Dev",
+				OriginalImage: "golang:latest",
+			}
+			Expect(s.Insert(db)).To(BeNil())
+
+			_, err := snapshot.FindByImageIDAndOrgID(db, i1.ID, o1.ID)
+			Expect(err).To(Equal(sql.ErrNoRows))
+		})
+
+		It("returns an error when there's a snapshot with the given org ID but not image ID", func() {
+			s := &snapshot.Snapshot{
+				ImageID:       i2.ID,
+				UserID:        u.ID,
+				OrgID:         sql.NullInt64{o1.ID, true},
+				Slug:          "zerobotlabs/nestorbot",
+				Namespace:     "zerobotlabs",
+				Name:          "nestorbot",
+				Tag:           "latest",
+				DisplayName:   "Nestorbot Dev",
+				OriginalImage: "golang:latest",
+			}
+			Expect(s.Insert(db)).To(BeNil())
+
+			_, err := snapshot.FindByImageIDAndOrgID(db, i1.ID, o1.ID)
+			Expect(err).To(Equal(sql.ErrNoRows))
+		})
+
+		It("returns the snapshot with the given image ID and Org ID", func() {
+			_, err := db.Exec(`INSERT INTO snapshots
+				(image_id, user_id, org_id, slug, namespace, name, tag, display_name, original_image)
+				VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9);`,
+				i1.ID, u.ID, o1.ID, "zerobotlabs/nestorbot", "zerobotlabs", "nestorbot", "latest", "Nestorbot Dev", "golang:latest")
+			Expect(err).To(BeNil())
+
+			s, err := snapshot.FindByImageIDAndOrgID(db, i1.ID, o1.ID)
+			Expect(err).To(BeNil())
+
+			Expect(s.ImageID).To(Equal(i1.ID))
+			Expect(s.UserID).To(Equal(u.ID))
+			Expect(s.OrgID.Int64).To(Equal(o1.ID))
+			Expect(s.Slug).To(Equal("zerobotlabs/nestorbot"))
+			Expect(s.Namespace).To(Equal("zerobotlabs"))
+			Expect(s.Name).To(Equal("nestorbot"))
+			Expect(s.Tag).To(Equal("latest"))
+			Expect(s.DisplayName).To(Equal("Nestorbot Dev"))
+			Expect(s.OriginalImage).To(Equal("golang:latest"))
+
+			Expect(s.OwnerUsername.String).To(Equal(u.Username))
+			Expect(s.OwnerName.String).To(Equal(u.Name))
+			Expect(s.OwnerEmail.String).To(Equal(u.Email))
+		})
+	})
+
 	Describe("FindBySlug()", func() {
 		It("returns an error when there's no snapshot with the given slug", func() {
 			_, err := snapshot.FindBySlug(db, "non-existent")

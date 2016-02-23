@@ -26,6 +26,7 @@ import (
 	"github.com/nitrous-io/dedicated/nitrous/models/containercollab"
 	"github.com/nitrous-io/dedicated/nitrous/models/host"
 	"github.com/nitrous-io/dedicated/nitrous/models/image"
+	"github.com/nitrous-io/dedicated/nitrous/models/snapshot"
 	"github.com/nitrous-io/dedicated/nitrous/models/usercontainerdata"
 	"github.com/nitrous-io/dedicated/nitrous/models/volume"
 	"github.com/nitrous-io/dedicated/nitrous/pkg/httperror"
@@ -359,6 +360,28 @@ func commit(cn *container.Container, h *host.Host, env *middleware.Env, w http.R
 	}
 	cn = hydrateContainer(cn, liveContainer, h)
 
+	snapshotSlug := slugbuilder.BuildWithNumber(img.Slug, int(img.ID))
+
+	// Create snapshot record.
+	s := &snapshot.Snapshot{
+		ImageID:       img.ID,
+		UserID:        env.User.ID,
+		Slug:          snapshotSlug,
+		Namespace:     "",
+		Name:          snapshotSlug,
+		Tag:           "latest",
+		DisplayName:   img.Name,
+		OriginalImage: img.OriginalImage.String,
+	}
+	if err := s.Insert(env.DB); err != nil {
+		return err
+	}
+
+	swo, err := snapshot.FindByImageID(env.DB, s.ImageID)
+	if err != nil {
+		return err
+	}
+
 	env.Events.Publish(controllers.NewEvent(controllers.EventImageCreated, map[string]*serializers.Image{
 		"image": sImg,
 	}), env.User.Topic())
@@ -366,6 +389,7 @@ func commit(cn *container.Container, h *host.Host, env *middleware.Env, w http.R
 	env.Data = map[string]interface{}{
 		"image":     sImg,
 		"container": serializers.SerializeContainer(cn),
+		"snapshot":  serializers.SerializeSnapshotWithOwner(swo),
 	}
 	return nil
 }
