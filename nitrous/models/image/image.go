@@ -175,3 +175,7 @@ func ParseRepoAndTag(repos string) (string, string) {
 	}
 	return repos, ""
 }
+
+func IsNitrousTemplate(image string) bool {
+	return strings.HasPrefix(image, `quay.io/nitrous/`)
+}

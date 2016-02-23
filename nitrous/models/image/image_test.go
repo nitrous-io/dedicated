@@ -6,7 +6,6 @@ import (
 	"strconv"
 	"testing"
 
-	"github.com/nitrous-io/dedicated/freighter/provider/docker/parsers"
 	ndb "github.com/nitrous-io/dedicated/nitrous/db"
 	"github.com/nitrous-io/dedicated/nitrous/models/host"
 	"github.com/nitrous-io/dedicated/nitrous/models/image"
@@ -431,10 +430,38 @@ var _ = Describe("models/image", func() {
 		for _, tc2 := range testCases {
 			tc := tc2
 			It(fmt.Sprintf("parses %#v to (%#v, %#v)", tc.input, tc.repo, tc.tag), func() {
-				repo, tag := parsers.ParseRepoAndTag(tc.input)
+				repo, tag := image.ParseRepoAndTag(tc.input)
 				Expect(repo).To(Equal(tc.repo))
 				Expect(tag).To(Equal(tc.tag))
 			})
 		}
+	})
+
+	Describe("IsNitrousTemplate", func() {
+		It("returns true if image name starts with 'quay.io/nitrous/'", func() {
+			testCases := []string{
+				"quay.io/nitrous/ubuntu",
+				"quay.io/nitrous/rails",
+				"quay.io/nitrous/python",
+				"quay.io/nitrous/foo",
+			}
+
+			for _, tc := range testCases {
+				Expect(image.IsNitrousTemplate(tc)).To(BeTrue())
+			}
+		})
+
+		It("returns false if image name does not start with 'quay.io/nitrous/'", func() {
+			testCases := []string{
+				"ubuntu",
+				"quay.io/quay/foo",
+				"rails/rails",
+				"quay.io/nitrousio/ruby",
+			}
+
+			for _, tc := range testCases {
+				Expect(image.IsNitrousTemplate(tc)).To(BeFalse())
+			}
+		})
 	})
 })
