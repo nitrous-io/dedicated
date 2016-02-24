@@ -286,7 +286,7 @@ func (s *Server) terminateContainer(w http.ResponseWriter, r *http.Request) {
 	s.performContainerControl(w, r,
 		func(id string) (*provider.ContainerInfo, error) {
 			s.terminateActiveCops(id)
-			return s.provider.Terminate(id, true)
+			return s.provider.Terminate(id)
 		},
 		"terminated")
 }

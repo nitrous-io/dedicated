@@ -243,7 +243,7 @@ func (p *MockProvider) Restart(id string) (*provider.ContainerInfo, error) {
 	return info, p.RestartError
 }
 
-func (p *MockProvider) Terminate(id string, removeSettings bool) (*provider.ContainerInfo, error) {
+func (p *MockProvider) Terminate(id string) (*provider.ContainerInfo, error) {
 	info, _ := p.GetInfo(id)
 	if info != nil {
 		info.Host = ""
