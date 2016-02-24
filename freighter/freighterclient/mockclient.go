@@ -113,6 +113,7 @@ type MockClient struct {
 
 	RemoveImageCalled int
 	RemoveImageError  error
+	RemoveImageSlug   string
 
 	PullImageCalled int
 	PullImageError  error
@@ -332,6 +333,7 @@ func (c *MockClient) BuildImage(name string, in io.Reader, out io.Writer, remote
 
 func (c *MockClient) RemoveImage(slug string) error {
 	c.RemoveImageCalled++
+	c.RemoveImageSlug = slug
 	return c.RemoveImageError
 }
 

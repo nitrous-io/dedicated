@@ -3242,7 +3242,7 @@ var _ = Describe("controllers/containers", func() {
 			Expect(cn.TerminatedAt).NotTo(BeNil())
 		}
 
-		It("calls the Freighter client to Terminate the container", func() {
+		It("calls the Freighter client to terminate the container", func() {
 			doRequest()
 			Expect(mockClient.TerminateCalled).To(Equal(1))
 			Expect(mockClient.ReceivedID).To(Equal("deadbeef"))
@@ -3273,6 +3273,50 @@ var _ = Describe("controllers/containers", func() {
 			c, err := container.Find(db, hs.U, slug)
 			Expect(err).To(MatchError(sql.ErrNoRows))
 			Expect(c).To(BeNil())
+		})
+
+		It("removes the container's image from the host if the image is a Nitrous template", func() {
+			c.Image = "quay.io/nitrous/ubuntu"
+			Expect(image.IsNitrousTemplate(c.Image)).To(BeTrue())
+			Expect(c.Update(db)).To(BeNil())
+
+			doRequest()
+
+			Expect(mockClient.RemoveImageCalled).To(Equal(1))
+			Expect(mockClient.RemoveImageSlug).To(Equal(c.Image))
+		})
+
+		It("does not remove the container's image from the host if the image is a not Nitrous template", func() {
+			c.Image = "ruby"
+			Expect(image.IsNitrousTemplate(c.Image)).To(BeFalse())
+			Expect(c.Update(db)).To(BeNil())
+
+			doRequest()
+
+			Expect(mockClient.RemoveImageCalled).To(Equal(0))
+		})
+
+		It("deletes the container's image's record if the image is a Nitrous template", func() {
+			c.Image = "quay.io/nitrous/ubuntu"
+			Expect(image.IsNitrousTemplate(c.Image)).To(BeTrue())
+			Expect(c.Update(db)).To(BeNil())
+
+			img := &image.Image{
+				UserID:      u.ID,
+				HostID:      hs.H.ID,
+				FreighterID: "abcdef",
+				Slug:        "quay.io/nitrous/ubuntu",
+				Tag:         "latest",
+			}
+			Expect(img.Insert(db)).To(BeNil())
+
+			_, err := image.Find(db, u, hs.H, c.Image)
+			Expect(err).To(BeNil())
+
+			doRequest()
+
+			_, err = image.Find(db, u, hs.H, c.Image)
+			Expect(err).To(Equal(sql.ErrNoRows))
 		})
 
 		It("publishes a container destroyed event with the destroyed container", func() {

@@ -408,8 +408,8 @@ func show(cn *container.Container, h *host.Host, env *middleware.Env, w http.Res
 	// TODO Run this in a goroutine so it runs concurrently with DB query.
 	liveContainer, err := cl.Info(cn.CID)
 	if err != nil {
-		if derr := deleteIfNotFound(env.DB, cn, err); derr != nil {
-			return derr
+		if err := deleteIfNotFound(env.DB, cn, err); err != nil {
+			return err
 		}
 		return err
 	}
@@ -427,8 +427,6 @@ func show(cn *container.Container, h *host.Host, env *middleware.Env, w http.Res
 	var sshURL string
 	userData := map[string]string{}
 
-	var billingError error
-
 	wg.Add(1)
 	go func() {
 		defer wg.Done()
@@ -438,6 +436,7 @@ func show(cn *container.Container, h *host.Host, env *middleware.Env, w http.Res
 			sshURL = url
 		}
 	}()
+
 	wg.Add(1)
 	go func() {
 		defer wg.Done()
@@ -459,9 +458,6 @@ func show(cn *container.Container, h *host.Host, env *middleware.Env, w http.Res
 	}()
 
 	wg.Wait()
-	if billingError != nil {
-		return billingError
-	}
 
 	serialized.SSHURL = sshURL
 	serialized.UserData = userData
@@ -551,8 +547,8 @@ func controlActionHandler(action actionFn, tempState container.State, eventName 
 
 				liveContainer, err := action(env, cl, cn)
 				if err != nil {
-					if derr := deleteIfNotFound(env.DB, cn, err); derr != nil {
-						return derr
+					if err := deleteIfNotFound(env.DB, cn, err); err != nil {
+						return err
 					}
 					return err
 				}
@@ -613,7 +609,11 @@ func destroy(cn *container.Container, h *host.Host, env *middleware.Env, w http.
 	return doContainerExclusive(
 		cn, env, container.StateTerminating, transitionLockTime,
 		func() error {
-			// Publish transitioning state
+			logger := logrus.WithFields(logrus.Fields{
+				"uuid":           env.UUID,
+				"container_slug": cn.Slug,
+			})
+
 			PublishContainerEvent(env, controllers.EventContainerDestroying, cn, nil)
 
 			cl, err := controllers.NewFreighterClient(db, h, env.UUID)
@@ -623,18 +623,33 @@ func destroy(cn *container.Container, h *host.Host, env *middleware.Env, w http.
 
 			liveContainer, err := cl.Terminate(cn.CID)
 			if err != nil {
-				if derr := deleteIfNotFound(db, cn, err); derr != nil {
-					return derr
+				if err := deleteIfNotFound(db, cn, err); err != nil {
+					return err
 				}
 				return err
 			}
 
-			// reset the temp state, so freigther state will be exposed
+			// reset the temp state, so freighter state will be exposed
 			cn.TempState = sql.NullInt64{0, false}
 
-			err = cn.Delete(db)
-			if err != nil {
+			if err := cn.Delete(db); err != nil {
 				return err
+			}
+
+			// Delete the image the container is using, if it is a Nitrous
+			// template.
+			if image.IsNitrousTemplate(cn.Image) {
+				// Delete image from host.
+				if err := cl.RemoveImage(cn.Image); err != nil {
+					logger.Errorf("error removing Nitrous image after removing container, err: %v", err)
+				} else {
+					// Delete image from database if it exists.
+					if img, err := image.Find(db, env.User, h, cn.Image); err == nil {
+						if err := img.Delete(db); err != nil {
+							logger.Errorf("failed to delete image from database, err: %v", err)
+						}
+					}
+				}
 			}
 
 			cn = hydrateContainer(cn, liveContainer, h)
@@ -931,8 +946,8 @@ func expandFreighterClientError(d db.QueryReceiver, cn *container.Container, err
 		}
 	}
 
-	if derr := deleteIfNotFound(d, cn, err); derr != nil {
-		return derr
+	if err := deleteIfNotFound(d, cn, err); err != nil {
+		return err
 	}
 	return err
 }

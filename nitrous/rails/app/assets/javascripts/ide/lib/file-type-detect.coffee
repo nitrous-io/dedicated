@@ -29,6 +29,8 @@ App.FileTypeDetect =
           'application/x-erb'
         when 'css'
           'text/css'
+        when 'hbs'
+          'text/x-handlebars-template'
         when 'hs', 'lhs'
           'text/x-haskell'
         when 'jade'

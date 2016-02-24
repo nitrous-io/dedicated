@@ -52,7 +52,7 @@ type Provider interface {
 	Start(id, config string) (info *ContainerInfo, err error)
 	Stop(id string) (info *ContainerInfo, err error)
 	Restart(id string) (info *ContainerInfo, err error)
-	Terminate(id string, removeSettings bool) (info *ContainerInfo, err error)
+	Terminate(id string) (info *ContainerInfo, err error)
 	ListUserKeys(id string) (publicKeys map[string]string, err error)
 	AddUserKeys(id string, publicKeys []string) (err error)
 	ClearUserKeys(id string) (err error)
