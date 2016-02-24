@@ -227,13 +227,13 @@ App.IdeMainMenuController = Em.Controller.extend
         type: 'POST',
         url: "/api/v0/hosts/#{hostSlug}/stop",
         headers: { Authorization: "Bearer #{App.get 'token'}" }
-      )).then(
-      (data) =>
+      )).then((data) =>
         ui.hideModal '#stopping-host-dialog'
+        @transitionToRoute '/'
         App.snackbar.post("Workstation #{hostSlug} stopped")
       , (jqxhr) =>
         ui.hideModal '#stopping-host-dialog'
-        App.snackbar.post("Failed to stop workstation #{hostSlug}!")
+        App.snackbar.postError(jqxhr.responseJSON, "Failed to stop workstation #{hostSlug}!")
       )
 
   _toggleEditorProperty: (property) ->
