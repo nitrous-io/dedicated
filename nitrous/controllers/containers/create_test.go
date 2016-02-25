@@ -580,6 +580,8 @@ var _ = Describe("CreateAtomic", func() {
 				params.Set("template", tmpl.Slug)
 				params.Set("privileged", "false")
 				params.Set("publish_all", "true")
+				params.Add("port[]", "public::6060/tcp")
+				params.Add("port[]", "public::8888/tcp")
 
 				res := doRequest(params)
 				Expect(res.Code).To(Equal(http.StatusAccepted))
@@ -617,6 +619,7 @@ var _ = Describe("CreateAtomic", func() {
 					Expect(cn.Image).To(Equal(tmpl.Image))
 
 					Expect(mockClient.CreateCalled).To(Equal(1))
+					Expect(mockClient.ReceivedConfig.PortBindings).To(ConsistOf([]string{"public::2341", "public::8931", "public::6060/tcp", "public::8888/tcp"}))
 					Expect(*mockClient.ReceivedConfig.Privileged).To(BeFalse())
 					Expect(*mockClient.ReceivedConfig.PublishAll).To(BeTrue())
 				}
