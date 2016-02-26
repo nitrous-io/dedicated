@@ -112,6 +112,8 @@ var (
 	// Google ReCaptcha
 	CaptchaPublicKey = os.Getenv("GOOGLE_RECAPTCHA_PUBLIC_KEY")
 	CaptchaSecretKey = os.Getenv("GOOGLE_RECAPTCHA_SECRET_KEY")
+
+	GithubAccessToken = os.Getenv("GITHUB_ACCESS_TOKEN")
 )
 
 func init() {
