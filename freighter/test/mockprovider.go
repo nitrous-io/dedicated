@@ -69,6 +69,8 @@ type MockProvider struct {
 	ReceivedConfig         string
 	ReceivedUserKeys       []string
 	ReceivedKeyFingerprint string
+	ReceivedCommand        string
+	ReceivedTimeout        int64
 
 	CreateVolumeCalled bool
 	CreateVolumeReturn *provider.VolumeInfo
@@ -168,6 +170,9 @@ type MockProvider struct {
 	ActivityCalled bool
 	ActivityActive bool
 	ActivityError  error
+
+	RunCommandCalled bool
+	RunCommandError  error
 }
 
 func (p *MockProvider) VerifyToken(id, token string, permissions ...string) error {
@@ -460,4 +465,12 @@ func (p *MockProvider) Version() (string, error) {
 func (p *MockProvider) Activity(threshold int) (bool, error) {
 	p.ActivityCalled = true
 	return p.ActivityActive, p.ActivityError
+}
+
+func (p *MockProvider) RunCommand(id, command string, timeout int64) error {
+	p.ReceivedID = id
+	p.ReceivedCommand = command
+	p.ReceivedTimeout = timeout
+	p.RunCommandCalled = true
+	return p.RunCommandError
 }

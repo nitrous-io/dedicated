@@ -55,6 +55,7 @@ func (s *Server) drawRoutes() {
 	s.secretRoute("/containers/{id}/user_keys/{key_fingerprint}", s.removeUserKey, "DELETE")
 	s.secretRoute("/containers/{id}/container_keys", s.listContainerKeys, "GET")
 	s.secretRoute("/containers/{id}/reconfig", s.reconfigureContainer, "POST")
+	s.secretRoute("/containers/{id}/run_command", s.runCommand, "POST")
 
 	// handle websocket custom protocol
 	s.route("/containers/{id}/shell", s.handleCORSPreflight, "OPTIONS")

@@ -1137,6 +1137,34 @@ var _ = Describe("server", func() {
 		})
 	})
 
+	Describe("POST /containers/:container_id/run_command", func() {
+		var (
+			id     = "railsbabe"
+			params = &url.Values{}
+		)
+
+		doRequest := func() {
+			req, err = NewFormRequest(hostSecret, "POST", fmt.Sprintf("/containers/%v/run_command", id), params)
+			Expect(err).To(BeNil())
+			handler.ServeHTTP(res, req)
+		}
+
+		It("calls provider.RunCommand()", func() {
+			command := "cd && echo asd"
+			timeout := "300"
+			params.Set("timeout", timeout) // 5 minutes timeout
+			params.Set("command", command)
+			Expect(prov.RunCommandCalled).To(BeFalse())
+			doRequest()
+			Expect(prov.RunCommandCalled).To(BeTrue())
+			Expect(prov.ReceivedID).To(Equal(id))
+			Expect(prov.ReceivedCommand).To(Equal(command))
+			timeoutInt, err := strconv.ParseInt(timeout, 10, 64)
+			Expect(err).To(BeNil())
+			Expect(prov.ReceivedTimeout).To(Equal(timeoutInt))
+		})
+	})
+
 	Describe("POST /volumes", func() {
 		doRequest := func(slug string) {
 			req, _ := NewRequestWithSecret(hostSecret, "POST", "/volumes", &url.Values{"slug": []string{slug}})

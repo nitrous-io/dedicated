@@ -702,6 +702,50 @@ func (p *DockerProvider) Reconfig(id, configJSON string) (ret *provider.Containe
 	return p.GetInfo(id)
 }
 
+func (p *DockerProvider) RunCommand(id, command string, timeout int64) error {
+	container, err := p.inspectContainer(id)
+	if err != nil {
+		logrus.Errorf("RunCommand inspectContainer failed, err: %v, id: %s", err, id)
+		return err
+	}
+	usr, _ := p.appUser(container)
+
+	createOpts := dockerclient.CreateExecOptions{
+		AttachStdout: true,
+		Cmd:          []string{"/bin/bash", "-c", command},
+		Container:    container.ID,
+		User:         usr,
+	}
+	ex, err := p.client.CreateExec(createOpts)
+	if err != nil {
+		logrus.Errorf("RunCommand CreateExec failed, err: %v, createOpts: %v", err, createOpts)
+		return err
+	}
+
+	errCh := make(chan error)
+	go func() {
+		startOpts := dockerclient.StartExecOptions{}
+		err := p.client.StartExec(ex.ID, startOpts)
+		errCh <- err
+	}()
+
+	select {
+	case <-time.After(time.Duration(timeout) * time.Second):
+		logrus.Warnf("RunCommand StartExec timeout, exec id: %v", ex.ID)
+		if err := p.client.StopExec(ex.ID); err != nil {
+			logrus.Errorf("RunCommand StopExec failed, err: %v, exec id: %v", err, ex.ID)
+		}
+		return errors.New("RunCommand timeout")
+	case err := <-errCh:
+		if err != nil {
+			logrus.Errorf("RunCommand StartExec failed, err: %v")
+			return err
+		}
+	}
+
+	return nil
+}
+
 // Logs gets stdout and stderr logs from a container. If successful, the logs
 // are written to the given io.Writer.
 func (p *DockerProvider) Logs(id string, w io.Writer, follow, timestamps bool, tail string) error {
