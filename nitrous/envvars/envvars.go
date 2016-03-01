@@ -76,6 +76,9 @@ var (
 	GitHubOAuthClientID     = os.Getenv("GITHUB_CLIENT_ID")
 	GitHubOAuthClientSecret = os.Getenv("GITHUB_CLIENT_SECRET")
 
+	TwitterOAuthConsumerKey    = os.Getenv("TWITTER_CONSUMER_KEY")
+	TwitterOAuthConsumerSecret = os.Getenv("TWITTER_CONSUMER_SECRET")
+
 	SecretToken = os.Getenv("SECRET_TOKEN")
 
 	QueueType    = os.Getenv("QUEUE_TYPE")
