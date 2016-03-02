@@ -901,7 +901,7 @@ var _ = Describe("controllers/oauth", func() {
 					Expect(errDesc).To(Equal("authorization code has expired"))
 				})
 
-				It("should fail if requested twice with same nonce", func() {
+				It("should fail if requested twice with same authorization code", func() {
 					doRequest()
 					Expect(res.Code).To(Equal(http.StatusOK))
 
@@ -914,7 +914,7 @@ var _ = Describe("controllers/oauth", func() {
 			})
 
 			Context("when client request with valid parameters", func() {
-				It("should get bearer token", func() {
+				It("respond with a Bearer token", func() {
 					doRequest()
 					Expect(res.Code).To(Equal(http.StatusOK))
 					j := parseJSONResponse()
@@ -923,7 +923,7 @@ var _ = Describe("controllers/oauth", func() {
 					Expect(j["scope"]).To(Equal("third_party"))
 				})
 
-				It("should be able to gain basic user access", func() {
+				It("should be able to gain basic user access with the returned Bearer token", func() {
 					doRequest()
 					Expect(res.Code).To(Equal(http.StatusOK))
 					j := parseJSONResponse()
@@ -946,6 +946,13 @@ var _ = Describe("controllers/oauth", func() {
 					user, ok := j2["user"].(map[string]interface{})
 					Expect(ok).To(BeTrue())
 					Expect(user["username"]).To(Equal("demoman"))
+				})
+
+				It("allows redirect_uri to not be not specified", func() {
+					params.Del("redirect_uri")
+
+					doRequest()
+					Expect(res.Code).To(Equal(http.StatusOK))
 				})
 			})
 		})

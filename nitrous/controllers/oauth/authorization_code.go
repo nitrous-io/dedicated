@@ -189,11 +189,6 @@ func TokenFromAuthorizationCode(env *middleware.Env, w http.ResponseWriter, r *h
 		return errInvalidClientID
 	}
 
-	redirectURI := r.FormValue("redirect_uri")
-	if redirectURI != code.RedirectURI {
-		return errInvalidRedirectURI
-	}
-
 	clientSecret := r.FormValue("client_secret")
 	if clientSecret == "" {
 		return errInvalidClientSecret
@@ -207,13 +202,23 @@ func TokenFromAuthorizationCode(env *middleware.Env, w http.ResponseWriter, r *h
 		return err
 	}
 
+	redirectURI := r.FormValue("redirect_uri")
+	if redirectURI != "" && redirectURI != code.RedirectURI {
+		// If a redirect URI is given, it must match the URI in the
+		// authorization code.
+		return errInvalidRedirectURI
+	}
+	if redirectURI == "" && code.RedirectURI != client.RedirectURI {
+		// If no redirect URI is given, the authorization code's URI must match
+		// that of the OAuth client (i.e. the default redirect URI).
+		return errInvalidRedirectURI
+	}
+
 	// Ignore requested scope.
 	// FIXME: Allow third party to request for different scopes
 	scope := token.ScopeThirdParty
 
-	userID := code.UserID
-
-	u, err := user.FindByID(db, userID)
+	u, err := user.FindByID(db, code.UserID)
 	if err != nil {
 		return err
 	}
@@ -226,8 +231,7 @@ func TokenFromAuthorizationCode(env *middleware.Env, w http.ResponseWriter, r *h
 		Scope:    scope,
 	}
 
-	err = t.Insert(db)
-	if err != nil {
+	if err := t.Insert(db); err != nil {
 		if strings.Contains(err.Error(), "unique") {
 			return errCodeReused
 		}
