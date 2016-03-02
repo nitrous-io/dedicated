@@ -9,7 +9,6 @@ type Plan struct {
 	Slug         string `json:"slug"`
 	Name         string `json:"name"`
 	Description  string `json:"description"`
-	Type         string `json:"type"`
 	Price        int64  `json:"price"`
 	BasePrice    int64  `json:"base_price"`
 	HourlyPrice  int64  `json:"hourly_price"`
@@ -42,7 +41,6 @@ func SerializePlan(p *plan.Plan) *Plan {
 		Slug:             p.Slug,
 		Name:             p.Name,
 		Description:      p.Description,
-		Type:             p.Type,
 		Price:            p.Price,
 		BasePrice:        p.BasePrice,
 		HourlyPrice:      p.HourlyPrice(),

@@ -8,7 +8,6 @@ App.Plan = klass = App.Model.extend
   slug: attr()
   name: attr()
   description: attr()
-  type: attr()
   price: attr('number')
   basePrice: attr('number', as: 'base_price')
   hourlyPrice: attr('number', as: 'hourly_price')

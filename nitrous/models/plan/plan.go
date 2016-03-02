@@ -9,11 +9,6 @@ import (
 	"github.com/nitrous-io/dedicated/nitrous/db"
 )
 
-const (
-	TypeUsageBased = "usage-based"
-	TypePrepaid    = "prepaid"
-)
-
 type Plan struct {
 	ID                int64         `db:"id"`
 	HostingModePlanID sql.NullInt64 `db:"hosting_mode_plan_id"`
@@ -21,7 +16,6 @@ type Plan struct {
 	Name         string         `db:"name"`
 	Description  string         `db:"description"`
 	Slug         string         `db:"slug"`
-	Type         string         `db:"type"`
 	Price        int64          `db:"price"`
 	BasePrice    int64          `db:"base_price"`
 	CPU          string         `db:"cpu"`
