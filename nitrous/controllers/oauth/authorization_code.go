@@ -243,7 +243,6 @@ func TokenFromAuthorizationCode(env *middleware.Env, w http.ResponseWriter, r *h
 		"access_token": t.Token,
 		"token_type":   "Bearer",
 		"scope":        scope,
-		"expires_in":   token.ExpiryInSeconds,
 	}
 
 	return nil
