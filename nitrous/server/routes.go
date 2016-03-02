@@ -246,6 +246,8 @@ func (s *Server) drawRoutes() {
 				"/orgs/{org_slug}/subscriptions":     r("subscriptions.Subscribe", subscriptions.Subscribe, EventOrgSubscriptionSubscribed),
 				"/orgs/{org_slug}/snapshots/publish": r("snapshots.Publish", snapshots.Publish),
 				"/twitter/connect":                   r("twitter.Connect", twitter.Connect),
+				"/twitter/follow":                    r("twitter.Follow", twitter.Follow),
+				"/twitter/tweet":                     r("twitter.Tweet", twitter.Tweet),
 			},
 			"PUT": {
 				"/users":                            r("users.Update", users.Update, EventUserUpdatedProfile),
