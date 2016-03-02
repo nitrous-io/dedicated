@@ -29,7 +29,6 @@ var _ = Describe("plan serializer", func() {
 				Hidden:            false,
 				AutoShutdown:      true,
 				MaxContainers:     3,
-				MaxSnapshots:      10,
 				Org:               false,
 				Edu:               true,
 			}
@@ -56,7 +55,6 @@ var _ = Describe("plan serializer", func() {
 				"trial_period_days": 0,
 				"auto_shutdown": true,
 				"max_containers": 3,
-				"max_snapshots": 10,
 				"org": false,
 				"edu": true
 			}`))
@@ -85,7 +83,6 @@ var _ = Describe("plan serializer", func() {
 				"hidden": false,
 				"trial_period_days": 0,
 				"max_containers": 3,
-				"max_snapshots": 10,
 				"org": false,
 				"edu": true
 			}`))
@@ -113,7 +110,6 @@ var _ = Describe("plan serializer", func() {
 				"trial_period_days": 0,
 				"auto_shutdown": true,
 				"max_containers": 3,
-				"max_snapshots": 10,
 				"max_hosts": 12,
 				"org": false,
 				"edu": true

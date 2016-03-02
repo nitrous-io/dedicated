@@ -20,7 +20,6 @@ App.Plan = klass = App.Model.extend
   trialPeriodDays: attr('number', as: 'trial_period_days')
 
   maxContainers: attr('number', as: 'max_containers')
-  maxSnapshots: attr('number', as: 'max_snapshots')
 
   inputId: (->
     if slug = @get 'slug'

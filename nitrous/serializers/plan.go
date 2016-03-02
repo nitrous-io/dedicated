@@ -23,7 +23,6 @@ type Plan struct {
 
 	AutoShutdown     bool  `json:"auto_shutdown"`
 	MaxContainers    int64 `json:"max_containers"`
-	MaxSnapshots     int64 `json:"max_snapshots"`
 	MaxHosts         int64 `json:"max_hosts,omitempty"`
 	MaxCollaborators int64 `json:"max_collaborators,omitempty"`
 
@@ -51,7 +50,6 @@ func SerializePlan(p *plan.Plan) *Plan {
 		Hidden:           p.Hidden,
 		AutoShutdown:     p.AutoShutdown,
 		MaxContainers:    p.MaxContainers,
-		MaxSnapshots:     p.MaxSnapshots,
 		MaxHosts:         p.MaxHosts.Int64,
 		MaxCollaborators: p.MaxCollaborators.Int64,
 		Org:              p.Org,

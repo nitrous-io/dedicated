@@ -39,7 +39,6 @@ type Plan struct {
 
 	AutoShutdown  bool  `db:"auto_shutdown"`
 	MaxContainers int64 `db:"max_containers"`
-	MaxSnapshots  int64 `db:"max_snapshots"`
 
 	Org bool `db:"org"`
 	Edu bool `db:"edu"`
