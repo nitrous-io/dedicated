@@ -132,5 +132,29 @@ var _ = Describe("models/oauthtoken", func() {
 			})
 		})
 
+		Describe("FindByUserAndService()", func() {
+			It("returns oauth token record", func() {
+				t := &oauthtoken.OAuthToken{
+					UserID:       u.ID,
+					Service:      "tweater",
+					NitrousToken: sql.NullString{"nitroustoken", true},
+					RequestToken: sql.NullString{"oauthtoken", true},
+				}
+				Expect(t.Upsert(db)).To(BeNil())
+				Expect(t.UserID).To(Equal(u.ID))
+				Expect(t.Service).To(Equal("tweater"))
+				Expect(t.NitrousToken.String).To(Equal("nitroustoken"))
+				Expect(t.RequestToken.String).To(Equal("oauthtoken"))
+
+				t1, err := oauthtoken.FindByUserAndService(db, u.ID, "tweater")
+				Expect(err).To(BeNil())
+
+				Expect(t1.UserID).To(Equal(u.ID))
+				Expect(t1.Service).To(Equal("tweater"))
+				Expect(t1.NitrousToken.String).To(Equal("nitroustoken"))
+				Expect(t1.RequestToken.String).To(Equal("oauthtoken"))
+			})
+		})
+
 	})
 })
