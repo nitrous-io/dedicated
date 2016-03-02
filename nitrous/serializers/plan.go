@@ -15,7 +15,6 @@ type Plan struct {
 	CPU          string `json:"cpu"`
 	Memory       string `json:"memory"`
 	Storage      string `json:"storage"`
-	MostPopular  bool   `json:"most_popular"`
 	Subscription bool   `json:"subscription"`
 
 	Hidden bool `json:"hidden"`
@@ -47,7 +46,6 @@ func SerializePlan(p *plan.Plan) *Plan {
 		CPU:              p.CPU,
 		Memory:           p.Memory,
 		Storage:          p.Storage,
-		MostPopular:      p.MostPopular,
 		Subscription:     p.StripePlanID.Valid,
 		TrialPeriodDays:  p.TrialPeriodDays,
 		Hidden:           p.Hidden,

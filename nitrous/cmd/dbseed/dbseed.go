@@ -130,7 +130,7 @@ func plans(d db.QueryReceiver) error {
 	}
 
 	plans := []*plan.Plan{
-		{Slug: "standard", Name: "Standard", StripePlanID: sql.NullString{"standard", true}, MaxContainers: 3, Price: 2900, CPU: "1", Memory: "2 GB", Storage: "25 GB", MostPopular: true},
+		{Slug: "standard", Name: "Standard", StripePlanID: sql.NullString{"standard", true}, MaxContainers: 3, Price: 2900, CPU: "1", Memory: "2 GB", Storage: "25 GB"},
 		{Slug: "plus", Name: "Plus", StripePlanID: sql.NullString{"plus", true}, MaxContainers: 10, Price: 7900, CPU: "2", Memory: "4 GB", Storage: "50 GB"},
 		{Slug: "org-plus", Name: "Plus", StripePlanID: sql.NullString{"org-plus", true}, MaxContainers: 20, Price: 11900, CPU: "2", Memory: "4 GB", Storage: "80 GB", Org: true},
 		{Slug: "org-pro", Name: "Pro", StripePlanID: sql.NullString{"org-pro", true}, MaxContainers: 50, Price: 24900, CPU: "2", Memory: "8 GB", Storage: "200 GB", Org: true},

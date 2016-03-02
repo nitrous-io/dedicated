@@ -14,7 +14,6 @@ App.Plan = klass = App.Model.extend
   cpu: attr()
   memory: attr()
   storage: attr()
-  mostPopular: attr('boolean', as: 'most_popular')
   subscription: attr('boolean')
   org: attr('boolean')
   hidden: attr('boolean')
