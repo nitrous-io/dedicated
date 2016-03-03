@@ -780,7 +780,16 @@ func unmountUserVolume(ctx *host.HostContext) error {
 	}
 
 	if !unmountOK {
-		return fmt.Errorf("could not unmount %s", userDeviceOSName)
+		// Finally, we do a lazy unmount, which detaches the volume's filesystem
+		// now, but cleans up the references to the filesystem later, when it's
+		// not busy anymore.
+		h.Printf("regular unmount didn't work, going to do a lazy unmount of %s", userDeviceOSName)
+		out, err := conn.CombinedOutput(fmt.Sprintf(`sudo umount -l %s`, userDeviceOSName))
+		if err != nil {
+			h.Printf("failed to lazy unmount %s, err: %v, output: %s",
+				userDeviceOSName, err, out)
+			return fmt.Errorf("could not lazy unmount %s", userDeviceOSName)
+		}
 	}
 
 	return nil
