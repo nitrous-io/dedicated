@@ -58,3 +58,10 @@ func FindByTokenAndService(d db.QueryReceiver, reqToken, service string) (*OAuth
 		reqToken, service)
 	return t, err
 }
+
+func FindByUserAndService(d db.QueryReceiver, userID int64, service string) (*OAuthToken, error) {
+	t := &OAuthToken{}
+	err := d.Get(t, `SELECT * FROM oauth_tokens WHERE user_id = $1 AND service = $2;`,
+		userID, service)
+	return t, err
+}

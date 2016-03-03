@@ -12,6 +12,7 @@ import (
 	"github.com/mrjones/oauth"
 	"github.com/nitrous-io/dedicated/nitrous/controllers/twitter"
 	"github.com/nitrous-io/dedicated/nitrous/db"
+	"github.com/nitrous-io/dedicated/nitrous/models/bonus"
 	"github.com/nitrous-io/dedicated/nitrous/models/host"
 	"github.com/nitrous-io/dedicated/nitrous/models/oauthtoken"
 	"github.com/nitrous-io/dedicated/nitrous/models/token"
@@ -28,12 +29,20 @@ func Test(t *testing.T) {
 	RunSpecs(t, "controllers/twitter")
 }
 
-func mockGetRequestTokenAndUrl(code string) (*oauth.RequestToken, string, error) {
+func mockGetRequestTokenAndUrl(string) (*oauth.RequestToken, string, error) {
 	return &oauth.RequestToken{Token: "mock-request-token"}, "https://api.twitter.com/oauth/authorize?oauth_token=mock-oauth-token", nil
 }
 
-func mockAuthorizeToken(requestToken *oauth.RequestToken, oauthVerifier string) (*oauth.AccessToken, error) {
+func mockAuthorizeToken(*oauth.RequestToken, string) (*oauth.AccessToken, error) {
 	return &oauth.AccessToken{Token: "mock-access-token", Secret: "mock-secret-token"}, nil
+}
+
+func mockCreateFriendship(*http.Client) (*http.Response, error) {
+	return &http.Response{StatusCode: http.StatusOK}, nil
+}
+
+func mockPostStatus(string, *http.Client) (*http.Response, error) {
+	return &http.Response{StatusCode: http.StatusOK}, nil
 }
 
 var _ = Describe("controllers/twitter", func() {
@@ -51,6 +60,8 @@ var _ = Describe("controllers/twitter", func() {
 		var err error
 		twitter.GetRequestTokenAndUrl = mockGetRequestTokenAndUrl
 		twitter.AuthorizeToken = mockAuthorizeToken
+		twitter.CreateFriendship = mockCreateFriendship
+		twitter.PostStatus = mockPostStatus
 
 		db, err = test.TestDatabase("nitrous_test")
 		Expect(err).To(BeNil())
@@ -144,8 +155,8 @@ var _ = Describe("controllers/twitter", func() {
 
 		It("responds with error message when oauth param is missing", func() {
 			res := doRequest("", "")
-
 			Expect(res.Code).To(Equal(http.StatusBadRequest))
+
 			errSlug, errDesc := test.ErrorSlug(res.Body)
 			Expect(errSlug).To(Equal("invalid_param"))
 			Expect(errDesc).To(Equal("invalid oauth param"))
@@ -153,8 +164,8 @@ var _ = Describe("controllers/twitter", func() {
 
 		It("returns forbidden if request token does not exist in db", func() {
 			res := doRequest("new-request-token", "mock-oauth-verifier")
-
 			Expect(res.Code).To(Equal(http.StatusForbidden))
+
 			errSlug, errDesc := test.ErrorSlug(res.Body)
 			Expect(errSlug).To(Equal("forbidden"))
 			Expect(errDesc).To(Equal("you do not have permission to access the requested resource"))
@@ -207,6 +218,186 @@ var _ = Describe("controllers/twitter", func() {
 			Expect(oauthToken.Service).To(Equal("twitter"))
 			Expect(oauthToken.AccessToken.String).To(Equal("mock-access-token"))
 			Expect(oauthToken.Secret.String).To(Equal("mock-secret-token"))
+		})
+	})
+
+	Describe("POST /api/v0/twitter/follow", func() {
+		doRequest := func() *httptest.ResponseRecorder {
+			req, err := test.NewAuthedRequest(t, "POST", "/api/v0/twitter/follow", nil)
+			Expect(err).To(BeNil())
+			res := httptest.NewRecorder()
+			svr.Router().ServeHTTP(res, req)
+			return res
+		}
+
+		It("updates and serializes earned_bonuses", func() {
+			_, err := db.Exec(`INSERT INTO oauth_tokens (user_id, service, nitrous_token, request_token, access_token, secret) VALUES ($1, 'twitter', 'random', 'mock-request-token', 'mock-access-token', 'mock-token-secret');`, u.ID)
+			Expect(err).To(BeNil())
+
+			_, err = db.Exec(`INSERT INTO bonuses (slug, amount) VALUES ('follow-twitter', 12345);`)
+			Expect(err).To(BeNil())
+
+			_, err = test.CreateHostStack(db, &test.HostStack{
+				U: u,
+				H: &host.Host{
+					Slug: "free-host",
+					Free: true,
+				},
+			})
+			Expect(err).To(BeNil())
+
+			res := doRequest()
+			Expect(res.Code).To(Equal(http.StatusOK))
+
+			ebn := []bonus.EarnedBonus{}
+			err = db.Select(&ebn, "SELECT * FROM earned_bonuses WHERE user_id = $1;", u.ID)
+			Expect(err).To(BeNil())
+
+			var bnID int64
+			err = db.Get(&bnID, "SELECT id FROM bonuses WHERE slug = 'follow-twitter';")
+			Expect(err).To(BeNil())
+
+			Expect(ebn).To(HaveLen(1))
+			Expect(ebn[0].UserID).To(Equal(u.ID))
+			Expect(ebn[0].BonusID).To(Equal(bnID))
+		})
+
+		It("returns error if there is no oauth token record", func() {
+			res := doRequest()
+			Expect(res.Code).To(Equal(http.StatusNotFound))
+
+			errSlug, errDesc := test.ErrorSlug(res.Body)
+			Expect(errSlug).To(Equal("token_not_found"))
+			Expect(errDesc).To(Equal("token not found, please connect with twitter"))
+		})
+
+		It("returns error if there is no bonus record", func() {
+			_, err := db.Exec(`INSERT INTO oauth_tokens (user_id, service, nitrous_token, request_token, access_token, secret) VALUES ($1, 'twitter', 'random', 'mock-request-token', 'mock-access-token', 'mock-token-secret');`, u.ID)
+			Expect(err).To(BeNil())
+
+			res := doRequest()
+			Expect(res.Code).To(Equal(http.StatusNotFound))
+
+			errSlug, errDesc := test.ErrorSlug(res.Body)
+			Expect(errSlug).To(Equal("bonus_not_found"))
+			Expect(errDesc).To(Equal("the bonus type is invalid"))
+		})
+
+		It("returns error if the bonus is already earned", func() {
+			_, err := db.Exec(`INSERT INTO oauth_tokens (user_id, service, nitrous_token, request_token, access_token, secret) VALUES ($1, 'twitter', 'random', 'mock-request-token', 'mock-access-token', 'mock-token-secret');`, u.ID)
+			Expect(err).To(BeNil())
+
+			_, err = db.Exec(`INSERT INTO bonuses (slug, amount) VALUES ('follow-twitter', 12345);`)
+			Expect(err).To(BeNil())
+
+			_, err = test.CreateHostStack(db, &test.HostStack{
+				U: u,
+				H: &host.Host{
+					Slug: "free-host",
+					Free: true,
+				},
+			})
+			Expect(err).To(BeNil())
+
+			res := doRequest()
+			Expect(res.Code).To(Equal(http.StatusOK))
+
+			res1 := doRequest()
+			Expect(res1.Code).To(Equal(http.StatusForbidden))
+
+			errSlug, errDesc := test.ErrorSlug(res1.Body)
+			Expect(errSlug).To(Equal("forbidden"))
+			Expect(errDesc).To(Equal("you have already earned this bonus"))
+		})
+	})
+
+	Describe("POST /api/v0/twitter/tweet", func() {
+		doRequest := func() *httptest.ResponseRecorder {
+			req, err := test.NewAuthedRequest(t, "POST", "/api/v0/twitter/tweet", nil)
+			Expect(err).To(BeNil())
+			res := httptest.NewRecorder()
+			svr.Router().ServeHTTP(res, req)
+			return res
+		}
+
+		It("updates and serializes earned_bonuses", func() {
+			_, err := db.Exec(`INSERT INTO oauth_tokens (user_id, service, nitrous_token, request_token, access_token, secret) VALUES ($1, 'twitter', 'random', 'mock-request-token', 'mock-access-token', 'mock-token-secret');`, u.ID)
+			Expect(err).To(BeNil())
+
+			_, err = db.Exec(`INSERT INTO bonuses (slug, amount) VALUES ('tweet', 12345);`)
+			Expect(err).To(BeNil())
+
+			_, err = test.CreateHostStack(db, &test.HostStack{
+				U: u,
+				H: &host.Host{
+					Slug: "free-host",
+					Free: true,
+				},
+			})
+			Expect(err).To(BeNil())
+
+			res := doRequest()
+			Expect(res.Code).To(Equal(http.StatusOK))
+
+			ebn := []bonus.EarnedBonus{}
+			err = db.Select(&ebn, "SELECT * FROM earned_bonuses WHERE user_id = $1;", u.ID)
+			Expect(err).To(BeNil())
+
+			var bnID int64
+			err = db.Get(&bnID, "SELECT id FROM bonuses WHERE slug = 'tweet';")
+			Expect(err).To(BeNil())
+
+			Expect(ebn).To(HaveLen(1))
+			Expect(ebn[0].UserID).To(Equal(u.ID))
+			Expect(ebn[0].BonusID).To(Equal(bnID))
+		})
+
+		It("returns error if there is no oauth token record", func() {
+			res := doRequest()
+			Expect(res.Code).To(Equal(http.StatusNotFound))
+
+			errSlug, errDesc := test.ErrorSlug(res.Body)
+			Expect(errSlug).To(Equal("token_not_found"))
+			Expect(errDesc).To(Equal("token not found, please connect with twitter"))
+		})
+
+		It("returns error if there is no bonus record", func() {
+			_, err := db.Exec(`INSERT INTO oauth_tokens (user_id, service, nitrous_token, request_token, access_token, secret) VALUES ($1, 'twitter', 'random', 'mock-request-token', 'mock-access-token', 'mock-token-secret');`, u.ID)
+			Expect(err).To(BeNil())
+
+			res := doRequest()
+			Expect(res.Code).To(Equal(http.StatusNotFound))
+
+			errSlug, errDesc := test.ErrorSlug(res.Body)
+			Expect(errSlug).To(Equal("bonus_not_found"))
+			Expect(errDesc).To(Equal("the bonus type is invalid"))
+		})
+
+		It("returns error if the bonus is already earned", func() {
+			_, err := db.Exec(`INSERT INTO oauth_tokens (user_id, service, nitrous_token, request_token, access_token, secret) VALUES ($1, 'twitter', 'random', 'mock-request-token', 'mock-access-token', 'mock-token-secret');`, u.ID)
+			Expect(err).To(BeNil())
+
+			_, err = db.Exec(`INSERT INTO bonuses (slug, amount) VALUES ('tweet', 12345);`)
+			Expect(err).To(BeNil())
+
+			_, err = test.CreateHostStack(db, &test.HostStack{
+				U: u,
+				H: &host.Host{
+					Slug: "free-host",
+					Free: true,
+				},
+			})
+			Expect(err).To(BeNil())
+
+			res := doRequest()
+			Expect(res.Code).To(Equal(http.StatusOK))
+
+			res1 := doRequest()
+			Expect(res1.Code).To(Equal(http.StatusForbidden))
+
+			errSlug, errDesc := test.ErrorSlug(res1.Body)
+			Expect(errSlug).To(Equal("forbidden"))
+			Expect(errDesc).To(Equal("you have already earned this bonus"))
 		})
 	})
 
