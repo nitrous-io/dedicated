@@ -13,8 +13,10 @@ import (
 
 	"github.com/nitrous-io/dedicated/nitrous/controllers/hack"
 	"github.com/nitrous-io/dedicated/nitrous/db"
+	"github.com/nitrous-io/dedicated/nitrous/models/billingprofile"
 	"github.com/nitrous-io/dedicated/nitrous/models/host"
 	"github.com/nitrous-io/dedicated/nitrous/models/token"
+	"github.com/nitrous-io/dedicated/nitrous/models/user"
 	"github.com/nitrous-io/dedicated/nitrous/server"
 	"github.com/nitrous-io/dedicated/nitrous/test"
 	. "github.com/onsi/ginkgo"
@@ -87,7 +89,6 @@ var _ = Describe("controllers/hack", func() {
 			redirectURL := "/app/#/dashboard/hack?repo=https%3A%2F%2Fgithub.com%2Fyeouchien%2Fhack.git"
 			Expect(res.Header().Get("Location")).To(Equal(redirectURL))
 		})
-
 	})
 
 	Describe("GET /api/v0/hack/repo_info", func() {
@@ -104,8 +105,14 @@ var _ = Describe("controllers/hack", func() {
 			return res
 		}
 
-		It("responses", func() {
+		It("responds with repository information", func() {
+			_, err := db.Exec(`UPDATE users
+				SET confirmation_sent_at = now()
+				WHERE id = $1;`, hs.U.ID)
+			Expect(err).To(BeNil())
+
 			res := doRequest("https://github.com/yeouchien/hack.git", t.Token)
+			Expect(res.Code).To(Equal(http.StatusOK))
 
 			var j struct {
 				Hack struct {
@@ -115,14 +122,39 @@ var _ = Describe("controllers/hack", func() {
 					Ports    []int64 `json:"ports"`
 				} `json:"hack"`
 			}
-			err := json.NewDecoder(res.Body).Decode(&j)
+			err = json.NewDecoder(res.Body).Decode(&j)
 			Expect(err).To(BeNil())
 
 			Expect(j.Hack.Template).To(Equal("rails"))
 			Expect(j.Hack.Owner).To(Equal("owner"))
 			Expect(j.Hack.RepoName).To(Equal("repo-name"))
+		})
 
+		It("confirms user automatically if they have not yet confirmed their email", func() {
+			_, err := db.Exec(`UPDATE users
+				SET confirmed_at = null, confirmation_sent_at = now(),
+					confirmation_token = 'token'
+				WHERE id = $1;`, hs.U.ID)
+			Expect(err).To(BeNil())
+
+			u, err := user.FindByID(db, hs.U.ID)
+			Expect(err).To(BeNil())
+
+			Expect(u.ConfirmedAt.Valid).ToNot(Equal(true))
+
+			res := doRequest("https://github.com/yeouchien/hack.git", t.Token)
 			Expect(res.Code).To(Equal(http.StatusOK))
+
+			u, err = user.FindByID(db, hs.U.ID)
+			Expect(err).To(BeNil())
+
+			bp, err := u.BillingProfile(db)
+			Expect(err).To(BeNil())
+
+			Expect(u.ConfirmedAt.Valid).To(Equal(true))
+			Expect(u.ConfirmationSentAt.Valid).To(Equal(false))
+			Expect(u.ConfirmationToken.Valid).To(Equal(false))
+			Expect(bp.State).To(Equal(billingprofile.StateFree))
 		})
 	})
 })
