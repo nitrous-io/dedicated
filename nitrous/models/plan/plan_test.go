@@ -44,15 +44,15 @@ var _ = Describe("models/plan", func() {
 		Expect(err).To(BeNil())
 
 		_, err = db.Exec(`INSERT INTO plans
-			(slug, name, max_containers, price, base_price, cpu, memory, storage, disabled, most_popular)
-			VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10);`,
-			"free", "FreeToTry", 4, 0, 0, "2", "1 GB", "20 GB", false, true)
+			(slug, name, max_containers, price, base_price, cpu, memory, storage, disabled)
+			VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9);`,
+			"free", "FreeToTry", 4, 0, 0, "2", "1 GB", "20 GB", false)
 		Expect(err).To(BeNil())
 
 		_, err = db.Exec(`INSERT INTO plans
-			(slug, name, max_containers, price, base_price, cpu, memory, storage, disabled, most_popular, stripe_plan_id, org)
-			VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12);`,
-			"1gb", "Micro", 4, 1995, 500, "2", "1 GB", "20 GB", false, true, "Sxcvv67SDx", true)
+			(slug, name, max_containers, price, base_price, cpu, memory, storage, disabled, stripe_plan_id, org)
+			VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11);`,
+			"1gb", "Micro", 4, 1995, 500, "2", "1 GB", "20 GB", false, "Sxcvv67SDx", true)
 		Expect(err).To(BeNil())
 
 		_, err = db.Exec(`INSERT INTO plans
@@ -110,7 +110,6 @@ var _ = Describe("models/plan", func() {
 				Expect(p.CPU).To(Equal("2"))
 				Expect(p.Memory).To(Equal("1 GB"))
 				Expect(p.Storage).To(Equal("20 GB"))
-				Expect(p.MostPopular).To(BeTrue())
 				Expect(p.StripePlanID.String).To(Equal("Sxcvv67SDx"))
 				Expect(p.Org).To(BeTrue())
 			})
@@ -533,7 +532,6 @@ var _ = Describe("models/plan", func() {
 				CPU:           "1",
 				Memory:        "512 MB",
 				Storage:       "20 GB",
-				MostPopular:   true,
 				Disabled:      false,
 				Hidden:        true,
 				AutoShutdown:  true,
@@ -553,7 +551,6 @@ var _ = Describe("models/plan", func() {
 			Expect(p2.CPU).To(Equal("1"))
 			Expect(p2.Memory).To(Equal("512 MB"))
 			Expect(p2.Storage).To(Equal("20 GB"))
-			Expect(p2.MostPopular).To(BeTrue())
 			Expect(p2.Disabled).To(BeFalse())
 			Expect(p2.Hidden).To(BeTrue())
 			Expect(p2.AutoShutdown).To(BeTrue())
