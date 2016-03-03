@@ -779,7 +779,7 @@ func (u *User) SendConfirmationEmail(d db.QueryReceiver, newUser bool) error {
 }
 
 func (u *User) ConfirmEmail(d db.QueryReceiver) error {
-	if !u.ConfirmationSentAt.Valid {
+	if u.ConfirmedAt.Valid {
 		return ErrConfirmationAlreadyCompleted
 	}
 

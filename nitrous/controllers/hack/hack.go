@@ -121,6 +121,7 @@ func confirmEmail(env *mw.Env) error {
 	if err != nil {
 		return err
 	}
+
 	if bp.State == billingprofile.StateNoCard {
 		bp.State = billingprofile.StateFree
 		if err := bp.Update(db); err != nil {
