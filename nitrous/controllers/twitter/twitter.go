@@ -156,7 +156,7 @@ func OAuthCallback(env *middleware.Env, w http.ResponseWriter, r *http.Request) 
 		return errUserNotFound
 	}
 
-	http.Redirect(w, r, "/#/dashboard/earn-bonuses", http.StatusFound)
+	http.Redirect(w, r, "/#/dashboard/earn-bonuses?connected_twitter=true", http.StatusFound)
 
 	env.Status = http.StatusFound
 	env.Data = map[string]interface{}{}
