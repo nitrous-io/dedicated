@@ -156,7 +156,9 @@ func OAuthCallback(env *middleware.Env, w http.ResponseWriter, r *http.Request) 
 		return errUserNotFound
 	}
 
-	http.Redirect(w, r, "/#/dashboard/earn-bonuses?connected_twitter=true", http.StatusFound)
+	redirectUrl := fmt.Sprintf("https://%s/app/#/dashboard/earn-bonuses?connected_twitter=true", envvars.WebHostname)
+
+	http.Redirect(w, r, redirectUrl, http.StatusFound)
 
 	env.Status = http.StatusFound
 	env.Data = map[string]interface{}{}
