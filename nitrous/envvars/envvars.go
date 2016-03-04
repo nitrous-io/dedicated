@@ -79,6 +79,9 @@ var (
 	TwitterOAuthConsumerKey    = os.Getenv("TWITTER_CONSUMER_KEY")
 	TwitterOAuthConsumerSecret = os.Getenv("TWITTER_CONSUMER_SECRET")
 
+	LinkedinClientID     = os.Getenv("LINKEDIN_CLIENT_ID")
+	LinkedinClientSecret = os.Getenv("LINKEDIN_CLIENT_SECRET")
+
 	SecretToken = os.Getenv("SECRET_TOKEN")
 
 	QueueType    = os.Getenv("QUEUE_TYPE")
