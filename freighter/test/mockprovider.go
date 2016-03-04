@@ -172,6 +172,7 @@ type MockProvider struct {
 	ActivityError  error
 
 	RunCommandCalled bool
+	RunCommandOutput string
 	RunCommandError  error
 }
 
@@ -467,10 +468,11 @@ func (p *MockProvider) Activity(threshold int) (bool, error) {
 	return p.ActivityActive, p.ActivityError
 }
 
-func (p *MockProvider) RunCommand(id, command string, timeout int64) error {
+func (p *MockProvider) RunCommand(id, command string, timeout int64, outputStream io.Writer) error {
 	p.ReceivedID = id
 	p.ReceivedCommand = command
 	p.ReceivedTimeout = timeout
 	p.RunCommandCalled = true
+	outputStream.Write([]byte(p.RunCommandOutput))
 	return p.RunCommandError
 }

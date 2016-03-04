@@ -44,9 +44,6 @@ type MockClient struct {
 	ReconfigContainer *Container
 	ReconfigError     error
 
-	RunCommandCalled int
-	RunCommandError  error
-
 	AddUserKeysCalled int
 	AddUserKeysError  error
 
@@ -243,14 +240,6 @@ func (c *MockClient) Reconfig(id string, config *ContainerConfig) (*Container, e
 	c.ReceivedID = id
 	c.ReceivedConfig = config
 	return c.ReconfigContainer, c.ReconfigError
-}
-
-func (c *MockClient) RunCommand(id, command string, timeout int64) error {
-	c.ReceivedID = id
-	c.ReceivedCommand = command
-	c.ReceivedTimeout = timeout
-	c.RunCommandCalled++
-	return c.RunCommandError
 }
 
 func (c *MockClient) AddUserKeys(id string, pubkeys []string) error {

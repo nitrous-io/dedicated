@@ -229,7 +229,6 @@ func (s *Server) drawRoutes() {
 				"/containers/{slug}/restart":               r("containers.Restart", containers.Restart, EventContainerRestarted),
 				"/containers/{slug}/reconfig":              r("containers.Reconfig", containers.Reconfig, EventContainerReconfigured),
 				"/containers/{slug}/token":                 r("containers.Token", containers.Token),
-				"/containers/{slug}/run_command":           r("containers.RunCommand", containers.RunCommand),
 				"/containers/{slug}/keys":                  r("userkeys.Create", userkeys.Create, EventContainerKeyAdded),
 				"/containers/{slug}/container_keys/github": r("containerkeys.AddToGitHub", containerkeys.AddToGitHub, EventContainerKeyAddedToGitHub),
 				"/containers/{slug}/collaborators":         r("containercollabs.Add", containercollabs.Add, EventContainerCollabAdded),

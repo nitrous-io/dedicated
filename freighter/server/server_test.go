@@ -1137,34 +1137,6 @@ var _ = Describe("server", func() {
 		})
 	})
 
-	Describe("POST /containers/:container_id/run_command", func() {
-		var (
-			id     = "railsbabe"
-			params = &url.Values{}
-		)
-
-		doRequest := func() {
-			req, err = NewFormRequest(hostSecret, "POST", fmt.Sprintf("/containers/%v/run_command", id), params)
-			Expect(err).To(BeNil())
-			handler.ServeHTTP(res, req)
-		}
-
-		It("calls provider.RunCommand()", func() {
-			command := "cd && echo asd"
-			timeout := "300"
-			params.Set("timeout", timeout) // 5 minutes timeout
-			params.Set("command", command)
-			Expect(prov.RunCommandCalled).To(BeFalse())
-			doRequest()
-			Expect(prov.RunCommandCalled).To(BeTrue())
-			Expect(prov.ReceivedID).To(Equal(id))
-			Expect(prov.ReceivedCommand).To(Equal(command))
-			timeoutInt, err := strconv.ParseInt(timeout, 10, 64)
-			Expect(err).To(BeNil())
-			Expect(prov.ReceivedTimeout).To(Equal(timeoutInt))
-		})
-	})
-
 	Describe("POST /volumes", func() {
 		doRequest := func(slug string) {
 			req, _ := NewRequestWithSecret(hostSecret, "POST", "/volumes", &url.Values{"slug": []string{slug}})
@@ -1800,7 +1772,7 @@ var _ = Describe("server", func() {
 	}
 
 	Describe("OPTIONS /containers/:id/attach", func() {
-		itHandlesCORSPreflight("/containers/1/shell")
+		itHandlesCORSPreflight("/containers/1/attach")
 	})
 
 	Describe("GET /containers/:id/attach", func() {
@@ -1901,6 +1873,62 @@ var _ = Describe("server", func() {
 					break
 				}
 			})
+		})
+	})
+
+	Describe("OPTIONS /containers/:id/run_command", func() {
+		itHandlesCORSPreflight("/containers/1/run_command")
+	})
+
+	Describe("GET /containers/:container_id/run_command", func() {
+		doRequest := func(containerID, token, command, timeout string) (*websocket.Conn, error) {
+			ts := httptest.NewServer(handler)
+			defer ts.Close()
+			params := &url.Values{}
+			params.Set("token", token)
+			params.Set("timeout", timeout)
+			params.Set("command", command)
+			wsURL, err := url.Parse(fmt.Sprintf("ws://%s/containers/%s/run_command", ts.Listener.Addr().String(), containerID))
+			if err != nil {
+				return nil, err
+			}
+			wsURL.RawQuery = params.Encode()
+			conn, _, err := websocket.DefaultDialer.Dial(wsURL.String(), http.Header{})
+			return conn, err
+		}
+
+		It("requires a container token", func() {
+			token := ""
+			_, err := doRequest("test-container", token, "ls", "300")
+			Expect(err).To(Equal(websocket.ErrBadHandshake))
+		})
+
+		It("requires a valid container token", func() {
+			prov.VerifyTokenError = errors.New("invalid token")
+			token := "some token"
+			_, err := doRequest("test-container", token, "ls", "300")
+
+			Expect(err).To(Equal(websocket.ErrBadHandshake))
+			Expect(prov.ReceivedID).To(Equal("test-container"))
+			Expect(prov.ReceivedToken).To(Equal(token))
+			Expect(prov.ReceivedPermissions).To(Equal([]string{"run_command"}))
+		})
+
+		It("streams run_command output in messages following socket protocol", func() {
+			prov.RunCommandOutput = "sample run command output"
+			conn, err := doRequest("test-container", "token", "ls", "300")
+			Expect(err).To(BeNil())
+			defer conn.Close()
+
+			messageType, msg, err := conn.ReadMessage()
+			Expect(err).To(BeNil())
+			Expect(messageType).To(Equal(websocket.TextMessage))
+			Expect(string(msg)).To(Equal("d|sample run command output"))
+
+			Expect(prov.RunCommandCalled).To(BeTrue())
+			Expect(prov.ReceivedID).To(Equal("test-container"))
+			Expect(prov.ReceivedCommand).To(Equal("ls"))
+			Expect(prov.ReceivedTimeout).To(Equal(int64(300)))
 		})
 	})
 

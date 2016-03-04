@@ -189,25 +189,6 @@ func (s *Server) reconfigureContainer(w http.ResponseWriter, r *http.Request) {
 	s.respondEncodeJSON(w, http.StatusOK, map[string]interface{}{"container": info})
 }
 
-func (s *Server) runCommand(w http.ResponseWriter, r *http.Request) {
-	id := mux.Vars(r)["id"]
-	timeout, err := strconv.ParseInt(r.FormValue("timeout"), 10, 64)
-	if err != nil {
-		logrus.Errorf("runCommand handler failed, err: %v, command: %s, timeout: %s", err, r.FormValue("command"), r.FormValue("timeout"))
-		s.handleError(w, err)
-		return
-	}
-	err = s.provider.RunCommand(id, r.FormValue("command"), timeout)
-	if err != nil {
-		logrus.Errorf("runCommand handler failed, err: %v, command: %s, timeout: %s", err, r.FormValue("command"), r.FormValue("timeout"))
-		s.handleError(w, err)
-		return
-	}
-
-	s.respondEncodeJSON(w, http.StatusOK, map[string]interface{}{"run_command": "ok"})
-	return
-}
-
 func (s *Server) createContainer(w http.ResponseWriter, r *http.Request) {
 	name := r.FormValue("name")
 	image := r.FormValue("image")
@@ -994,6 +975,32 @@ func (s *Server) wsAttachToContainer(w http.ResponseWriter, r *http.Request) err
 			}
 		}
 	}
+}
+
+func (s *Server) wsRunCommand(w http.ResponseWriter, r *http.Request) error {
+	id := mux.Vars(r)["id"]
+
+	binary, _ := strconv.ParseBool(r.FormValue("binary"))
+	timeout, err := strconv.ParseInt(r.FormValue("timeout"), 10, 64)
+	if err != nil {
+		logrus.Errorf("runCommand handler failed, err: %v, command: %s, timeout: %s", err, r.FormValue("command"), r.FormValue("timeout"))
+		return err
+	}
+
+	conn, err := upgrader.Upgrade(w, r, nil)
+	if err != nil {
+		return fmt.Errorf("failed to upgrade websocket: %v", err)
+	}
+	stream := NewWebSocketConnection(conn, binary)
+	defer stream.Close()
+
+	outputStream := shell.NewShellWriter(stream)
+	err = s.provider.RunCommand(id, r.FormValue("command"), timeout, outputStream)
+	if err != nil {
+		logrus.Errorf("runCommand handler failed, err: %v, command: %s, timeout: %s", err, r.FormValue("command"), r.FormValue("timeout"))
+		return err
+	}
+	return nil
 }
 
 func (s *Server) downloadContainerFile(w http.ResponseWriter, r *http.Request) error {

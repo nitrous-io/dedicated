@@ -60,7 +60,7 @@ type Provider interface {
 	ListContainerKeys(id string) (containerKeys []string, err error)
 
 	Reconfig(id, config string) (info *ContainerInfo, err error)
-	RunCommand(id, command string, timeout int64) (err error)
+	RunCommand(id, command string, timeout int64, outputStream io.Writer) (err error)
 
 	//ForwardPort(id string, hostPort uint16, containerPort uint16) (err error)
 	//TakeSnapshot(id string, tag name, description string) (info *SnapshotInfo, err error)

@@ -702,7 +702,7 @@ func (p *DockerProvider) Reconfig(id, configJSON string) (ret *provider.Containe
 	return p.GetInfo(id)
 }
 
-func (p *DockerProvider) RunCommand(id, command string, timeout int64) error {
+func (p *DockerProvider) RunCommand(id, command string, timeout int64, outputStream io.Writer) error {
 	container, err := p.inspectContainer(id)
 	if err != nil {
 		logrus.Errorf("RunCommand inspectContainer failed, err: %v, id: %s", err, id)
@@ -712,9 +712,11 @@ func (p *DockerProvider) RunCommand(id, command string, timeout int64) error {
 
 	createOpts := dockerclient.CreateExecOptions{
 		AttachStdout: true,
+		AttachStderr: true,
 		Cmd:          []string{"/bin/bash", "-c", command},
 		Container:    container.ID,
 		User:         usr,
+		Tty:          true,
 	}
 	ex, err := p.client.CreateExec(createOpts)
 	if err != nil {
@@ -724,7 +726,12 @@ func (p *DockerProvider) RunCommand(id, command string, timeout int64) error {
 
 	errCh := make(chan error)
 	go func() {
-		startOpts := dockerclient.StartExecOptions{}
+		startOpts := dockerclient.StartExecOptions{
+			OutputStream: outputStream,
+			ErrorStream:  outputStream,
+			RawTerminal:  true,
+			Tty:          true,
+		}
 		err := p.client.StartExec(ex.ID, startOpts)
 		errCh <- err
 	}()

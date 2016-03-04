@@ -55,7 +55,6 @@ func (s *Server) drawRoutes() {
 	s.secretRoute("/containers/{id}/user_keys/{key_fingerprint}", s.removeUserKey, "DELETE")
 	s.secretRoute("/containers/{id}/container_keys", s.listContainerKeys, "GET")
 	s.secretRoute("/containers/{id}/reconfig", s.reconfigureContainer, "POST")
-	s.secretRoute("/containers/{id}/run_command", s.runCommand, "POST")
 
 	// handle websocket custom protocol
 	s.route("/containers/{id}/shell", s.handleCORSPreflight, "OPTIONS")
@@ -64,6 +63,8 @@ func (s *Server) drawRoutes() {
 	s.route("/containers/{id}/logs", s.cors(s.wrapError(s.withContainerToken(s.wsContainerLogs, "logs"))), "GET")
 	s.route("/containers/{id}/attach", s.handleCORSPreflight, "OPTIONS")
 	s.route("/containers/{id}/attach", s.cors(s.wrapError(s.withContainerToken(s.wsAttachToContainer, "attach"))), "GET")
+	s.route("/containers/{id}/run_command", s.handleCORSPreflight, "OPTIONS")
+	s.route("/containers/{id}/run_command", s.cors(s.wrapError(s.withContainerToken(s.wsRunCommand, "run_command"))), "GET")
 
 	// handle container operations
 	s.route("/containers/{id}/ops", s.handleCORSPreflight, "OPTIONS")

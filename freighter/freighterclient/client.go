@@ -104,7 +104,6 @@ type Client interface {
 	Terminate(id string) (*Container, error)
 	Config(id string) (config *ContainerConfig, err error)
 	Reconfig(id string, config *ContainerConfig) (*Container, error)
-	RunCommand(id, command string, timeout int64) error
 
 	AddUserKeys(id string, keys []string) error
 	ClearUserKeys(id string) error
@@ -799,30 +798,6 @@ func (c *client) Reconfig(id string, config *ContainerConfig) (*Container, error
 	}
 
 	return containerResp.Container, nil
-}
-
-func (c *client) RunCommand(id, command string, timeout int64) error {
-	data := url.Values{}
-	data.Set("command", command)
-	data.Set("timeout", strconv.FormatInt(timeout, 10))
-	u := fmt.Sprintf("%s/containers/%s/run_command", c.host.BaseURL(), id)
-	req, err := http.NewRequest("POST", u, strings.NewReader(data.Encode()))
-	if err != nil {
-		return err
-	}
-	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
-	resp, err := performRequest(c, req)
-	if err != nil {
-		return err
-	}
-	defer resp.Body.Close()
-
-	switch resp.StatusCode {
-	case http.StatusOK:
-		return nil
-	default:
-		return statusError(resp)
-	}
 }
 
 func (c *client) HostInfo(period time.Duration) (*HostInfo, error) {

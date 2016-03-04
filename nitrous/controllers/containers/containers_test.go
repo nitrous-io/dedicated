@@ -8,7 +8,6 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"net/url"
-	"strconv"
 	"testing"
 	"time"
 
@@ -4057,47 +4056,6 @@ var _ = Describe("controllers/containers", func() {
 			})
 
 			ItRequiresAuthToken(&authTokenInputs)
-		})
-	})
-
-	Describe("POST /containers/{name}/run_command", func() {
-		var (
-			containerSlug = "rails-rails-rails"
-			c             *container.Container
-			testParams    *url.Values
-		)
-
-		doRequest := func(params *url.Values) {
-			req, err := NewAuthedFormRequest(t, "POST", fmt.Sprintf("/api/v0/containers/%s/run_command", containerSlug), params)
-			Expect(err).To(BeNil())
-			handler.ServeHTTP(res, req)
-		}
-
-		BeforeEach(func() {
-			c = &container.Container{
-				CID:    "railsrails",
-				Slug:   "rails-rails-rails",
-				UserID: u.ID,
-				HostID: hs.H.ID,
-				Name:   sql.NullString{"rails server", true},
-			}
-			err := c.Insert(db)
-			Expect(err).To(BeNil())
-		})
-
-		It("calls the Freighter client with repo url in params", func() {
-			testParams = &url.Values{}
-			command := "cd && git clone https://github.com/rails/rails.git"
-			timeout := "300"
-			testParams.Set("command", command)
-			testParams.Set("timeout", timeout)
-			doRequest(testParams)
-			Expect(mockClient.ReceivedID).To(Equal("railsrails"))
-			Expect(mockClient.ReceivedCommand).To(Equal(command))
-			timeoutInt, err := strconv.ParseInt(timeout, 10, 64)
-			Expect(err).To(BeNil())
-			Expect(mockClient.ReceivedTimeout).To(Equal(timeoutInt))
-			Expect(mockClient.RunCommandCalled).To(Equal(1))
 		})
 	})
 
