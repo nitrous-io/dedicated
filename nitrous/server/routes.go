@@ -20,6 +20,7 @@ import (
 	"github.com/nitrous-io/dedicated/nitrous/controllers/home"
 	"github.com/nitrous-io/dedicated/nitrous/controllers/hosts"
 	"github.com/nitrous-io/dedicated/nitrous/controllers/images"
+	"github.com/nitrous-io/dedicated/nitrous/controllers/linkedin"
 	"github.com/nitrous-io/dedicated/nitrous/controllers/mailchimphooks"
 	"github.com/nitrous-io/dedicated/nitrous/controllers/maintenance"
 	"github.com/nitrous-io/dedicated/nitrous/controllers/oauth"
@@ -95,6 +96,7 @@ func (s *Server) drawRoutes() {
 	s.route("/", routeWritesResponse, mw.Call("home.Index", home.Index), RouteOpts{Methods: []string{"GET"}, LogParams: true})
 	s.route("/api/v0/github/oauth_cb", routeWritesResponse, mw.Call("github.OAuthCallback", github.OAuthCallback), RouteOpts{Methods: []string{"GET"}, LogParams: true})
 	s.route("/api/v0/twitter/oauth_cb", routeWritesResponse, mw.Call("twitter.OAuthCallback", twitter.OAuthCallback), RouteOpts{Methods: []string{"GET"}, LogParams: true})
+	s.route("/api/v0/linkedin/oauth_cb", routeWritesResponse, mw.Call("linkedin.OAuthCallback", linkedin.OAuthCallback), RouteOpts{Methods: []string{"GET"}, LogParams: true})
 
 	if envvars.Debug == "true" {
 		s.router.HandleFunc("/sleep", s.sleep).Methods("GET")
@@ -248,6 +250,7 @@ func (s *Server) drawRoutes() {
 				"/twitter/connect":                   r("twitter.Connect", twitter.Connect),
 				"/twitter/follow":                    r("twitter.Follow", twitter.Follow),
 				"/twitter/tweet":                     r("twitter.Tweet", twitter.Tweet),
+				"/linkedin/connect":                  r("linkedin.Connect", linkedin.Connect),
 			},
 			"PUT": {
 				"/users":                            r("users.Update", users.Update, EventUserUpdatedProfile),
