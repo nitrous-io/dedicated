@@ -184,6 +184,22 @@ func FindAllByUser(db db.QueryReceiver, userID int64) ([]*Host, error) {
 	return hosts, nil
 }
 
+func FindAllUnterminated(db db.QueryReceiver, userID int64) ([]*Host, error) {
+	hosts := []*Host{}
+	err := db.Select(&hosts, `SELECT hosts.*, pt.provider, pt.config, sub.slug AS subscription_slug, orgs.slug AS org_slug
+			FROM hosts
+			INNER JOIN provider_templates AS pt ON hosts.provider_template_id = pt.id
+			LEFT JOIN subscriptions AS sub ON hosts.subscription_id = sub.id
+			LEFT JOIN orgs ON hosts.org_id = orgs.id
+			WHERE user_id = $1 AND terminated_at IS NULL
+			ORDER BY id;`,
+		userID)
+	if err != nil {
+		return nil, err
+	}
+	return hosts, nil
+}
+
 func FindAllByUserAndOrg(db db.QueryReceiver, userID, orgID int64) ([]*Host, error) {
 	hosts := []*Host{}
 	err := db.Select(&hosts, `SELECT hosts.*, pt.provider, pt.config, sub.slug AS subscription_slug, orgs.slug AS org_slug
