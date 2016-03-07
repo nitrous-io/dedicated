@@ -2,6 +2,7 @@ package containers_test
 
 import (
 	"database/sql"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"net/http"
@@ -262,6 +263,33 @@ var _ = Describe("CreateAtomic", func() {
 
 				Expect(mockClient.ReceivedName).To(HavePrefix("rails-project-"))
 				Expect(mockClient.ReceivedImage).To(Equal("rails"))
+			})
+
+			It("responds with HTTP 202 Accepted and serializes the container and the request_id", func() {
+				params := &url.Values{}
+				params.Set("host", hs.H.Slug)
+				params.Set("name", "rails-project")
+				params.Set("image", "rails")
+
+				res := doRequest(params)
+				Expect(res.Code).To(Equal(http.StatusAccepted))
+
+				var j struct {
+					Container *serializers.Container `json:"container"`
+					RequestID string                 `json:"request_id"`
+				}
+				err := json.NewDecoder(res.Body).Decode(&j)
+				Expect(err).To(BeNil())
+
+				Expect(j.Container.ID).NotTo(BeZero())
+
+				cn, err := container.Find(db, u, strconv.FormatInt(j.Container.ID, 10))
+				Expect(err).To(BeNil())
+				Expect(cn.HostID).To(Equal(hs.H.ID))
+				Expect(cn.Name.String).To(Equal("rails-project"))
+				Expect(cn.Image).To(Equal("rails"))
+
+				Expect(j.RequestID).To(Equal(res.Header().Get(constants.NitrousUUIDHeader)))
 			})
 
 			It("publishes a container creating event with a unique request_id", func() {
@@ -580,6 +608,8 @@ var _ = Describe("CreateAtomic", func() {
 				params.Set("template", tmpl.Slug)
 				params.Set("privileged", "false")
 				params.Set("publish_all", "true")
+				params.Add("port[]", "public::6060/tcp")
+				params.Add("port[]", "public::8888/tcp")
 
 				res := doRequest(params)
 				Expect(res.Code).To(Equal(http.StatusAccepted))
@@ -617,6 +647,7 @@ var _ = Describe("CreateAtomic", func() {
 					Expect(cn.Image).To(Equal(tmpl.Image))
 
 					Expect(mockClient.CreateCalled).To(Equal(1))
+					Expect(mockClient.ReceivedConfig.PortBindings).To(ConsistOf([]string{"public::2341", "public::8931", "public::6060/tcp", "public::8888/tcp"}))
 					Expect(*mockClient.ReceivedConfig.Privileged).To(BeFalse())
 					Expect(*mockClient.ReceivedConfig.PublishAll).To(BeTrue())
 				}

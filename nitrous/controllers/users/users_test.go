@@ -637,7 +637,7 @@ var _ = Describe("controllers/users", func() {
 					Expect(res.Code).To(Equal(http.StatusBadRequest))
 					errType, errDesc := test.ErrorSlug(res.Body)
 					Expect(errType).To(Equal("invalid_org_permission"))
-					Expect(errDesc).To(Equal("org_permission must be `member`"))
+					Expect(errDesc).To(Equal("org_permission must be `member` or `limited`"))
 				})
 
 				It("should not allow an Owner membership", func() {
@@ -648,7 +648,7 @@ var _ = Describe("controllers/users", func() {
 					Expect(res.Code).To(Equal(http.StatusBadRequest))
 					errType, errDesc := test.ErrorSlug(res.Body)
 					Expect(errType).To(Equal("invalid_org_permission"))
-					Expect(errDesc).To(Equal("org_permission must be `member`"))
+					Expect(errDesc).To(Equal("org_permission must be `member` or `limited`"))
 				})
 
 				It("should require the org slug be allowed for the client", func() {

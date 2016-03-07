@@ -9,11 +9,6 @@ import (
 	"github.com/nitrous-io/dedicated/nitrous/db"
 )
 
-const (
-	TypeUsageBased = "usage-based"
-	TypePrepaid    = "prepaid"
-)
-
 type Plan struct {
 	ID                int64         `db:"id"`
 	HostingModePlanID sql.NullInt64 `db:"hosting_mode_plan_id"`
@@ -21,13 +16,11 @@ type Plan struct {
 	Name         string         `db:"name"`
 	Description  string         `db:"description"`
 	Slug         string         `db:"slug"`
-	Type         string         `db:"type"`
 	Price        int64          `db:"price"`
 	BasePrice    int64          `db:"base_price"`
 	CPU          string         `db:"cpu"`
 	Memory       string         `db:"memory"`
 	Storage      string         `db:"storage"`
-	MostPopular  bool           `db:"most_popular"`
 	StripePlanID sql.NullString `db:"stripe_plan_id"`
 	CreatedAt    *time.Time     `db:"created_at"`
 	UpdatedAt    *time.Time     `db:"updated_at"`
@@ -46,7 +39,6 @@ type Plan struct {
 
 	AutoShutdown  bool  `db:"auto_shutdown"`
 	MaxContainers int64 `db:"max_containers"`
-	MaxSnapshots  int64 `db:"max_snapshots"`
 
 	Org bool `db:"org"`
 	Edu bool `db:"edu"`
@@ -227,8 +219,8 @@ func PlansForMultiHostOrgs(d db.QueryReceiver, orgIds []int64) (map[int64]*Plan,
 
 func (p *Plan) Insert(d db.QueryReceiver) error {
 	nstmt, err := d.PrepareNamed(`INSERT INTO plans
-		(slug, name, max_containers, price, base_price, cpu, memory, storage, disabled, hidden, most_popular, stripe_plan_id, auto_shutdown, org, max_hosts, max_collaborators)
-		VALUES (:slug, :name, :max_containers, :price, :base_price, :cpu, :memory, :storage, :disabled, :hidden, :most_popular, :stripe_plan_id, :auto_shutdown, :org, :max_hosts, :max_collaborators)
+		(slug, name, max_containers, price, base_price, cpu, memory, storage, disabled, hidden, stripe_plan_id, auto_shutdown, org, max_hosts, max_collaborators)
+		VALUES (:slug, :name, :max_containers, :price, :base_price, :cpu, :memory, :storage, :disabled, :hidden, :stripe_plan_id, :auto_shutdown, :org, :max_hosts, :max_collaborators)
 		RETURNING *;`)
 	if err != nil {
 		return err

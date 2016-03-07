@@ -36,6 +36,7 @@ import (
 	"github.com/nitrous-io/dedicated/nitrous/controllers/stripehooks"
 	"github.com/nitrous-io/dedicated/nitrous/controllers/subscriptions"
 	"github.com/nitrous-io/dedicated/nitrous/controllers/templates"
+	"github.com/nitrous-io/dedicated/nitrous/controllers/twitter"
 	"github.com/nitrous-io/dedicated/nitrous/controllers/usercontainerdata"
 	"github.com/nitrous-io/dedicated/nitrous/controllers/userkeys"
 	"github.com/nitrous-io/dedicated/nitrous/controllers/userprofiles"
@@ -93,6 +94,7 @@ func chainMiddleware(auth bool, r routeData) mw.Middleware {
 func (s *Server) drawRoutes() {
 	s.route("/", routeWritesResponse, mw.Call("home.Index", home.Index), RouteOpts{Methods: []string{"GET"}, LogParams: true})
 	s.route("/api/v0/github/oauth_cb", routeWritesResponse, mw.Call("github.OAuthCallback", github.OAuthCallback), RouteOpts{Methods: []string{"GET"}, LogParams: true})
+	s.route("/api/v0/twitter/oauth_cb", routeWritesResponse, mw.Call("twitter.OAuthCallback", twitter.OAuthCallback), RouteOpts{Methods: []string{"GET"}, LogParams: true})
 
 	if envvars.Debug == "true" {
 		s.router.HandleFunc("/sleep", s.sleep).Methods("GET")
@@ -243,6 +245,9 @@ func (s *Server) drawRoutes() {
 				"/orgs/{org_slug}/billing_profile":   r("billingprofiles.Activate", billingprofiles.Activate, EventBillingProfileActivated),
 				"/orgs/{org_slug}/subscriptions":     r("subscriptions.Subscribe", subscriptions.Subscribe, EventOrgSubscriptionSubscribed),
 				"/orgs/{org_slug}/snapshots/publish": r("snapshots.Publish", snapshots.Publish),
+				"/twitter/connect":                   r("twitter.Connect", twitter.Connect),
+				"/twitter/follow":                    r("twitter.Follow", twitter.Follow),
+				"/twitter/tweet":                     r("twitter.Tweet", twitter.Tweet),
 			},
 			"PUT": {
 				"/users":                            r("users.Update", users.Update, EventUserUpdatedProfile),

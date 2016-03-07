@@ -1,0 +1,602 @@
+FORMAT: 1A
+HOST: https://www.nitrous.io/api/v0/
+
+# Nitrous API (Draft, 2016-03-01)
+
+The Nitrous API exposes a set of endpoints that enable your application to
+create and control workstations and projects for users of your application.
+
+## How to get access and pricing
+
+Contact us at hello@nitrous.io and we’ll setup a call to discuss the details of
+your organization’s requirements.
+
+## Terminology
+
+* **Project**: A project is the most common unit that users interact with. Users
+  connect to their project to edit code, run servers, and preview their
+  application. Each project runs in its own isolated environment, distinct from
+  other projects.
+* **Workstation**: A workstation is a dedicated server allocated with CPU, memory,
+  and disk storage resources. Projects are run on workstations and share the
+  resources of the workstation.
+* **Snapshot**: A snapshot is the state of a project at the time the snapshot was
+  created. It is effectively a backup of a project, and can be used to create
+  new projects. This is particularly useful for sharing a common project
+  environment with multiple users.
+
+## Authorization Guide
+
+When your application has been accepted into our programme, you will be provided
+with an OAuth 2.0 client ID and secret for use in your application. This allows
+you to make requests to the Nitrous API on behalf of a user without accessing
+passwords and other sensitive information.
+
+OAuth 2.0 is a complex [specification](https://tools.ietf.org/html/rfc6749), so
+if you are unfamiliar with it, check out this
+["OAuth 2 Simplified" article](https://aaronparecki.com/2012/07/29/2/oauth2-simplified)
+as a starting point.
+
+### Get authorization from the user [GET /oauth/authorize]
+
+The first step is getting authorization from a user to let your application act
+on their behalf. The user will be shown an HTML web form where they will be
+authenticated with Nitrous, and is prompted to approve or deny your request.
+
+After the Nitrous user authenticates and authorizes your application (by
+submitting the HTML web form), Nitrous will issue an HTTP 302 Redirect to the
+`redirect_uri`. The redirect URI will include an authorization code, e.g.
+
+        https://your-redirect-uri/?code=AUTHORIZATION_CODE
+
++ Attributes
+    + response_type (required, string) - OAuth 2.0 response type. `code` is the only acceptable value at this time
+    + client_id (required, string) - The client ID of your application.
+    + state (optional, string) - This will be returned to your application to prevent cross-site request forgery.
+    + `redirect_uri` (optional, string) - The URI we will redirect the user to after they authorize your application. The base of the URI must match the `redirect_uri` of your application.
+
++ Response 200 (text/html)
+
+### Exchange authorization token for access token [POST /oauth/token]
+
+With the authorization code from the authorization request (i.e. the previous
+step), exchange it for an access token. The access token will allow you to make
+requests on behalf of the user.
+
+Pass the `access_token` from the previous step in the `Authorization` header
+with the type `Bearer` to make requests to other API endpoints on behalf of the
+user, e.g.
+
+        curl -H 'Authorization: Bearer ACCESS_TOKEN' https://www.nitrous.io/api/v0/hosts
+
++ Attributes
+    + `grant_type` (required, string) - `authorization_code` is the only acceptable value.
+    + code (required, string) - The authorization code from the authorization request.
+    + client_id (required, string) - The client ID of your application.
+    + client_secret (required, string) - The client secret of your application.
+    + `redirect_uri` (optional, string) - The `redirect_uri` used in the authorization request, if any.
+
++ Response 200 (application/json)
+    + Attributes
+        + access_token (string) - Access token that you allows your application to make requests on behalf of the user.
+        + token_type (string) - The token will be a `Bearer` token.
+        + scope (string) - Scope of the access token.
+        + expires_in (number) - Number of seconds before this token expires.
+    + Body
+
+            {
+                "access_token": "siZ-tVinPuxITv40DQ",
+                "token_type": "Bearer",
+                "scope": "third_party",
+                "expires_in": 604800
+            }
+
+
+## Group Users
+
+### Create a user [POST /users]
+
+Your application can create a Nitrous user account for your users. This is
+useful when you want to offer a seamless experience in your application without
+requiring your users to signup for a Nitrous account first.
+
+You will probably want to first create an organization, and then add any users
+you create to your organization. Nitrous will assist you in creating the
+organization and you will be given an org slug (this is your `org_slug`).
+
++ Request
+    + Attributes
+        + email (required, string) - Email address of the user.
+        + username (required, string) - Username of the user. This must be unique.
+        + password (required, string) - Password for the user.
+        + name (optional, string) - Name of the user.
+        + org_slug (optional, string) - The created user will be added as a member of the org with this slug.
+        + `org_permission` (optional, string) - The role of the user in the org, if `org_slug` is specified. `member` and `limited` are the allowed values. A `limited` member will be restricted from seeing who are the other members of the organization.
+        + remote_addr (required, string) - IP address of user.
+        + client_id (required, string) - The client ID of your application.
+        + client_secret (required, string) - The client secret of your application.
+
++ Response 201 (application/json)
+    + Body
+
+            {
+                "user": {
+                    "id": 42,
+                    "name": "Mortimer Smith",
+                    "username": "morty",
+                    "email": "morty@wubbalubbadubdub.org",
+                    "created_at": "2016-02-29T09:35:57.019617Z",
+                    "updated_at": "2016-02-29T09:35:57.019617Z"
+                }
+            }
+
+
+### Logging in users to Nitrous automatically [GET /user/login_token]
+
+Sometimes, your application will need to login automatically for users. For
+example, you might want to add a "Open in Nitrous" button somewhere in your
+application (without requiring the user to login).
+
+This endpoint will return a login token that can be used to login the user,
+then redirect to a URL (on www.nitrous.io) of your choice. This token expires
+in 1 minute.
+
+For example, with a `login_token` of `badcafe`, you can redirect the user to
+the Nitrous IDE of their project (slug `grandeur-firefly-42`) by sending
+the user to this URL:
+
+        https://www.nitrous.io/token_login?token=badcafe&redirect_to=%2Fide%2F%23%2Fgrandeur-firefly-2
+
++ Request
+
+    + Headers
+
+            Authorization: Bearer OAUTH2_ACCESS_TOKEN
+
++ Response 200 (application/json)
+    + Body
+
+            {
+                "login_token": "eyJ0eXBlIjoibG9naW50b2tlbiIsInVzZXJfaWQiOjE"
+            }
+
+
+## Group Regions
+
+A region is a geographical location in which workstations can be located. You
+should create workstations in a region close to where your users are located so
+that they will experience lower latencies connecting to their
+workstations/projects.
+
+### List All Regions [GET /regions]
+
++ Response 200 (application/json)
+    + Attributes
+        + id (number) - ID of region.
+        + slug (string) - A unique slug identifying the region.
+        + name (string) - Descriptive name of the region.
+    + Body
+
+            {
+                "regions": [
+                    {
+                        "id": 5,
+                        "slug": "usw2",
+                        "name": "US West"
+                    },
+                    {
+                        "id": 6,
+                        "slug": "use1",
+                        "name": "US East"
+                    },
+                    {
+                        "id": 7,
+                        "slug": "euw1",
+                        "name": "Europe"
+                    },
+                    {
+                        "id": 8,
+                        "slug": "apse1",
+                        "name": "Asia"
+                    }
+                ]
+            }
+
+
+## Group Plans
+
+A plan is a subscription plan. Each workstation requires a subscription to a
+plan, with the exception of org plans.
+
+### List All Plans [GET /plans/all]
+
++ Response 200 (application/json)
+    + Attributes
+        + id (number) - ID of plan.
+        + slug (string) - A unique slug identifying the plan.
+        + name (string) - Descriptive name of the plan.
+        + price (number) - Monthly price of the plan, expressed in US cents.
+        + cpu (string) - Number of CPUs a workstation under this plan will have.
+        + memory (string) - Amount of RAM a workstation under this plan will have.
+        + storage (string) - Amount of disk storage a workstation under this plan will have.
+        + auto_shutdown (boolean) - If this is true, the workstation will automatically shutdown after a period of inactivity.
+        + max_containers (number) - Maximum number of projects allowed on this workstation.
+        + org (boolean) - True if this is an "org plan" (i.e. this is false for personal plans). Organization workstations can only be created under an org plan.
+    + Body
+
+            {
+                "plans": [
+                    {
+                        "id": 47,
+                        "slug": "free",
+                        "name": "Free",
+                        "description": "Optimal environment for learning and experimenting",
+                        "price": 0,
+                        "cpu": "1",
+                        "memory": "1 GB",
+                        "storage": "5 GB",
+                        "auto_shutdown": true,
+                        "max_containers": 1,
+                        "org": false
+                    },
+                    {
+                        "id": 41,
+                        "slug": "20151125-basic",
+                        "name": "Basic",
+                        "description": "Ideal for developing small-scale projects and hobby apps",
+                        "price": 1900,
+                        "base_price": 0,
+                        "hourly_price": 2828,
+                        "cpu": "1",
+                        "memory": "1 GB",
+                        "storage": "10 GB",
+                        "auto_shutdown": false,
+                        "max_containers": 2,
+                        "org": false
+                    },
+                    {
+                        "id": 21,
+                        "slug": "org-plus",
+                        "name": "Org Plus",
+                        "description": "",
+                        "price": 11900,
+                        "base_price": 0,
+                        "hourly_price": 17709,
+                        "cpu": "2",
+                        "memory": "4 GB",
+                        "storage": "80 GB",
+                        "auto_shutdown": false,
+                        "max_containers": 20,
+                        "org": true
+                    }
+                ]
+            }
+
+
+## Group Templates
+
+A template is a pre-defined development environment with tools pre-installed.
+For example, the Ruby on Rails template comes with Rails and [rbenv](https://github.com/rbenv/rbenv)
+already installed.
+
+When creating a project, you'll probably want to create one using a template.
+
+### List All Templates [GET /templates]
+
++ Response 200 (application/json)
+    + Body
+
+            {
+                "templates": [
+                    {
+                        "id": 89,
+                        "slug": "rails",
+                        "name": "Ruby on Rails",
+                        "description": "Ruby on Rails: an open-source framework optimized for programmer happiness and sustainable productivity.",
+                        "type": "stack",
+                        "privileged": false,
+                        "image": "quay.io/nitrous/rails:latest",
+                        "created_at": "2015-02-19T07:00:03.755664Z",
+                        "updated_at": "2015-02-19T07:00:03.755664Z"
+                    },
+                    {
+                        "id": 103,
+                        "slug": "nodejs",
+                        "name": "Node.js",
+                        "description": "Node.js: a platform built on Chrome's JavaScript runtime for easily building fast, scalable network applications.",
+                        "type": "basic",
+                        "privileged": false,
+                        "image": "quay.io/nitrous/nodejs:latest",
+                        "created_at": "2015-02-19T07:00:03.755664Z",
+                        "updated_at": "2015-02-19T07:00:03.755664Z"
+                    },
+                    {
+                        "id": 105,
+                        "slug": "golang",
+                        "name": "Go",
+                        "description": "Go: an open source programming language that makes it easy to build simple, reliable, and efficient software.",
+                        "type": "basic",
+                        "privileged": false,
+                        "image": "quay.io/nitrous/golang:latest",
+                        "created_at": "2015-02-19T07:00:03.755664Z",
+                        "updated_at": "2015-02-19T07:00:03.755664Z"
+                    }
+                ]
+            }
+
+
+## Group Workstations
+
+A workstation is a dedicated server allocated with CPU, memory, and disk storage
+resources. Projects are run on workstations and share the resources of the
+workstation.
+
+Note: "workstations" are known as "hosts" internally at Nitrous, hence the
+endpoint names and response envelopes.
+
+### Create a New Workstation [POST /hosts]
+
+You can create a workstation for either your account or for your users - just
+use the appropriate Bearer token.
+
+Your request will be accepted immediately, and the workstation will be created
+asynchronously. Creating a workstation usually takes between 20 seconds to 3
+minutes.
+
+Use the `/hosts/{slug}` endpoint to determine when a workstation has been
+created. Its state (initially `born`) will be `running` when it's been
+created successfully.
+
++ Request
+
+    + Headers
+
+            Authorization: Bearer OAUTH2_ACCESS_TOKEN
+
+    + Attributes
+        + name (required, string) - Workstation name. Spaces are allowed.
+        + region (required, string) - Slug of the workstation's region.
+        + org (optional, string) - Org slug. The workstation created will belong to this organization.
+        + size (optional, string) - Slug of the workstation's plan. If not specified, `org` is required
+        + async (required, boolean) - Always this to `true`, for now
+
++ Response 202 (application/json)
+    + Body
+
+            {
+                "host": {
+                    "id": 18,
+                    "user_id": 14,
+                    "region_id": 8,
+                    "plan_id": 21,
+                    "org_id": 1,
+                    "slug": "my-ws-1293",
+                    "name": "My WS",
+                    "ip_address": "",
+                    "hostname": "my-ws-1293.nitrouspro.com",
+                    "proxy_hostname": "my-ws-1293.nitrouspro.com",
+                    "size": "org-plus",
+                    "state": "born",
+                    "created_at": "2016-03-01T04:32:54.844284Z",
+                    "updated_at": "2016-03-01T04:32:54.844284Z",
+                    "auto_shutdown": false,
+                    "max_containers": 20
+                    "shared": false
+                }
+            }
+
+### Show a Workstation's Info [GET /hosts/{slug}]
+
++ Parameters
+    + slug (string) ... Slug identifying the workstation.
+
++ Request
+
+    + Headers
+
+            Authorization: Bearer OAUTH2_ACCESS_TOKEN
+
++ Response 200 (application/json)
+    + Body
+
+            {
+                "host": {
+                    "id": 18,
+                    "user_id": 14,
+                    "region_id": 8,
+                    "plan_id": 21,
+                    "org_id": 1,
+                    "slug": "my-ws-1293",
+                    "name": "My WS",
+                    "ip_address": "54.254.242.115",
+                    "hostname": "my-ws-1293.nitrouspro.com",
+                    "proxy_hostname": "my-ws-1293.nitrouspro.com",
+                    "size": "org-plus",
+                    "state": "running",
+                    "created_at": "2016-03-01T04:32:54.844284Z",
+                    "updated_at": "2016-03-01T04:34:30.923673Z",
+                    "last_running_at": "2016-03-01T04:34:30.926Z",
+                    "auto_shutdown": false,
+                    "max_containers": 20,
+                    "subscription_slug": "OsOJON0Ja8",
+                    "shared": false
+                }
+            }
+
+### List All Workstations [GET /hosts]
+
++ Request
+
+    + Headers
+
+            Authorization: Bearer OAUTH2_ACCESS_TOKEN
+
++ Response 200 (application/json)
+    + Body
+
+            {
+              "hosts": [
+                {
+                    "id": 123,
+                    "user_id": 42,
+                    "region_id": 8,
+                    "plan_id": 27,
+                    "org_id": null,
+                    "slug": "unicorn-hunter-484",
+                    "name": "Unicorn Hunter",
+                    "ip_address": "1.2.3.4",
+                    "hostname": "unicorn-hunter-484.nitrouspro.com",
+                    "proxy_hostname": "unicorn-hunter-484.nitrousproxy.com",
+                    "state": "running",
+                    "created_at": "2015-09-30T09:28:10.84877Z",
+                    "updated_at": "2016-02-29T06:52:31.416412Z",
+                    "last_running_at": "2016-02-19T03:22:25.27255Z",
+                    "last_pinged_at": "2016-02-29T06:52:31.401618Z",
+                    "auto_shutdown": false,
+                    "max_containers": 1,
+                    "shared": false
+                }
+              ]
+            }
+
+
+
+## Group Projects
+
+A project is the most common unit that users interact with. Users connect to
+their project to edit code, run servers, and preview their application. Each
+project runs in its own isolated environment, distinct from other projects.
+
+Note: "projects" are known as "containers" internally at Nitrous, hence the
+endpoint names and response envelopes.
+
+### Creating a New Project [POST /containers/create_atomic]
+
+Creating a project requires a `running` workstation.
+
+Your request will be accepted immediately, and the project will be created
+asynchronously. Creating a project takes between 1 second to 2 minutes.
+
+Use the `/containers/{slug}` endpoint to determine when a project has been
+created. Its state (initially `created`) will be `running` when it's been
+created successfully.
+
++ Request
+
+    + Headers
+
+            Authorization: Bearer OAUTH2_ACCESS_TOKEN
+
+    + Attributes
+        + host (required, string) - Slug of workstation that the new project should live in.
+        + name (required, string) - Project name. Spaces are allowed.
+        + template (optional, string) - Slug of template to create the project from. Either `template` or `snapshot_id` are required.
+        + `snapshot_id` (optional, number) - ID of snapshot to create the project from. Either `template` or `snapshot_id` are required.
+
++ Response 202 (application/json)
+    + Body
+
+            {
+                "container": {
+                    "id": 8,
+                    "cid": "",
+                    "user_id": 1,
+                    "host_id": 12,
+                    "image": "quay.io/nitrous/ubuntu:latest",
+                    "slug": "grandeur-firefly-100007",
+                    "name": "Grandeur Firefly",
+                    "state": "unknown",
+                    "preview_hostname": "grandeur-firefly-100007.nitrousapp.com",
+                    "created_at": "2016-03-01T05:10:46.092807Z",
+                    "updated_at": "2016-03-01T05:10:46.092807Z"
+                },
+                "request_id": "bf1258ca"
+            }
+
+### Show a Project's Info [GET /containers/{slug}]
+
++ Parameters
+    + slug (string) ... Slug identifying the project.
+
++ Request
+
+    + Headers
+
+            Authorization: Bearer OAUTH2_ACCESS_TOKEN
+
++ Response 200 (application/json)
+    + Body
+
+            {
+                "container": {
+                    "id": 9,
+                    "cid": "67a26a67f6d3c6f7f50ee7d0957fabf148a3b1efb804fa44ea4d901ddd1f7495",
+                    "user_id": 14,
+                    "host_id": 17,
+                    "image": "quay.io/nitrous/ubuntu:latest",
+                    "slug": "my-unicorn-project-100008",
+                    "name": "My Unicorn Project",
+                    "ip_address": "172.17.0.1",
+                    "gateway_ip": "172.17.42.1",
+                    "state": "running",
+                    "config": {
+                        "cmd": [
+                            "/sbin/init",
+                            "--default-console",
+                            "none"
+                        ],
+                        "env": [
+                            "__HOST=172.17.42.1",
+                            "PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin",
+                            "container=docker",
+                            "NITROUS_IMAGE_VERSION=2",
+                            "NITROUS_USERNAME=nitrous",
+                            "NITROUS_SSH_ENABLED=true",
+                            "NITROUS_README_URL=https://nitrous-readmes.s3.amazonaws.com/ubuntu.2015-03-02.html"
+                        ],
+                        "port": [
+                            "public:32768:22/tcp"
+                        ],
+                        "config_port_bindings": [
+                            "public::22/tcp"
+                        ],
+                        "volume": [],
+                        "privileged": false,
+                        "publish_all": true
+                    },
+                    "preview_hostname": "my-unicorn-project-100008.n2odevapp.com",
+                    "ssh_url": "ssh://nitrous@my-ws-6152.n2odev.com:32768",
+                    "created_at": "2016-03-01T06:36:55.502133Z",
+                    "updated_at": "2016-03-01T06:41:00.600958Z"
+                }
+            }
+
+
+## Group Collaborators
+
+You can add other users as collaborators to a project to grant them access to
+it. This will allow multiple users to work collaboratively on a single project
+simultaneously.
+
+You can also add a user as collaborator to a project on your workstation so that
+you do not have to create a workstation for the user. This is useful when you do
+want full control and accounting over the workstations, since they would be
+under your Nitrous account.
+
+### Adding Collaborator to a Project [POST /containers/{slug}/collaborators]
+
++ Parameters
+    + slug (string) ... Slug identifying the project.
+
++ Request
+    + Attributes
+        + user (required, string) - Username of user to add as a collaborator to the project.
+        + noemail (optional, string) - Set to `true` to suppress the Nitrous-branded email sent to the user notifying them that they have been added as a collaborator.
+
++ Response 200 (application/json)
+    + Body
+
+            {
+                "success": true
+            }
+

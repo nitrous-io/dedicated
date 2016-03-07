@@ -24,7 +24,7 @@ import (
 
 var (
 	errInvalidOrgSlug       = httperror.New(http.StatusBadRequest, "invalid_org_slug", "org_slug is not allowed")
-	errInvalidOrgPermission = httperror.New(http.StatusBadRequest, "invalid_org_permission", "org_permission must be `member`")
+	errInvalidOrgPermission = httperror.New(http.StatusBadRequest, "invalid_org_permission", "org_permission must be `member` or `limited`")
 	errOrgNotFound          = httperror.New(http.StatusNotFound, "org_not_found", "org not found")
 
 	invalidPromoCode  = httperror.New(http.StatusBadRequest, "invalid_promo_code", "promo code does not exist")

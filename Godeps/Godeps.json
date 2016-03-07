@@ -5,18 +5,22 @@
 		"./..."
 	],
 	"Deps": [
+    {
+      "ImportPath": "github.com/mrjones/oauth",
+       "Rev": "fdd43ab9ffd4adbedbecf59a0ec6a7e0d3ef3970"
+		},
 		{
-			"ImportPath": "code.google.com/p/go.text/encoding/japanese",
+			"ImportPath": "golang.org/x/text/encoding/japanese",
 			"Comment": "null-116",
 			"Rev": "5b2527008a4c8988ca9dc6f010ebfb9dae67150b"
 		},
 		{
-			"ImportPath": "code.google.com/p/go.text/transform",
+			"ImportPath": "golang.org/x/text/transform",
 			"Comment": "null-116",
 			"Rev": "5b2527008a4c8988ca9dc6f010ebfb9dae67150b"
 		},
 		{
-			"ImportPath": "code.google.com/p/goauth2/oauth",
+			"ImportPath": "golang.org/x/oauth2",
 			"Comment": "weekly-56",
 			"Rev": "afe77d958c701557ec5dc56f6936fcc194d15520"
 		},

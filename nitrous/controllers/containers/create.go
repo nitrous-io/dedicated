@@ -25,6 +25,7 @@ import (
 	"github.com/nitrous-io/dedicated/nitrous/models/user"
 	"github.com/nitrous-io/dedicated/nitrous/models/volume"
 	"github.com/nitrous-io/dedicated/nitrous/pkg/httperror"
+	"github.com/nitrous-io/dedicated/nitrous/serializers"
 	"github.com/nitrous-io/dedicated/pkg/slugbuilder"
 )
 
@@ -299,6 +300,7 @@ func createAtomic(h *host.Host, env *middleware.Env, w http.ResponseWriter, r *h
 	env.Status = http.StatusAccepted
 	env.Data = map[string]interface{}{
 		"request_id": env.UUID, // Unique identifier for this container creation request.
+		"container":  serializers.SerializeContainer(cn),
 	}
 
 	return nil

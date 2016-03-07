@@ -39,12 +39,38 @@ func init() {
 func IssueToken(env *middleware.Env, w http.ResponseWriter, r *http.Request) error {
 	db := env.DB
 
-	grantType := r.FormValue("grant_type")
-
 	var u *user.User
 	var err error
 
-	if grantType == grantTypePassword {
+	switch r.FormValue("grant_type") {
+	case grantTypeAuthorizationCode:
+		// OAuth 2.0 authorization: allows OAuth apps to exchange an
+		// authorization code for an access token. This is the step after a user
+		// has authorized an app to act on their behalf.
+		return TokenFromAuthorizationCode(env, w, r)
+	case grantTypeLoginToken:
+		// Login token: a login token can be retrieved from the
+		// `GET /user/login_token` endpoint, and it can be exchanged for an
+		// access token. This is helpful to login a user automatically, e.g.
+		// apps with an "Open in Nitrous IDE" button.
+		loginToken := r.FormValue("token")
+		if loginToken == "" {
+			return errInvalidLoginToken
+		}
+
+		uid, err := logintoken.Read(loginToken)
+		if err != nil {
+			return errInvalidLoginToken
+		}
+
+		u, err = user.FindByID(db, uid)
+		if err != nil {
+			if err == sql.ErrNoRows {
+				return errInvalidLoginToken
+			}
+			return err
+		}
+	case grantTypePassword:
 		login := r.FormValue("username") // this can be either username or email
 		password := r.FormValue("password")
 
@@ -81,28 +107,7 @@ func IssueToken(env *middleware.Env, w http.ResponseWriter, r *http.Request) err
 		if err := user.ResetLoginAttempts(db, login); err != nil {
 			return err
 		}
-	} else if grantType == grantTypeLoginToken {
-		loginToken := r.FormValue("token")
-
-		if loginToken == "" {
-			return errInvalidLoginToken
-		}
-
-		uid, err := logintoken.Read(loginToken)
-		if err != nil {
-			return errInvalidLoginToken
-		}
-
-		u, err = user.FindByID(db, uid)
-		if err != nil {
-			if err == sql.ErrNoRows {
-				return errInvalidLoginToken
-			}
-			return err
-		}
-	} else if grantType == grantTypeAuthorizationCode {
-		return TokenFromAuthorizationCode(env, w, r)
-	} else {
+	default:
 		return errGrantType
 	}
 

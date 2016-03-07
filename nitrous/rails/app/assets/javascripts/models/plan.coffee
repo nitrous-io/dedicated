@@ -8,21 +8,18 @@ App.Plan = klass = App.Model.extend
   slug: attr()
   name: attr()
   description: attr()
-  type: attr()
   price: attr('number')
   basePrice: attr('number', as: 'base_price')
   hourlyPrice: attr('number', as: 'hourly_price')
   cpu: attr()
   memory: attr()
   storage: attr()
-  mostPopular: attr('boolean', as: 'most_popular')
   subscription: attr('boolean')
   org: attr('boolean')
   hidden: attr('boolean')
   trialPeriodDays: attr('number', as: 'trial_period_days')
 
   maxContainers: attr('number', as: 'max_containers')
-  maxSnapshots: attr('number', as: 'max_snapshots')
 
   inputId: (->
     if slug = @get 'slug'
