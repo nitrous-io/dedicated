@@ -10,6 +10,7 @@ import (
 	"github.com/nitrous-io/dedicated/nitrous/envvars"
 	mw "github.com/nitrous-io/dedicated/nitrous/middleware"
 	"github.com/nitrous-io/dedicated/nitrous/models/billingprofile"
+	"github.com/nitrous-io/dedicated/nitrous/models/userprofile"
 	"github.com/nitrous-io/dedicated/nitrous/pkg/httperror"
 	"github.com/nitrous-io/dedicated/nitrous/pkg/repoclient"
 )
@@ -19,7 +20,7 @@ var (
 
 	errRepoInfo            = httperror.New(http.StatusForbidden, "invalid_request", "Invalid repository info")
 	errInvalidUrl          = httperror.New(http.StatusForbidden, "invalid_request", "Invalid repository URL")
-	errNitrousJSONNotFound = httperror.New(http.StatusForbidden, "invalid_request", "nitrous.json not found")
+	errFileContentNotFound = httperror.New(http.StatusForbidden, "invalid_request", "Failed to retrieve repository info")
 )
 
 type repository struct {
@@ -52,6 +53,17 @@ func RepoInfo(env *mw.Env, w http.ResponseWriter, r *http.Request) error {
 	var owner, content, repoName string
 	switch urlHost {
 	case "github.com":
+		// We try to use user's access token to make Github API request
+		// to access their private repo. If user have not connected their
+		// Github account (don't have access token), it will use
+		// nitrous-public-repo-access Github user's token which is in envvars.
+		accessToken, err := getGithubAccessToken(env)
+		if err != nil {
+			return err
+		}
+		if accessToken != envvars.GithubAccessToken {
+			GithubRepoClient = repoclient.NewGithubClient(accessToken)
+		}
 		owner, repoName, err = GithubRepoClient.ParseUrlPath(urlPath)
 		if err == repoclient.ErrInvalidUrlPath {
 			return errInvalidUrl
@@ -59,7 +71,7 @@ func RepoInfo(env *mw.Env, w http.ResponseWriter, r *http.Request) error {
 		content, err = GithubRepoClient.FileContent(owner, repoName, "nitrous.json")
 		if err != nil {
 			if err == repoclient.ErrContentNotFound {
-				return errNitrousJSONNotFound
+				return errFileContentNotFound
 			}
 			return err
 		}
@@ -130,4 +142,23 @@ func confirmEmail(env *mw.Env) error {
 	}
 
 	return nil
+}
+
+func getGithubAccessToken(env *mw.Env) (string, error) {
+	profile, err := userprofile.Find(env.DB, env.User.ID)
+	if err != nil {
+		return "", nil
+	}
+	githubOAuthTokenJson := profile.GitHubOAuthTokenJson.String
+	if githubOAuthTokenJson == "" {
+		return envvars.GithubAccessToken, nil
+	}
+
+	var tokenJson struct {
+		AccessToken string `json:"access_token"`
+	}
+	if err := json.Unmarshal([]byte(githubOAuthTokenJson), &tokenJson); err != nil {
+		return "", err
+	}
+	return tokenJson.AccessToken, nil
 }
