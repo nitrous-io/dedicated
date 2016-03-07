@@ -4,7 +4,7 @@ pages.Pricing =
 
     updateNumbers = (plans) ->
       for plan, i in plans
-        monthlyPrice = (plan.base_price + plan.price) / 100
+        monthlyPrice = plan.price / 100
         priceToDisplay = if monthlyPrice == Math.floor(monthlyPrice) then Math.floor(monthlyPrice) else monthlyPrice.toFixed(2)
 
         $plan = $(".pricing-block li.selectable[data-index=#{i}]")
@@ -29,9 +29,7 @@ pages.Pricing =
     $.getJSON('/api/v0/plans/all').then (data) ->
       return unless data.plans
       data.plans.sort (a, b) ->
-        aPrice = a.price + a.base_price
-        bPrice = b.price + b.base_price
-        aPrice - bPrice
+        a.price - b.price
 
       plans = []
       for p in data.plans
@@ -45,7 +43,7 @@ pages.Pricing =
         if p.hidden || p.edu || !p.org || !p.max_hosts || p.max_hosts <= 0
           continue
 
-        if (p.price + p.base_price) > 0
+        if p.price > 0
           p.name = "Org"
           p.price = p.price / p.max_hosts
           p.description = "Minimum purchase of #{p.max_hosts} workstations required"
