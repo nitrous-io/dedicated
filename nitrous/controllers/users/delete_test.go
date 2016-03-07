@@ -4,6 +4,7 @@ import (
 	"database/sql"
 	"net/http"
 	"net/http/httptest"
+	"strconv"
 	"time"
 
 	"github.com/gorilla/mux"
@@ -25,9 +26,9 @@ import (
 
 var _ = Describe("controllers/users", func() {
 	var (
-		u   *user.User
-		hs1 *test.HostStack
-		t   *token.Token
+		u  *user.User
+		hs *test.HostStack
+		t  *token.Token
 
 		db      *ndb.Database
 		handler *mux.Router
@@ -35,7 +36,6 @@ var _ = Describe("controllers/users", func() {
 		req     *http.Request
 		svr     *server.Server
 		ft      *test.FakeTracker
-		f       *test.FakeMailChimp
 	)
 
 	BeforeEach(func() {
@@ -63,7 +63,7 @@ var _ = Describe("controllers/users", func() {
 		err = t.Insert(db)
 		Expect(err).To(BeNil())
 
-		hs1, err = test.CreateHostStack(db, &test.HostStack{
+		hs, err = test.CreateHostStack(db, &test.HostStack{
 			H: &host.Host{
 				Slug:        "my-host-1",
 				HourlyPrice: 2000,
@@ -72,15 +72,6 @@ var _ = Describe("controllers/users", func() {
 			S: &subscription.Subscription{}, // use default factory
 		})
 		Expect(err).To(BeNil())
-
-		// the majority of the tests are for other checks, so make cancelled
-		// the default for tests and unset where necessary
-		_, err = db.Exec(`UPDATE subscriptions SET cancelled_at = now() WHERE id = $1`,
-			hs1.S.ID)
-		Expect(err).To(BeNil())
-
-		f = test.NewFakeMailChimp()
-		users.MailChimp = f
 
 		envvars.MailChimpIDNewsletter = "newsletters"
 		envvars.MailChimpIDAnnouncements = "announcements"
@@ -96,17 +87,6 @@ var _ = Describe("controllers/users", func() {
 		It("should not return an error if running hosts are present with no subscriptions", func() {
 			doRequest()
 			Expect(res.Code).To(Equal(http.StatusOK))
-		})
-
-		It("returns an error if there are active subscriptions", func() {
-			_, err := db.Exec(`UPDATE subscriptions SET cancelled_at = null WHERE id = $1`,
-				hs1.S.ID)
-			Expect(err).To(BeNil())
-
-			doRequest()
-			Expect(res.Code).To(Equal(http.StatusBadRequest))
-			errType, _ := test.ErrorSlug(res.Body)
-			Expect(errType).To(Equal("hosts_not_terminated"))
 		})
 
 		It("should return an error if the user has outstanding invoices", func() {
@@ -197,9 +177,6 @@ var _ = Describe("controllers/users", func() {
 		sharedCanDeleteExamples(doRequest)
 
 		It("should be OK if the account can be deleted", func() {
-			_, err := db.Exec("UPDATE subscriptions SET state = 'canceled' WHERE id = $1", hs1.S.ID)
-			Expect(err).To(BeNil())
-
 			hs2, err := test.CreateHostStack(db, &test.HostStack{
 				H: &host.Host{
 					Slug:        "my-host-2",
@@ -220,16 +197,23 @@ var _ = Describe("controllers/users", func() {
 	Describe("DELETE /api/v0/user/delete", func() {
 		var (
 			fakeStripe *test.FakeStripe
+			fsub       *test.FakeSubscriptionProvider
+			f          *test.FakeMailChimp
 		)
 
 		BeforeEach(func() {
 			fakeStripe = &test.FakeStripe{}
 			stripe.SetBackend(fakeStripe)
-
 			fakeStripe.Responses = []string{
 				listCardResp,
 				delCardResp,
 			}
+
+			fsub = &test.FakeSubscriptionProvider{}
+			users.SetSubscriptionProvider(fsub)
+
+			f = test.NewFakeMailChimp()
+			users.MailChimp = f
 		})
 
 		doRequest := func() {
@@ -252,6 +236,20 @@ var _ = Describe("controllers/users", func() {
 			Expect(errType).To(Equal("host_creation_in_progress"))
 		})
 
+		It("terminates all the user's hosts", func() {
+			doRequest()
+
+			_, err := host.FindByIdentifier(db, strconv.FormatInt(hs.H.ID, 10))
+			Expect(err).To(Equal(sql.ErrNoRows))
+		})
+
+		It("cancels all the user's subscriptions", func() {
+			doRequest()
+
+			Expect(fsub.CancelCalled).To(BeTrue())
+			Expect(fsub.CancelSubscription).To(Equal(hs.S))
+		})
+
 		It("should successfully delete all user tokens", func() {
 			_, err := db.Exec("INSERT INTO tokens (user_id, token) values ($1, $2), ($1, $3);", u.ID, "toke1", "toke2")
 			Expect(err).To(BeNil())
@@ -268,8 +266,8 @@ var _ = Describe("controllers/users", func() {
 		It("should successfully remove container collabs for user", func() {
 			cnr := &container.Container{
 				CID:    "cafebeans",
-				UserID: hs1.U.ID,
-				HostID: hs1.H.ID,
+				UserID: hs.U.ID,
+				HostID: hs.H.ID,
 				Image:  "nitrous-base",
 				Slug:   "java-test-container",
 			}
@@ -323,7 +321,7 @@ var _ = Describe("controllers/users", func() {
 			Expect(f.UnsubscribeEmails).To(Equal([]string{"tokenuser@example.com", "tokenuser@example.com"}))
 		})
 
-		It("should not unsubscribe if the user has not confirmed", func() {
+		It("should not unsubscribe if the user has not confirmed their email address", func() {
 			_, err := db.Exec(`UPDATE users SET confirmed_at = NULL WHERE id = $1;`, u.ID)
 			Expect(err).To(BeNil())
 
@@ -337,7 +335,7 @@ var _ = Describe("controllers/users", func() {
 			Expect(f.SubscribeCalled).To(BeZero())
 		})
 
-		It("should disallow delete if token holder is not full scope", func() {
+		It("should disallow delete if the scope of the token is not 'full'", func() {
 			_, err := db.Exec(`UPDATE tokens SET scope = 'third_party' WHERE id = $1;`, t.ID)
 			Expect(err).To(BeNil())
 

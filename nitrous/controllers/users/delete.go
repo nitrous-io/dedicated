@@ -10,30 +10,34 @@ import (
 	"github.com/nitrous-io/dedicated/nitrous/biller"
 	"github.com/nitrous-io/dedicated/nitrous/db"
 	"github.com/nitrous-io/dedicated/nitrous/envvars"
+	"github.com/nitrous-io/dedicated/nitrous/hostcontrol"
 	"github.com/nitrous-io/dedicated/nitrous/middleware"
 	"github.com/nitrous-io/dedicated/nitrous/models/billingprofile"
 	"github.com/nitrous-io/dedicated/nitrous/models/credit"
+	"github.com/nitrous-io/dedicated/nitrous/models/host"
 	"github.com/nitrous-io/dedicated/nitrous/models/invoice"
 	"github.com/nitrous-io/dedicated/nitrous/models/subscription"
 	"github.com/nitrous-io/dedicated/nitrous/models/user"
 	"github.com/nitrous-io/dedicated/nitrous/models/userprofile"
 	"github.com/nitrous-io/dedicated/nitrous/permission"
+	"github.com/nitrous-io/dedicated/nitrous/pkg/constants"
 	"github.com/nitrous-io/dedicated/nitrous/pkg/httperror"
 	"github.com/nitrous-io/dedicated/nitrous/pkg/mailchimp"
+	"github.com/nitrous-io/dedicated/nitrous/subscriptions"
 	stripe "github.com/stripe/stripe-go"
 	"github.com/stripe/stripe-go/card"
 )
 
 var (
-	hostCreateInProgressErr = httperror.New(http.StatusConflict, "host_creation_in_progress", "you cannot delete your account while a workspace is being created")
-	hostsNotTerminatedErr   = httperror.New(http.StatusBadRequest, "hosts_not_terminated", "you must terminate your workspaces before deleting your account")
+	hostCreateInProgressErr = httperror.New(http.StatusConflict, "host_creation_in_progress", "you cannot delete your account while a workstation is being created")
 	outstandingInvoicesErr  = httperror.New(http.StatusBadRequest, "outstanding_invoices", "your invoices must be paid before deleting your account")
 	outstandingUsageErr     = httperror.New(http.StatusBadRequest, "outstanding_usage", "you have outstanding usage for the month, please delete your account after your invoice has been issued")
 	deleteForbiddenErr      = httperror.New(http.StatusForbidden, "delete_forbidden", "You do not have permission to delete the user account")
 )
 
 var (
-	MailChimp mailchimp.MailChimpProvider = &mailchimp.MailChimp{}
+	subProvider subscriptions.Provider      = subscriptions.NewProvider()
+	MailChimp   mailchimp.MailChimpProvider = &mailchimp.MailChimp{}
 )
 
 func Delete(env *middleware.Env, w http.ResponseWriter, r *http.Request) error {
@@ -51,12 +55,42 @@ func Delete(env *middleware.Env, w http.ResponseWriter, r *http.Request) error {
 		return err
 	}
 
+	// Disallow if a host is currently being created.
 	locked, err := db.TransactionLock(tx, db.HOST_CREATE_LOCK, int(env.User.ID))
 	if err != nil {
 		return err
 	}
 	if !locked {
 		return hostCreateInProgressErr
+	}
+
+	// Terminate all hosts.
+	// TODO This should be done in a delayed fashion since it takes awhile to
+	// terminate a host, e.g. by marking the host for termination and using a
+	// cronjob to actually terminate the host.
+	hosts, err := host.FindAllUnterminated(tx, env.User.ID)
+	if err != nil {
+		return err
+	}
+	for _, h := range hosts {
+		if err := hostcontrol.Terminate(tx, h, hostbuilderHeaders(env), env.User.ID, h.State); err != nil {
+			return err
+		}
+	}
+
+	// Cancel all subscriptions.
+	subs, err := subscription.FindAllActiveByUserID(tx, env.User.ID)
+	if err != nil && err != sql.ErrNoRows {
+		return err
+	}
+	for _, sub := range subs {
+		if sub.AlreadyCanceled() {
+			continue
+		}
+
+		if err := subProvider.Cancel(env.DB, sub.Subscription); err != nil {
+			return err
+		}
 	}
 
 	queries := []string{
@@ -94,6 +128,7 @@ func Delete(env *middleware.Env, w http.ResponseWriter, r *http.Request) error {
 		return err
 	}
 
+	// Delete all the user's credit cards from Stripe.
 	if bp.StripeID.Valid {
 		iter := card.List(&stripe.CardListParams{Customer: bp.StripeID.String})
 		for iter.Next() {
@@ -118,7 +153,7 @@ func Delete(env *middleware.Env, w http.ResponseWriter, r *http.Request) error {
 	// unsubscribe user from MailChimp newsletters
 	go func() {
 		if !env.User.ConfirmedAt.Valid && !env.User.UnconfirmedEmail.Valid {
-			// user never confirmed original email
+			// User never confirmed any email address.
 			return
 		}
 
@@ -148,8 +183,7 @@ func Delete(env *middleware.Env, w http.ResponseWriter, r *http.Request) error {
 }
 
 func CheckCanDelete(env *middleware.Env, w http.ResponseWriter, r *http.Request) error {
-	err := canDeleteUser(env.DB, env.User)
-	if err != nil {
+	if err := canDeleteUser(env.DB, env.User); err != nil {
 		return err
 	}
 
@@ -161,17 +195,8 @@ func CheckCanDelete(env *middleware.Env, w http.ResponseWriter, r *http.Request)
 }
 
 func canDeleteUser(d db.QueryReceiver, u *user.User) error {
-	subs, err := subscription.FindAllActiveByUserID(d, u.ID)
-	if err != nil && err != sql.ErrNoRows {
-		return err
-	}
-
-	if len(subs) > 0 {
-		return hostsNotTerminatedErr
-	}
-
-	var unpaidExists bool
-	err = d.Get(&unpaidExists, `SELECT
+	var unpaidInvoiceExists bool
+	err := d.Get(&unpaidInvoiceExists, `SELECT
 		COUNT(*) >= 1
 		FROM invoices
 		WHERE (state = $1 OR (state = $2 AND covered_by IS NULL)) AND user_id = $3 LIMIT 1;`, invoice.StateUnpaid, invoice.StateDeferred, u.ID)
@@ -180,13 +205,12 @@ func canDeleteUser(d db.QueryReceiver, u *user.User) error {
 		return err
 	}
 
-	if unpaidExists {
+	if unpaidInvoiceExists {
 		return outstandingInvoicesErr
 	}
 
 	start := now.BeginningOfMonth()
-	end := time.Now()
-	res, err := biller.InvoiceItemsForUser(d, u.ID, start, end)
+	res, err := biller.InvoiceItemsForUser(d, u.ID, start, time.Now())
 	if err != nil {
 		return err
 	}
@@ -202,4 +226,10 @@ func canDeleteUser(d db.QueryReceiver, u *user.User) error {
 	}
 
 	return nil
+}
+
+func hostbuilderHeaders(env *middleware.Env) http.Header {
+	h := http.Header{}
+	h.Set(constants.NitrousUUIDHeader, env.UUID)
+	return h
 }
