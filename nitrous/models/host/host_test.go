@@ -324,6 +324,86 @@ var _ = Describe("models/host", func() {
 		})
 	})
 
+	Describe("FindAllUnterminated()", func() {
+		var u *user.User
+
+		BeforeEach(func() {
+			u = &user.User{
+				Username: "foo",
+				Email:    "foo@example.com",
+				Password: "123456",
+			}
+			Expect(test.WrapInTransaction(db, u.Insert)).To(BeNil())
+
+			// Insert running personal host.
+			_, err := db.Exec(`INSERT INTO hosts
+				(user_id, slug, region_id, plan_id, provider_template_id)
+				VALUES ($1, $2, $3, $4, $5);`,
+				u.ID, "my-host-1", hs.R.ID, hs.P.ID, hs.PT.ID)
+			Expect(err).To(BeNil())
+
+			// Insert a terminated personal host.
+			_, err = db.Exec(`INSERT INTO hosts
+				(user_id, slug, region_id, plan_id, provider_template_id, terminated_at)
+				VALUES ($1, $2, $3, $4, $5, now());`,
+				u.ID, "my-host-2", hs.R.ID, hs.P.ID, hs.PT.ID)
+			Expect(err).To(BeNil())
+
+			// Insert an orphaned personal host.
+			_, err = db.Exec(`INSERT INTO hosts
+				(user_id, slug, region_id, plan_id, provider_template_id, state)
+				VALUES ($1, $2, $3, $4, $5, $6);`,
+				u.ID, "my-host-3", hs.R.ID, hs.P.ID, hs.PT.ID, "orphan")
+			Expect(err).To(BeNil())
+
+			o := &org.Org{
+				Slug:  "ze-robot-labs",
+				Name:  "Ze Robot Labs",
+				Email: "admin@zerobotlabs.com",
+			}
+			Expect(o.Insert(db)).To(BeNil())
+
+			// Insert a running host belonging to an org.
+			_, err = db.Exec(`INSERT INTO hosts
+				(user_id, slug, region_id, plan_id, provider_template_id, org_id)
+				VALUES ($1, $2, $3, $4, $5, $6);`,
+				u.ID, "zerobotlabs-host-1", hs.R.ID, hs.P.ID, hs.PT.ID, o.ID)
+			Expect(err).To(BeNil())
+
+			// Insert a terminated host belonging to an org.
+			_, err = db.Exec(`INSERT INTO hosts
+				(user_id, slug, region_id, plan_id, provider_template_id, org_id, terminated_at)
+				VALUES ($1, $2, $3, $4, $5, $6, now());`,
+				u.ID, "zerobotlabs-host-2", hs.R.ID, hs.P.ID, hs.PT.ID, o.ID)
+			Expect(err).To(BeNil())
+		})
+
+		It("returns all unterminated hosts belonging to a user", func() {
+			hosts, err := host.FindAllUnterminated(db, u.ID)
+			Expect(err).To(BeNil())
+			Expect(hosts).To(HaveLen(3))
+
+			slugs := []string{}
+			for _, h := range hosts {
+				slugs = append(slugs, h.Slug)
+			}
+			Expect(slugs).To(ConsistOf("my-host-1", "my-host-3", "zerobotlabs-host-1"))
+		})
+
+		It("returns an empty slice when user does not have any unterminated hosts", func() {
+			u2 := &user.User{
+				Username: "you-two",
+				Email:    "you-two@example.com",
+				Password: "u2u2u2",
+			}
+			Expect(test.WrapInTransaction(db, u2.Insert)).To(BeNil())
+
+			hosts, err := host.FindAllUnterminated(db, u2.ID)
+			Expect(err).To(BeNil())
+			Expect(hosts).To(HaveLen(0))
+		})
+	})
+
 	Describe("FindAllByUserAndOrg()", func() {
 		var (
 			u *user.User
