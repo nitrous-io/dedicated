@@ -35,8 +35,31 @@ func init() {
 }
 
 func New(env *mw.Env, w http.ResponseWriter, r *http.Request) error {
+	var repo string
+	if r.FormValue("repo") != "" {
+		repo = r.FormValue("repo")
+	} else if r.Referer() != "" {
+		parsedUrl, err := url.Parse(r.Referer())
+		if err != nil {
+			return err
+		}
+		paths := strings.Split(parsedUrl.Path, "/")
+		switch parsedUrl.Host {
+		case "github.com":
+			if len(paths) >= 3 {
+				repo = fmt.Sprintf("https://github.com/%s/%s", paths[1], paths[2])
+			} else {
+				return errInvalidUrl
+			}
+		default:
+			return errInvalidUrl
+		}
+	} else {
+		return errInvalidUrl
+	}
+
 	query := url.Values{}
-	query.Set("repo", r.FormValue("repo"))
+	query.Set("repo", repo)
 	redirectURL := fmt.Sprintf("/app/#/dashboard/hack?%s", query.Encode())
 	http.Redirect(w, r, redirectURL, http.StatusMovedPermanently)
 	return nil
@@ -44,14 +67,12 @@ func New(env *mw.Env, w http.ResponseWriter, r *http.Request) error {
 
 func RepoInfo(env *mw.Env, w http.ResponseWriter, r *http.Request) error {
 	repoUrl := r.FormValue("repo")
-	parsedURL, err := url.Parse(repoUrl)
+	parsedUrl, err := url.Parse(repoUrl)
 	if err != nil {
 		return err
 	}
-	urlHost := parsedURL.Host
-	urlPath := parsedURL.Path
 	var owner, content, repoName string
-	switch urlHost {
+	switch parsedUrl.Host {
 	case "github.com":
 		// We try to use user's access token to make Github API request
 		// to access their private repo. If user have not connected their
@@ -64,7 +85,7 @@ func RepoInfo(env *mw.Env, w http.ResponseWriter, r *http.Request) error {
 		if accessToken != envvars.GithubAccessToken {
 			GithubRepoClient = repoclient.NewGithubClient(accessToken)
 		}
-		owner, repoName, err = GithubRepoClient.ParseUrlPath(urlPath)
+		owner, repoName, err = GithubRepoClient.ParseUrlPath(parsedUrl.Path)
 		if err == repoclient.ErrInvalidUrlPath {
 			return errInvalidUrl
 		}

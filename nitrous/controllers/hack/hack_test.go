@@ -70,24 +70,36 @@ var _ = Describe("controllers/hack", func() {
 	})
 
 	Describe("GET /project/new", func() {
-		doRequest := func(repo string) *httptest.ResponseRecorder {
+		doRequest := func(params *url.Values, referer string) *httptest.ResponseRecorder {
 			var err error
-			params := &url.Values{}
-			if repo != "" {
-				params.Set("repo", repo)
-			}
 			req, err := test.NewRequest("GET", "/project/new", params)
+			req.Header.Set("Referer", referer)
 			Expect(err).To(BeNil())
 			res := httptest.NewRecorder()
 			handler.ServeHTTP(res, req)
 			return res
 		}
 
-		It("redirects to hack dashboard with repo url", func() {
-			res := doRequest("https://github.com/yeouchien/hack.git")
+		It("redirects to hack dashboard with repo url value from query string", func() {
+			params := &url.Values{}
+			params.Set("repo", "https://github.com/yeouchien/hack.git")
+			res := doRequest(params, "")
 			Expect(res.Code).To(Equal(http.StatusMovedPermanently))
 			redirectURL := "/app/#/dashboard/hack?repo=https%3A%2F%2Fgithub.com%2Fyeouchien%2Fhack.git"
 			Expect(res.Header().Get("Location")).To(Equal(redirectURL))
+		})
+
+		It("redirects to hack dashboard with repo url value from http referer", func() {
+			res := doRequest(nil, "https://github.com/yeouchien/hack.git")
+			Expect(res.Code).To(Equal(http.StatusMovedPermanently))
+			redirectURL := "/app/#/dashboard/hack?repo=https%3A%2F%2Fgithub.com%2Fyeouchien%2Fhack.git"
+			Expect(res.Header().Get("Location")).To(Equal(redirectURL))
+		})
+
+		It("returns error if http referer and repo query string are missing", func() {
+			res := doRequest(nil, "")
+			Expect(res.Code).To(Equal(http.StatusForbidden))
+			Expect(res.Body.String()).To(ContainSubstring("Invalid repository URL"))
 		})
 	})
 
