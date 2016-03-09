@@ -15,6 +15,7 @@ import (
 	"github.com/nitrous-io/dedicated/nitrous/db"
 	"github.com/nitrous-io/dedicated/nitrous/envvars"
 	"github.com/nitrous-io/dedicated/nitrous/middleware"
+	"github.com/nitrous-io/dedicated/nitrous/models/bonus"
 	"github.com/nitrous-io/dedicated/nitrous/models/container"
 	"github.com/nitrous-io/dedicated/nitrous/models/host"
 	"github.com/nitrous-io/dedicated/nitrous/models/token"
@@ -22,6 +23,7 @@ import (
 	"github.com/nitrous-io/dedicated/nitrous/models/userprofile"
 	"github.com/nitrous-io/dedicated/nitrous/permission"
 	"github.com/nitrous-io/dedicated/nitrous/pkg/httperror"
+	"github.com/nitrous-io/dedicated/nitrous/serializers"
 	mh "github.com/nitrous-io/dedicated/pkg/metricshelper"
 	"github.com/nitrous-io/dedicated/pkg/redispool"
 	"github.com/nitrous-io/dedicated/pkg/uuid"
@@ -66,12 +68,17 @@ var (
 	ErrTokenEmpty       = errors.New("token is empty")
 	ErrTokenNotValid    = errors.New("token not valid")
 	ErrKeyAlreadyExists = errors.New("key is already added to GitHub")
+
+	errBonusAlreadyEarned     = httperror.New(http.StatusForbidden, "forbidden", "you have already earned this bonus")
+	errUserIneligibleForBonus = httperror.New(http.StatusForbidden, "user_ineligible_for_bonus", "you are not eligible for bonus")
+	errAlreadyConnectedGithub = httperror.New(http.StatusForbidden, "already_connected_github", "you have already connected with github")
 )
 
 type OAuthState struct {
 	UserID    int64     `json:"user_id"`
 	Token     string    `json:"token,omitempty"`
 	Beta      bool      `json:"beta"`
+	Bonus     bool      `json:"bonus"`
 	Purpose   string    `json:"purpose,omitempty"`
 	CreatedAt time.Time `json:"created_at"`
 	ExpiresAt time.Time `json:"expires_at"`
@@ -201,15 +208,55 @@ func init() {
 
 // /api/v0/github/authorize
 // authorize returns GitHub authorization url that front-end needs to redirect to.
-// FIXME: allow this API to be called only if user is not yet linked with a GitHub account
 func authorize(env *middleware.Env, w http.ResponseWriter, r *http.Request) error {
 	if !permission.AuthorizeGitHub(env.Token, env.User) {
 		return errAuthorizeForbidden
 	}
 
 	beta := r.FormValue("beta") == "true"
+	earnBonusRequest := r.FormValue("bonus") == "true"
 
-	state, err := setOrReuseState(w, r, env.User.ID, OAuthStatePurposeConnect, beta)
+	connected, err := userprofile.ConnectedToGithub(env.DB, env.User.ID)
+	if err != nil {
+		return err
+	}
+	if connected {
+		if !earnBonusRequest {
+			return errAlreadyConnectedGithub
+		}
+
+		// Grant earned bonus hours to user
+		bn, err := bonus.FindBySlug(env.DB, "connect-github")
+		if err != nil {
+			if err == sql.ErrNoRows {
+				bn, err = bonus.Insert(env.DB, "connect-github", 18000)
+				if err != nil {
+					return err
+				}
+			} else {
+				return err
+			}
+		}
+		if err := env.User.GrantBonus(env.DB, bn); err != nil {
+			if err == bonus.ErrBonusAlreadyEarned {
+				return errBonusAlreadyEarned
+			}
+			return errUserIneligibleForBonus
+		}
+
+		ebns, err := bonus.FindEarnedByUser(env.DB, env.User.ID)
+		if err != nil {
+			return err
+		}
+
+		env.Status = http.StatusOK
+		env.Data = map[string]interface{}{
+			"earned_bonuses": serializers.SerializeEarnedBonuses(ebns),
+		}
+		return nil
+	}
+
+	state, err := setOrReuseState(w, r, env.User.ID, OAuthStatePurposeConnect, beta, earnBonusRequest)
 	if err != nil {
 		return err
 	}
@@ -381,9 +428,40 @@ func OAuthCallback(env *middleware.Env, w http.ResponseWriter, r *http.Request) 
 			return mh.Error(err, errLabel)
 		}
 
+		if state.Bonus {
+			userID := state.UserID
+			u, err := user.FindByID(db, userID)
+			if err != nil {
+				return err
+			}
+
+			// Grant earned bonus hours to user
+			bn, err := bonus.FindBySlug(env.DB, "connect-github")
+			if err != nil {
+				if err == sql.ErrNoRows {
+					bn, err = bonus.Insert(env.DB, "connect-github", 18000)
+					if err != nil {
+						return err
+					}
+				} else {
+					return err
+				}
+			}
+			if err := u.GrantBonus(env.DB, bn); err != nil {
+				if err == bonus.ErrBonusAlreadyEarned {
+					return errBonusAlreadyEarned
+				}
+				return errUserIneligibleForBonus
+			}
+		}
+
 		redirect := "/legacy/#/account"
 		if state.Beta {
-			redirect = envvars.BetaDashboardLocation
+			if state.Bonus {
+				redirect = fmt.Sprintf("%s?connected_github=true", envvars.BetaEarnBonusLocation)
+			} else {
+				redirect = envvars.BetaDashboardLocation
+			}
 		}
 
 		http.Redirect(w, r, redirect, http.StatusFound)
@@ -487,12 +565,13 @@ func storeGitHubInfoInRedis(state *OAuthState, gitHubUserName string, tokenJSON 
 	return nil
 }
 
-func makeOAuthState(userID int64, token string, purpose string, beta bool) (string, error) {
+func makeOAuthState(userID int64, token string, purpose string, beta, bonus bool) (string, error) {
 	createdAt := time.Now().UTC()
 	return verifier.Generate(&OAuthState{
 		UserID:    userID,
 		Token:     token,
 		Beta:      beta,
+		Bonus:     bonus,
 		Purpose:   purpose,
 		CreatedAt: createdAt,
 		ExpiresAt: createdAt.Add(ValidityPeriod),
@@ -535,7 +614,7 @@ func readOAuthState(signedState string) (*OAuthState, error) {
 
 func setState(w http.ResponseWriter, r *http.Request, purpose string, beta bool) (string, error) {
 	tempKey := uuid.Make()
-	state, err := makeOAuthState(0, tempKey, purpose, beta)
+	state, err := makeOAuthState(0, tempKey, purpose, beta, false)
 	if err != nil {
 		return "", err
 	}
@@ -560,7 +639,7 @@ func setState(w http.ResponseWriter, r *http.Request, purpose string, beta bool)
 
 // Reuse existing cookie state if it has been set previously by the
 // same API call. Otherwise generate new signed state.
-func setOrReuseState(w http.ResponseWriter, r *http.Request, userID int64, purpose string, beta bool) (string, error) {
+func setOrReuseState(w http.ResponseWriter, r *http.Request, userID int64, purpose string, beta, bonus bool) (string, error) {
 	// Check if existing github_state cookie is set.
 	cookie, err := r.Cookie("github_state")
 	if err == nil {
@@ -573,7 +652,7 @@ func setOrReuseState(w http.ResponseWriter, r *http.Request, userID int64, purpo
 	}
 
 	// Otherwise generate new state
-	state, err := makeOAuthState(userID, "", purpose, beta)
+	state, err := makeOAuthState(userID, "", purpose, beta, bonus)
 	if err != nil {
 		return "", err
 	}
@@ -610,49 +689,9 @@ func tokenToJSON(token *oauth2.Token) (string, error) {
 
 // FIXME: The functions below should not belong to this controller package.
 // They are used by few external packages.
-func tokenFromJSON(jsonStr string) (*oauth2.Token, error) {
-	var token oauth2.Token
-	if err := json.Unmarshal([]byte(jsonStr), &token); err != nil {
-		return nil, err
-	}
-	return &token, nil
-}
-
 func GitHubClientFromToken(token *oauth2.Token) *github.Client {
 	oauthClient := oauthConf.Client(oauth2.NoContext, token)
 	return github.NewClient(oauthClient)
-}
-
-func getTokenIfValidFromUserProfile(p *userprofile.UserProfile) (*oauth2.Token, error) {
-	if p.GitHubOAuthTokenJson.String == "" {
-		return nil, ErrTokenEmpty
-	}
-	token, err := tokenFromJSON(p.GitHubOAuthTokenJson.String)
-	if err != nil {
-		return nil, err
-	}
-
-	// it's valid for token to expire and become invalid
-	if !token.Valid() {
-		return nil, ErrTokenNotValid
-	}
-
-	return token, nil
-}
-
-// Get GitHub username from user profile, if the GitHub token
-// is not yet expired. Returns empty string if not authorized
-func AuthorizedGitHubUserName(p *userprofile.UserProfile) string {
-	userName := p.GitHubUserName.String
-	if userName == "" || !p.GitHubUserName.Valid {
-		return ""
-	}
-
-	token, err := getTokenIfValidFromUserProfile(p)
-	if err != nil || !token.Valid() {
-		return ""
-	}
-	return userName
 }
 
 func GetTokenIfValid(env *middleware.Env) (*oauth2.Token, error) {
@@ -660,28 +699,7 @@ func GetTokenIfValid(env *middleware.Env) (*oauth2.Token, error) {
 	if err != nil {
 		return nil, err
 	}
-	return getTokenIfValidFromUserProfile(p)
-}
-
-func CanDeleteGitHubPublicKeys(p *userprofile.UserProfile) bool {
-	if !p.GitHubUserScopesJson.Valid || p.GitHubUserScopesJson.String == "" {
-		return false
-	}
-
-	var scopes []string
-	err := json.Unmarshal([]byte(p.GitHubUserScopesJson.String), &scopes)
-	if err != nil {
-		logrus.Infof("Failed to parse github scopes for user %+v: %+v", p, err)
-		return false
-	}
-
-	for _, scope := range scopes {
-		if scope == "admin:public_key" {
-			return true
-		}
-	}
-
-	return false
+	return userprofile.GetTokenIfValidFromUserProfile(p)
 }
 
 func githubKeys(gitHubClient *github.Client) ([]github.Key, error) {

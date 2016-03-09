@@ -18,10 +18,13 @@ import (
 	"github.com/nitrous-io/dedicated/nitrous/db"
 	"github.com/nitrous-io/dedicated/nitrous/envvars"
 	"github.com/nitrous-io/dedicated/nitrous/middleware"
+	"github.com/nitrous-io/dedicated/nitrous/models/bonus"
 	gh "github.com/nitrous-io/dedicated/nitrous/models/github"
+	"github.com/nitrous-io/dedicated/nitrous/models/host"
 	"github.com/nitrous-io/dedicated/nitrous/models/token"
 	"github.com/nitrous-io/dedicated/nitrous/models/user"
 	"github.com/nitrous-io/dedicated/nitrous/models/userprofile"
+	"github.com/nitrous-io/dedicated/nitrous/serializers"
 	"github.com/nitrous-io/dedicated/nitrous/server"
 	"github.com/nitrous-io/dedicated/nitrous/test"
 	redistest "github.com/nitrous-io/dedicated/test"
@@ -262,10 +265,10 @@ var _ = Describe("controllers/github", func() {
 		})
 
 		It("responds with error message when state is different from cookie", func() {
-			state1, err := github.MakeOAuthState(u.ID, "", github.OAuthStatePurposeConnect, false)
+			state1, err := github.MakeOAuthState(u.ID, "", github.OAuthStatePurposeConnect, false, false)
 			Expect(err).To(BeNil())
 
-			state2, err := github.MakeOAuthState(u.ID, "", github.OAuthStatePurposeConnect, false)
+			state2, err := github.MakeOAuthState(u.ID, "", github.OAuthStatePurposeConnect, false, false)
 			Expect(err).To(BeNil())
 
 			res := doRequest("githubcode", state1, state2)
@@ -276,7 +279,7 @@ var _ = Describe("controllers/github", func() {
 		})
 
 		It("redirects with error message when code is missing", func() {
-			state, err := github.MakeOAuthState(u.ID, "", github.OAuthStatePurposeConnect, false)
+			state, err := github.MakeOAuthState(u.ID, "", github.OAuthStatePurposeConnect, false, false)
 			Expect(err).To(BeNil())
 
 			res := doRequest("", state, state)
@@ -285,8 +288,57 @@ var _ = Describe("controllers/github", func() {
 			Expect(res.Body.String()).To(ContainSubstring("invalid_code"))
 		})
 
+		Context("when user connects to github to earn bonus", func() {
+			BeforeEach(func() {
+				_, err := test.CreateHostStack(db, &test.HostStack{
+					U: u,
+					H: &host.Host{
+						Slug: "free-host",
+						Free: true,
+					},
+				})
+				Expect(err).To(BeNil())
+
+				p, err := userprofile.Find(db, u.ID)
+				Expect(err).NotTo(HaveOccurred())
+
+				p.GitHubUserName = sql.NullString{"foo-github", true}
+				p.GitHubOAuthTokenJson = sql.NullString{`{"access_token":"746d66f0dfa22fbb73a994a2ec621ef6e52c05ef","token_type":"bearer","expiry":"0001-01-01T00:00:00Z"}`, true}
+				p.GitHubUserScopesJson = sql.NullString{`["user:email","repo","admin:public_key"]`, true}
+				err = p.UpdateGithubInfo(db)
+				Expect(err).NotTo(HaveOccurred())
+			})
+
+			It("grants bonus to user", func() {
+				state, err := github.MakeOAuthState(u.ID, "", github.OAuthStatePurposeConnect, true, true)
+				Expect(err).To(BeNil())
+
+				res := doRequest("githubcode", state, state)
+				Expect(res.Code).To(Equal(http.StatusFound))
+
+				ebns, err := bonus.FindEarnedByUser(db, u.ID)
+				Expect(err).NotTo(HaveOccurred())
+				Expect(ebns).To(HaveLen(1))
+
+				var bnID int64
+				err = db.Get(&bnID, "SELECT id FROM bonuses WHERE slug = 'connect-github';")
+				Expect(err).To(BeNil())
+
+				Expect(ebns[0].BonusID).To(Equal(bnID))
+			})
+
+			It("redirects to earn bonuses page", func() {
+				state, err := github.MakeOAuthState(u.ID, "", github.OAuthStatePurposeConnect, true, true)
+				Expect(err).To(BeNil())
+
+				res := doRequest("githubcode", state, state)
+				Expect(res.Code).To(Equal(http.StatusFound))
+				Expect(res.HeaderMap.Get("Location")).To(ContainSubstring("earn-bonuses"))
+			})
+		})
+
 		It("inserts github username and token to database", func() {
-			state, err := github.MakeOAuthState(u.ID, "", github.OAuthStatePurposeConnect, false)
+			state, err := github.MakeOAuthState(u.ID, "", github.OAuthStatePurposeConnect, false, false)
 			Expect(err).To(BeNil())
 
 			res := doRequest("githubcode", state, state)
@@ -315,7 +367,7 @@ var _ = Describe("controllers/github", func() {
 		})
 
 		It("redirects to app account", func() {
-			state, err := github.MakeOAuthState(u.ID, "", github.OAuthStatePurposeConnect, false)
+			state, err := github.MakeOAuthState(u.ID, "", github.OAuthStatePurposeConnect, false, false)
 			Expect(err).To(BeNil())
 
 			res := doRequest("githubcode", state, state)
@@ -325,7 +377,7 @@ var _ = Describe("controllers/github", func() {
 		})
 
 		It("redirects to beta dashboard if the state is beta", func() {
-			state, err := github.MakeOAuthState(u.ID, "", github.OAuthStatePurposeConnect, true)
+			state, err := github.MakeOAuthState(u.ID, "", github.OAuthStatePurposeConnect, true, false)
 			Expect(err).To(BeNil())
 
 			envvars.BetaDashboardLocation = "/beta/#/dashboard/settings"
@@ -345,7 +397,7 @@ var _ = Describe("controllers/github", func() {
 			)
 
 			BeforeEach(func() {
-				state, err = github.MakeOAuthState(0, "tempkey", github.OAuthStatePurposeLogin, false)
+				state, err = github.MakeOAuthState(0, "tempkey", github.OAuthStatePurposeLogin, false, false)
 				Expect(err).NotTo(HaveOccurred())
 				orgGetRedisKeyForOAuthFunc = github.GetRedisKeyForOAuth
 				github.GetRedisKeyForOAuth = func(token string) string {
@@ -384,7 +436,7 @@ var _ = Describe("controllers/github", func() {
 				})
 
 				It("redirects to the beta signup page if the state is beta", func() {
-					state, err = github.MakeOAuthState(0, "tempkey", github.OAuthStatePurposeLogin, true)
+					state, err = github.MakeOAuthState(0, "tempkey", github.OAuthStatePurposeLogin, true, false)
 					Expect(err).NotTo(HaveOccurred())
 
 					envvars.BetaSignupLocation = "/beta-app/#/signupnow"
@@ -440,7 +492,7 @@ var _ = Describe("controllers/github", func() {
 				})
 
 				It("redirects to the beta login page if the state is beta", func() {
-					state, err = github.MakeOAuthState(0, "tempkey", github.OAuthStatePurposeLogin, true)
+					state, err = github.MakeOAuthState(0, "tempkey", github.OAuthStatePurposeLogin, true, false)
 					Expect(err).NotTo(HaveOccurred())
 
 					envvars.BetaLoginLocation = "/beta-app/#/loginnow"
@@ -484,7 +536,7 @@ var _ = Describe("controllers/github", func() {
 			)
 
 			BeforeEach(func() {
-				state, err = github.MakeOAuthState(0, "tempkey", github.OAuthStatePurposeSignUp, false)
+				state, err = github.MakeOAuthState(0, "tempkey", github.OAuthStatePurposeSignUp, false, false)
 				Expect(err).NotTo(HaveOccurred())
 				orgGetRedisKeyForOAuthFunc = github.GetRedisKeyForOAuth
 				github.GetRedisKeyForOAuth = func(token string) string {
@@ -519,7 +571,7 @@ var _ = Describe("controllers/github", func() {
 				})
 
 				It("redirects to the beta signup page if the state is beta", func() {
-					state, err = github.MakeOAuthState(0, "tempkey", github.OAuthStatePurposeSignUp, true)
+					state, err = github.MakeOAuthState(0, "tempkey", github.OAuthStatePurposeSignUp, true, false)
 					Expect(err).NotTo(HaveOccurred())
 
 					envvars.BetaSignupLocation = "/beta-app/#/signupnow"
@@ -578,7 +630,7 @@ var _ = Describe("controllers/github", func() {
 				})
 
 				It("redirects to the beta login page if the state is beta", func() {
-					state, err = github.MakeOAuthState(0, "tempkey", github.OAuthStatePurposeSignUp, true)
+					state, err = github.MakeOAuthState(0, "tempkey", github.OAuthStatePurposeSignUp, true, false)
 					Expect(err).NotTo(HaveOccurred())
 
 					envvars.BetaLoginLocation = "/beta-app/#/loginnow"
@@ -623,6 +675,92 @@ var _ = Describe("controllers/github", func() {
 			return res
 		}
 
+		It("returns error if already connected with github", func() {
+			p, err := userprofile.Find(db, u.ID)
+			Expect(err).NotTo(HaveOccurred())
+
+			p.GitHubUserName = sql.NullString{"foo-github", true}
+			p.GitHubOAuthTokenJson = sql.NullString{`{"access_token":"746d66f0dfa22fbb73a994a2ec621ef6e52c05ef","token_type":"bearer","expiry":"0001-01-01T00:00:00Z"}`, true}
+			p.GitHubUserScopesJson = sql.NullString{`["user:email","repo","admin:public_key"]`, true}
+			err = p.UpdateGithubInfo(db)
+			Expect(err).NotTo(HaveOccurred())
+
+			res := doRequest()
+			Expect(res.Code).To(Equal(http.StatusForbidden))
+			errSlug, errDesc := test.ErrorSlug(res.Body)
+			Expect(errSlug).To(Equal("already_connected_github"))
+			Expect(errDesc).To(Equal("you have already connected with github"))
+		})
+
+		Context("when user connects with github to earn bonus and is already connected with github", func() {
+			doReq := func() *httptest.ResponseRecorder {
+				params := &url.Values{}
+				params.Set("bonus", "true")
+
+				req, err := test.NewAuthedRequest(t, "POST", "/api/v0/github/authorize", params)
+				Expect(err).To(BeNil())
+				res := httptest.NewRecorder()
+				svr.Router().ServeHTTP(res, req)
+				return res
+			}
+
+			BeforeEach(func() {
+				_, err := test.CreateHostStack(db, &test.HostStack{
+					U: u,
+					H: &host.Host{
+						Slug: "free-host",
+						Free: true,
+					},
+				})
+				Expect(err).To(BeNil())
+
+				p, err := userprofile.Find(db, u.ID)
+				Expect(err).NotTo(HaveOccurred())
+
+				p.GitHubUserName = sql.NullString{"foo-github", true}
+				p.GitHubOAuthTokenJson = sql.NullString{`{"access_token":"746d66f0dfa22fbb73a994a2ec621ef6e52c05ef","token_type":"bearer","expiry":"0001-01-01T00:00:00Z"}`, true}
+				p.GitHubUserScopesJson = sql.NullString{`["user:email","repo","admin:public_key"]`, true}
+				err = p.UpdateGithubInfo(db)
+				Expect(err).NotTo(HaveOccurred())
+			})
+
+			It("grants bonus", func() {
+				res := doReq()
+				Expect(res.Code).To(Equal(http.StatusOK))
+
+				ebns, err := bonus.FindEarnedByUser(db, u.ID)
+				Expect(err).NotTo(HaveOccurred())
+				Expect(ebns).To(HaveLen(1))
+
+				var bnID int64
+				err = db.Get(&bnID, "SELECT id FROM bonuses WHERE slug = 'connect-github';")
+				Expect(err).To(BeNil())
+
+				Expect(ebns[0].BonusID).To(Equal(bnID))
+			})
+
+			It("returns earned bonuses json", func() {
+				res := doReq()
+				Expect(res.Code).To(Equal(http.StatusOK))
+
+				var earnedBonuses struct {
+					EarnedBonuses []*serializers.EarnedBonus `json:"earned_bonuses"`
+				}
+
+				err := json.NewDecoder(res.Body).Decode(&earnedBonuses)
+				Expect(err).To(BeNil())
+
+				ebns, err := bonus.FindEarnedByUser(db, u.ID)
+				Expect(err).NotTo(HaveOccurred())
+				Expect(ebns).To(HaveLen(1))
+
+				ebs := earnedBonuses.EarnedBonuses
+
+				Expect(ebs[0].UserID).To(Equal(ebns[0].UserID))
+				Expect(ebs[0].BonusID).To(Equal(ebns[0].BonusID))
+			})
+		})
+
 		It("should not allow authorize if token scope is not full", func() {
 			_, err := db.Exec(`UPDATE tokens SET scope = 'third_party' WHERE id = $1;`, t.ID)
 			Expect(err).To(BeNil())
@@ -662,7 +800,7 @@ var _ = Describe("controllers/github", func() {
 			req, err := test.NewAuthedRequest(t, "POST", "/api/v0/github/authorize", nil)
 			Expect(err).To(BeNil())
 
-			existingState, err := github.MakeOAuthState(u.ID, "", github.OAuthStatePurposeConnect, false)
+			existingState, err := github.MakeOAuthState(u.ID, "", github.OAuthStatePurposeConnect, false, false)
 			Expect(err).To(BeNil())
 
 			req.AddCookie(&http.Cookie{
@@ -801,33 +939,6 @@ var _ = Describe("controllers/github", func() {
 			ttl, err := redisClient.TTL("github:oauth:tempkey").Result()
 			Expect(err).NotTo(HaveOccurred())
 			Expect(ttl).To(BeNumerically("~", 10*time.Minute, 5*time.Second)) // TTL should be around 10 minutes
-		})
-	})
-
-	Describe("CanDeleteGitHubPublicKeys", func() {
-		var up *userprofile.UserProfile
-
-		BeforeEach(func() {
-			up = &userprofile.UserProfile{}
-		})
-
-		It("returns false when github scopes is nil", func() {
-			Expect(github.CanDeleteGitHubPublicKeys(up)).To(Equal(false))
-		})
-
-		It("returns false when github scopes is empty", func() {
-			up.GitHubUserScopesJson = sql.NullString{"", true}
-			Expect(github.CanDeleteGitHubPublicKeys(up)).To(Equal(false))
-		})
-
-		It("returns false when github scopes does not contain `admin:public_key`", func() {
-			up.GitHubUserScopesJson = sql.NullString{`["repo", "write:public_key"]`, true}
-			Expect(github.CanDeleteGitHubPublicKeys(up)).To(Equal(false))
-		})
-
-		It("returns true when github scopes contains `admin:public_key`", func() {
-			up.GitHubUserScopesJson = sql.NullString{`["repo", "admin:public_key"]`, true}
-			Expect(github.CanDeleteGitHubPublicKeys(up)).To(Equal(true))
 		})
 	})
 
