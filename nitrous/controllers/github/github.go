@@ -65,8 +65,12 @@ var (
 
 	errNotConnectedWithGitHub = httperror.New(http.StatusForbidden, "not_connected_with_github", "You need to connect with GitHub")
 
-	ErrTokenEmpty       = errors.New("token is empty")
-	ErrTokenNotValid    = errors.New("token not valid")
+	ErrTokenEmpty    = errors.New("token is empty")
+	ErrTokenNotValid = errors.New("token not valid")
+
+	errGitHubTokenEmpty    = httperror.New(http.StatusBadRequest, "github_token_empty", "connect your GitHub account")
+	errGitHubTokenNotValid = httperror.New(http.StatusBadRequest, "github_token_not_valid", "GitHub token is not valid")
+
 	ErrKeyAlreadyExists = errors.New("key is already added to GitHub")
 
 	errBonusAlreadyEarned     = httperror.New(http.StatusForbidden, "forbidden", "you have already earned this bonus")
@@ -136,6 +140,11 @@ var FetchGitHubUser = func(code string) (string, string, string, error) {
 var AddKeyToGitHub = func(env *middleware.Env, h *host.Host, cn *container.Container, publicKey string) error {
 	token, err := GetTokenIfValid(env)
 	if err != nil {
+		if err == userprofile.ErrTokenEmpty {
+			return errGitHubTokenEmpty
+		} else if err == userprofile.ErrTokenNotValid {
+			return errGitHubTokenNotValid
+		}
 		return err
 	}
 
