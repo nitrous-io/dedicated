@@ -192,4 +192,101 @@ var _ = Describe("models/userprofile", func() {
 			Expect(p.UserID).To(Equal(u.ID))
 		})
 	})
+
+	Describe("ConnectedGithub", func() {
+		BeforeEach(func() {
+			u = &user.User{
+				Username: "foo",
+				Email:    "foo@example.com",
+				Password: "123456",
+			}
+
+			err := WrapInTransaction(db, u.Insert)
+			Expect(err).NotTo(HaveOccurred())
+		})
+
+		It("returns true if github records exist", func() {
+			p, err := userprofile.Find(db, u.ID)
+			Expect(err).NotTo(HaveOccurred())
+
+			p.GitHubUserName = sql.NullString{"foo-github", true}
+			p.GitHubOAuthTokenJson = sql.NullString{`{"access_token":"746d66f0dfa22fbb73a994a2ec621ef6e52c05ef","token_type":"bearer","expiry":"0001-01-01T00:00:00Z"}`, true}
+			p.GitHubUserScopesJson = sql.NullString{`["user:email","repo","admin:public_key"]`, true}
+			err = p.UpdateGithubInfo(db)
+			Expect(err).NotTo(HaveOccurred())
+
+			connected, err := userprofile.ConnectedToGithub(db, u.ID)
+			Expect(err).NotTo(HaveOccurred())
+			Expect(connected).To(BeTrue())
+		})
+
+		It("returns false if none of the github records exist", func() {
+			connected, err := userprofile.ConnectedToGithub(db, u.ID)
+			Expect(err).NotTo(HaveOccurred())
+			Expect(connected).To(BeFalse())
+		})
+
+		It("returns false if one of the required github record does not exist", func() {
+			p, err := userprofile.Find(db, u.ID)
+			Expect(err).NotTo(HaveOccurred())
+
+			p.GitHubUserName = sql.NullString{"", false}
+			p.GitHubOAuthTokenJson = sql.NullString{`{"access_token":"746d66f0dfa22fbb73a994a2ec621ef6e52c05ef","token_type":"bearer","expiry":"0001-01-01T00:00:00Z"}`, true}
+			p.GitHubUserScopesJson = sql.NullString{`["user:email","repo","admin:public_key"]`, true}
+			err = p.UpdateGithubInfo(db)
+			Expect(err).NotTo(HaveOccurred())
+
+			connected, err := userprofile.ConnectedToGithub(db, u.ID)
+			Expect(err).NotTo(HaveOccurred())
+			Expect(connected).To(BeFalse())
+
+			p.GitHubUserName = sql.NullString{"foo-github", true}
+			p.GitHubOAuthTokenJson = sql.NullString{"", false}
+			p.GitHubUserScopesJson = sql.NullString{`["user:email","repo","admin:public_key"]`, true}
+			err = p.UpdateGithubInfo(db)
+			Expect(err).NotTo(HaveOccurred())
+
+			connected, err = userprofile.ConnectedToGithub(db, u.ID)
+			Expect(err).NotTo(HaveOccurred())
+			Expect(connected).To(BeFalse())
+
+			p.GitHubUserName = sql.NullString{"foo-github", true}
+			p.GitHubOAuthTokenJson = sql.NullString{`{"access_token":"746d66f0dfa22fbb73a994a2ec621ef6e52c05ef","token_type":"bearer","expiry":"0001-01-01T00:00:00Z"}`, true}
+			p.GitHubUserScopesJson = sql.NullString{"", false}
+			err = p.UpdateGithubInfo(db)
+			Expect(err).NotTo(HaveOccurred())
+
+			connected, err = userprofile.ConnectedToGithub(db, u.ID)
+			Expect(err).NotTo(HaveOccurred())
+			Expect(connected).To(BeFalse())
+		})
+	})
+
+	Describe("CanDeleteGitHubPublicKeys", func() {
+		var up *userprofile.UserProfile
+
+		BeforeEach(func() {
+			up = &userprofile.UserProfile{}
+		})
+
+		It("returns false when github scopes is nil", func() {
+			Expect(userprofile.CanDeleteGitHubPublicKeys(up)).To(Equal(false))
+		})
+
+		It("returns false when github scopes is empty", func() {
+			up.GitHubUserScopesJson = sql.NullString{"", true}
+			Expect(userprofile.CanDeleteGitHubPublicKeys(up)).To(Equal(false))
+		})
+
+		It("returns false when github scopes does not contain `admin:public_key`", func() {
+			up.GitHubUserScopesJson = sql.NullString{`["repo", "write:public_key"]`, true}
+			Expect(userprofile.CanDeleteGitHubPublicKeys(up)).To(Equal(false))
+		})
+
+		It("returns true when github scopes contains `admin:public_key`", func() {
+			up.GitHubUserScopesJson = sql.NullString{`["repo", "admin:public_key"]`, true}
+			Expect(userprofile.CanDeleteGitHubPublicKeys(up)).To(Equal(true))
+		})
+	})
+
 })
