@@ -22,6 +22,7 @@ const (
 var containerNameRe = regexp.MustCompile(`\A[a-z][a-z0-9\-]*[a-z0-9]\z`)
 var (
 	ErrTimeout                 = errors.New("Operation timed out")
+	ErrRunCommandTimedOut      = errors.New("RunCommand timed out")
 	ErrCmdConfig               = errors.New("Container command not specified")
 	ErrPubKeyOpsNotSupported   = errors.New("Public key operations are not supported on this container")
 	ErrContainerNotRunning     = errors.New("Container should be running to perform this operation")
@@ -60,7 +61,7 @@ type Provider interface {
 	ListContainerKeys(id string) (containerKeys []string, err error)
 
 	Reconfig(id, config string) (info *ContainerInfo, err error)
-	RunCommand(id, command string, timeout int64, outputStream io.Writer) (err error)
+	RunCommand(id, command string, timeout time.Duration, outputStream io.Writer) (err error)
 
 	//ForwardPort(id string, hostPort uint16, containerPort uint16) (err error)
 	//TakeSnapshot(id string, tag name, description string) (info *SnapshotInfo, err error)

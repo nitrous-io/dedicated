@@ -1928,7 +1928,7 @@ var _ = Describe("server", func() {
 			Expect(prov.RunCommandCalled).To(BeTrue())
 			Expect(prov.ReceivedID).To(Equal("test-container"))
 			Expect(prov.ReceivedCommand).To(Equal("ls"))
-			Expect(prov.ReceivedTimeout).To(Equal(int64(300)))
+			Expect(prov.ReceivedTimeout).To(Equal(300 * time.Second))
 		})
 	})
 

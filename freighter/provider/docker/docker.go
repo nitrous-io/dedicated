@@ -702,21 +702,26 @@ func (p *DockerProvider) Reconfig(id, configJSON string) (ret *provider.Containe
 	return p.GetInfo(id)
 }
 
-func (p *DockerProvider) RunCommand(id, command string, timeout int64, outputStream io.Writer) error {
+func (p *DockerProvider) RunCommand(id, command string, timeout time.Duration, outputStream io.Writer) error {
 	container, err := p.inspectContainer(id)
 	if err != nil {
 		logrus.Errorf("RunCommand inspectContainer failed, err: %v, id: %s", err, id)
 		return err
 	}
-	usr, _ := p.appUser(container)
+	usr, ok := p.appUser(container)
+	if !ok {
+		usr = "root"
+	}
 
 	createOpts := dockerclient.CreateExecOptions{
 		AttachStdout: true,
 		AttachStderr: true,
-		Cmd:          []string{"/bin/bash", "-c", command},
-		Container:    container.ID,
-		User:         usr,
-		Tty:          true,
+		// FIXME We should probably use the cops pkg or somehow run the user's
+		// shell instead of using bash.
+		Cmd:       []string{"/bin/bash", "-c", command},
+		Container: container.ID,
+		User:      usr,
+		Tty:       true,
 	}
 	ex, err := p.client.CreateExec(createOpts)
 	if err != nil {
@@ -737,12 +742,12 @@ func (p *DockerProvider) RunCommand(id, command string, timeout int64, outputStr
 	}()
 
 	select {
-	case <-time.After(time.Duration(timeout) * time.Second):
+	case <-time.After(timeout):
 		logrus.Warnf("RunCommand StartExec timeout, exec id: %v", ex.ID)
 		if err := p.client.StopExec(ex.ID); err != nil {
 			logrus.Errorf("RunCommand StopExec failed, err: %v, exec id: %v", err, ex.ID)
 		}
-		return errors.New("RunCommand timeout")
+		return provider.ErrRunCommandTimedOut
 	case err := <-errCh:
 		if err != nil {
 			logrus.Errorf("RunCommand StartExec failed, err: %v")
