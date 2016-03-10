@@ -39,16 +39,15 @@ func (gh *Github) FileContent(owner, repo, file string) (string, error) {
 	return string(decodedContent), nil
 }
 
-// FIXME Ideally this should just accept a full Git repository URL that you'd
-// use with `git clone` instead of taking an awkward "path" that looks like
-// "/sferik/rails_admin".
-func (gh *Github) ParseUrlPath(path string) (string, string, error) {
+func (gh *Github) ParseURL(u string) (string, string, error) {
+	path := strings.TrimPrefix(u, "https://github.com/")
+	path = strings.TrimPrefix(path, "git@github.com/")
 	pathSegments := strings.Split(path, "/")
-	if len(pathSegments) != 3 {
-		return "", "", ErrInvalidUrlPath
+	if len(pathSegments) != 2 {
+		return "", "", ErrInvalidURLPath
 	}
-	repoName := strings.Replace(pathSegments[2], ".git", "", -1)
-	owner := pathSegments[1]
+	repoName := strings.TrimSuffix(pathSegments[1], ".git")
+	owner := pathSegments[0]
 
 	return owner, repoName, nil
 }

@@ -66,13 +66,14 @@ func New(env *mw.Env, w http.ResponseWriter, r *http.Request) error {
 }
 
 func RepoInfo(env *mw.Env, w http.ResponseWriter, r *http.Request) error {
-	repoUrl := r.FormValue("repo")
-	parsedUrl, err := url.Parse(repoUrl)
+	repoURL := r.FormValue("repo")
+	parsedURL, err := url.Parse(repoURL)
 	if err != nil {
 		return err
 	}
+
 	var owner, content, repoName string
-	switch parsedUrl.Host {
+	switch parsedURL.Host {
 	case "github.com":
 		// We try to use user's access token to make Github API request
 		// to access their private repo. If user have not connected their
@@ -85,10 +86,12 @@ func RepoInfo(env *mw.Env, w http.ResponseWriter, r *http.Request) error {
 		if accessToken != envvars.GithubAccessToken {
 			GithubRepoClient = repoclient.NewGithubClient(accessToken)
 		}
-		owner, repoName, err = GithubRepoClient.ParseUrlPath(parsedUrl.Path)
-		if err == repoclient.ErrInvalidUrlPath {
+
+		owner, repoName, err = GithubRepoClient.ParseURL(repoURL)
+		if err == repoclient.ErrInvalidURLPath {
 			return errInvalidUrl
 		}
+
 		content, err = GithubRepoClient.FileContent(owner, repoName, "nitrous.json")
 		if err != nil {
 			if err == repoclient.ErrContentNotFound {
