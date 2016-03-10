@@ -23,6 +23,7 @@ func NewGithubClient(accessToken string) RepoClient {
 	return githubClient
 }
 
+// FIXME This is missing a test.
 func (gh *Github) FileContent(owner, repo, file string) (string, error) {
 	fileContent, _, _, err := gh.Client.Repositories.GetContents(owner, repo, file, &github.RepositoryContentGetOptions{})
 	if err != nil {
@@ -38,9 +39,12 @@ func (gh *Github) FileContent(owner, repo, file string) (string, error) {
 	return string(decodedContent), nil
 }
 
+// FIXME Ideally this should just accept a full Git repository URL that you'd
+// use with `git clone` instead of taking an awkward "path" that looks like
+// "/sferik/rails_admin".
 func (gh *Github) ParseUrlPath(path string) (string, string, error) {
 	pathSegments := strings.Split(path, "/")
-	if len(pathSegments) < 3 {
+	if len(pathSegments) != 3 {
 		return "", "", ErrInvalidUrlPath
 	}
 	repoName := strings.Replace(pathSegments[2], ".git", "", -1)

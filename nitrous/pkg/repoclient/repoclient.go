@@ -6,9 +6,9 @@ import (
 
 type RepoClient interface {
 	// returns decoded file content
-	FileContent(owner, repo, file string) (string, error)
+	FileContent(owner, repo, file string) (content string, err error)
 	// returns owner and repository name of the path
-	ParseUrlPath(path string) (string, string, error)
+	ParseUrlPath(path string) (owner string, repoName string, err error)
 }
 
 var (
