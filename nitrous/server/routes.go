@@ -17,6 +17,7 @@ import (
 	"github.com/nitrous-io/dedicated/nitrous/controllers/feedback"
 	"github.com/nitrous-io/dedicated/nitrous/controllers/freighterd"
 	"github.com/nitrous-io/dedicated/nitrous/controllers/github"
+	"github.com/nitrous-io/dedicated/nitrous/controllers/hack"
 	"github.com/nitrous-io/dedicated/nitrous/controllers/home"
 	"github.com/nitrous-io/dedicated/nitrous/controllers/hosts"
 	"github.com/nitrous-io/dedicated/nitrous/controllers/images"
@@ -95,6 +96,7 @@ func (s *Server) drawRoutes() {
 	s.route("/", routeWritesResponse, mw.Call("home.Index", home.Index), RouteOpts{Methods: []string{"GET"}, LogParams: true})
 	s.route("/api/v0/github/oauth_cb", routeWritesResponse, mw.Call("github.OAuthCallback", github.OAuthCallback), RouteOpts{Methods: []string{"GET"}, LogParams: true})
 	s.route("/api/v0/twitter/oauth_cb", routeWritesResponse, mw.Call("twitter.OAuthCallback", twitter.OAuthCallback), RouteOpts{Methods: []string{"GET"}, LogParams: true})
+	s.route("/project/new", routeWritesResponse, mw.Call("hack.New", hack.New), RouteOpts{Methods: []string{"GET"}, LogParams: true})
 
 	if envvars.Debug == "true" {
 		s.router.HandleFunc("/sleep", s.sleep).Methods("GET")
@@ -195,6 +197,7 @@ func (s *Server) drawRoutes() {
 				"/orgs/{org_slug}/invoices":                r("billing.Invoices", billing.Invoices),
 				"/orgs/{org_slug}/snapshots":               r("snapshots.ForOrg", snapshots.ForOrg),
 				"/github/repos":                            r("github.Repos", github.Repos),
+				"/hack/repo_info":                          r("hack.RepoInfo", hack.RepoInfo),
 			},
 			"POST": {
 				"/oauth/authorize":                         r("oauth.PostAuthorize", oauth.PostAuthorize),

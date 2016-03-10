@@ -3,6 +3,7 @@ package test
 import (
 	"errors"
 	"io"
+	"time"
 
 	"github.com/nitrous-io/dedicated/freighter/provider"
 )
@@ -69,6 +70,8 @@ type MockProvider struct {
 	ReceivedConfig         string
 	ReceivedUserKeys       []string
 	ReceivedKeyFingerprint string
+	ReceivedCommand        string
+	ReceivedTimeout        time.Duration
 
 	CreateVolumeCalled bool
 	CreateVolumeReturn *provider.VolumeInfo
@@ -168,6 +171,10 @@ type MockProvider struct {
 	ActivityCalled bool
 	ActivityActive bool
 	ActivityError  error
+
+	RunCommandCalled bool
+	RunCommandOutput string
+	RunCommandError  error
 }
 
 func (p *MockProvider) VerifyToken(id, token string, permissions ...string) error {
@@ -460,4 +467,13 @@ func (p *MockProvider) Version() (string, error) {
 func (p *MockProvider) Activity(threshold int) (bool, error) {
 	p.ActivityCalled = true
 	return p.ActivityActive, p.ActivityError
+}
+
+func (p *MockProvider) RunCommand(id, command string, timeout time.Duration, outputStream io.Writer) error {
+	p.ReceivedID = id
+	p.ReceivedCommand = command
+	p.ReceivedTimeout = timeout
+	p.RunCommandCalled = true
+	outputStream.Write([]byte(p.RunCommandOutput))
+	return p.RunCommandError
 }

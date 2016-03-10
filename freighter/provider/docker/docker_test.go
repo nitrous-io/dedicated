@@ -43,10 +43,6 @@ func Test(t *testing.T) {
 	RunSpecs(t, "provider/docker")
 }
 
-const (
-	busyboxImage = "busybox:latest"
-)
-
 var _ = BeforeSuite(func() {
 	var (
 		start time.Time
@@ -58,26 +54,26 @@ var _ = BeforeSuite(func() {
 	// load the stored ubuntu-bare image so we dont have to pull it from the internet
 	// nitrousio/ubuntu-bare image from /root/ubuntu-bare.tar.gz
 	start = time.Now()
-	fmt.Print("build nitrousio/ubuntu-bare:latest...")
+	fmt.Print("building nitrousio/ubuntu-bare:latest...")
 	out, err = exec.Command("docker", "load", "-i", "/root/ubuntu-bare.tar.gz").CombinedOutput()
 	Expect(err).To(BeNil(), "failed to load nitrousio/ubuntu-bare, output: %s", string(out))
 	fmt.Printf(" took %s\n", time.Now().Sub(start))
 
-	// build nitrous/ubuntu based on nitrosio/ubuntu-bare, but with "top" cmd
+	// build image based on nitrousio/ubuntu-bare, but with "top" as CMD.
 	start = time.Now()
-	fmt.Print("build nitrous/ubuntu:latest...")
+	fmt.Print("building nitrousio/ubuntu-test:latest...")
 	cmd = exec.Command("docker", "build", "-t", "nitrousio/ubuntu-test:latest", "-")
 	cmd.Stdin = bytes.NewBufferString(`
 	FROM nitrousio/ubuntu-bare:latest
 	CMD ["top"]
 	`)
 	out, err = cmd.CombinedOutput()
-	Expect(err).To(BeNil(), "failed to build nitrous/ubuntu, output: %s", string(out))
+	Expect(err).To(BeNil(), "failed to build nitrousio/ubuntu-test, output: %s", string(out))
 	fmt.Printf(" took %s\n", time.Now().Sub(start))
 
 	// build base, which is busybox with /sh as CMD
 	start = time.Now()
-	fmt.Print("build base:latest...")
+	fmt.Print("building base:latest...")
 	cmd = exec.Command("docker", "build", "-t", "base:latest", ".")
 	cmd.Dir = "/docker-busybox"
 	out, err = cmd.CombinedOutput()
@@ -86,7 +82,7 @@ var _ = BeforeSuite(func() {
 
 	// build busybox, which is busybox duh but with top as CMD
 	start = time.Now()
-	fmt.Print("build busybox:latest...")
+	fmt.Print("building busybox:latest...")
 	cmd = exec.Command("docker", "build", "-t", "busybox:latest", "-")
 	cmd.Stdin = bytes.NewBufferString(`
 	FROM base:latest
@@ -676,6 +672,77 @@ var _ = Describe("provider/docker", func() {
 					Expect(err).To(BeNil())
 
 					Expect(<-errCh).To(BeNil())
+				})
+			})
+
+			Describe("RunCommand()", func() {
+				It("runs the given command as the NITROUS_USERNAME user", func() {
+					Expect(inspectEnv(info.ID)).To(ContainSubstring("NITROUS_USERNAME=nitrous"))
+
+					cmd := "echo -n `whoami`"
+					timeout := 1 * time.Second
+					outputStream := bytes.NewBuffer(nil)
+
+					err := prov.RunCommand(info.ID, cmd, timeout, outputStream)
+					Expect(err).To(BeNil())
+
+					Expect(outputStream.String()).To(Equal("nitrous"))
+				})
+
+				PIt("falls back to running the command as root if the NITROUS_USERNAME env var is not set", func() {
+					// FIXME This doesn't actually work now because we always
+					// use bash, and the busybox image does not have bash.
+					name := RandomName("freightertest")
+					info, err := prov.CreateStart(name, "busybox:latest", secret, "")
+					Expect(err).To(BeNil())
+					defer CleanUpContainer(name)
+
+					Expect(inspectEnv(info.ID)).NotTo(ContainSubstring("NITROUS_USERNAME"))
+
+					cmd := "echo -n `whoami`"
+					timeout := 1 * time.Second
+					outputStream := bytes.NewBuffer(nil)
+
+					err = prov.RunCommand(info.ID, cmd, timeout, outputStream)
+					Expect(err).To(BeNil())
+
+					Expect(outputStream.String()).To(Equal("root"))
+				})
+
+				It("preserves the container's environment variables", func() {
+					Expect(inspectEnv(info.ID)).To(ContainSubstring("NITROUS_USERNAME=nitrous"))
+
+					cmd := "echo -n $NITROUS_USERNAME"
+					timeout := 1 * time.Second
+					outputStream := bytes.NewBuffer(nil)
+
+					err := prov.RunCommand(info.ID, cmd, timeout, outputStream)
+					Expect(err).To(BeNil())
+
+					Expect(outputStream.String()).To(Equal("nitrous"))
+				})
+
+				PIt("preserves the user's shell's environment variables", func() {
+					// FIXME This doesn't actually work now because we always
+					// use bash instead of the user's shell.
+					cmd := "echo $SOME_ENV_VAR"
+					timeout := 1 * time.Second
+					outputStream := bytes.NewBuffer(nil)
+
+					err := prov.RunCommand(info.ID, cmd, timeout, outputStream)
+					Expect(err).To(BeNil())
+
+					Expect(outputStream.String()).To(ContainSubstring("some value"))
+				})
+
+				It("times out if the command runs longer than the given timeout", func() {
+					cmd := "sleep 1 && echo -n done"
+					timeout := 100 * time.Millisecond
+					outputStream := bytes.NewBuffer(nil)
+
+					err := prov.RunCommand(info.ID, cmd, timeout, outputStream)
+					Expect(err).To(Equal(provider.ErrRunCommandTimedOut))
+					Expect(outputStream.String()).To(BeEmpty())
 				})
 			})
 
