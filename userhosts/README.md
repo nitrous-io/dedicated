@@ -40,9 +40,10 @@ directory.  Previously written private keys are reused.
 
 You will need to export these env vars:
 
-* NITROUS_PG_URL
-* AES_KEY
-* SSH_KEYS_DIR
+* `NITROUS_PG_URL`
+* `AES_KEY`
+* `SSH_KEYS_DIR`
+* `AWS_ENV`
 
 *NOTE*: this gives access to every single user host.  Only run this in a safe
 environment.
