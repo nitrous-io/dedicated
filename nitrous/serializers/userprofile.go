@@ -17,7 +17,7 @@ func SerializeUserProfile(p *userprofile.UserProfile) *UserProfile {
 		UserID:                    p.UserID,
 		MaxHosts:                  p.MaxHosts,
 		Advanced:                  p.Advanced,
-		AuthorizedGitHubUserName:  userprofile.AuthorizedGitHubUserName(p),
-		CanDeleteGitHubPublicKeys: userprofile.CanDeleteGitHubPublicKeys(p),
+		AuthorizedGitHubUserName:  p.AuthorizedGitHubUserName(),
+		CanDeleteGitHubPublicKeys: p.CanDeleteGitHubPublicKeys(),
 	}
 }

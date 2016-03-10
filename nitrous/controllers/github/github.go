@@ -138,7 +138,7 @@ var FetchGitHubUser = func(code string) (string, string, string, error) {
 }
 
 var AddKeyToGitHub = func(env *middleware.Env, h *host.Host, cn *container.Container, publicKey string) error {
-	token, err := GetTokenIfValid(env)
+	token, err := userprofile.GetTokenIfValid(env.DB, env.User.ID)
 	if err != nil {
 		if err == userprofile.ErrTokenEmpty {
 			return errGitHubTokenEmpty
@@ -175,7 +175,7 @@ var AddKeyToGitHub = func(env *middleware.Env, h *host.Host, cn *container.Conta
 }
 
 var FetchRepos = func(env *middleware.Env) ([]GitHubRepository, error) {
-	token, err := GetTokenIfValid(env)
+	token, err := userprofile.GetTokenIfValid(env.DB, env.User.ID)
 	if err != nil {
 		return nil, err
 	}
@@ -701,14 +701,6 @@ func tokenToJSON(token *oauth2.Token) (string, error) {
 func GitHubClientFromToken(token *oauth2.Token) *github.Client {
 	oauthClient := oauthConf.Client(oauth2.NoContext, token)
 	return github.NewClient(oauthClient)
-}
-
-func GetTokenIfValid(env *middleware.Env) (*oauth2.Token, error) {
-	p, err := userprofile.Find(env.DB, env.User.ID)
-	if err != nil {
-		return nil, err
-	}
-	return userprofile.GetTokenIfValidFromUserProfile(p)
 }
 
 func githubKeys(gitHubClient *github.Client) ([]github.Key, error) {

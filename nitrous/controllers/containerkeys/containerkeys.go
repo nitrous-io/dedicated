@@ -105,7 +105,7 @@ func addToGitHub(cn *container.Container, h *host.Host, env *middleware.Env, w h
 }
 
 func getGitHubKeys(cn *container.Container, h *host.Host, env *middleware.Env) ([]string, error) {
-	token, err := github.GetTokenIfValid(env)
+	token, err := userprofile.GetTokenIfValid(env.DB, env.User.ID)
 	if err != nil {
 		if err == userprofile.ErrTokenEmpty {
 			return nil, errGitHubTokenEmpty
@@ -155,7 +155,7 @@ func getGitHubSSHKeys(cn *container.Container, h *host.Host, env *middleware.Env
 }
 
 func removeGitHubKey(cn *container.Container, h *host.Host, env *middleware.Env) error {
-	token, err := github.GetTokenIfValid(env)
+	token, err := userprofile.GetTokenIfValid(env.DB, env.User.ID)
 	if err != nil {
 		if err == userprofile.ErrTokenEmpty {
 			return errGitHubTokenEmpty

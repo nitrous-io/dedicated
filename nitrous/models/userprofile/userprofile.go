@@ -96,20 +96,20 @@ func (p *UserProfile) Update(d db.QueryReceiver) error {
 	return nstmt.QueryRowx(p).StructScan(p)
 }
 
-func AuthorizedGitHubUserName(p *UserProfile) string {
+func (p *UserProfile) AuthorizedGitHubUserName() string {
 	userName := p.GitHubUserName.String
 	if userName == "" || !p.GitHubUserName.Valid {
 		return ""
 	}
 
-	token, err := GetTokenIfValidFromUserProfile(p)
+	token, err := p.GetTokenIfValidFromUserProfile()
 	if err != nil || !token.Valid() {
 		return ""
 	}
 	return userName
 }
 
-func CanDeleteGitHubPublicKeys(p *UserProfile) bool {
+func (p *UserProfile) CanDeleteGitHubPublicKeys() bool {
 	if !p.GitHubUserScopesJson.Valid || p.GitHubUserScopesJson.String == "" {
 		return false
 	}
@@ -130,7 +130,7 @@ func CanDeleteGitHubPublicKeys(p *UserProfile) bool {
 	return false
 }
 
-func GetTokenIfValidFromUserProfile(p *UserProfile) (*oauth2.Token, error) {
+func (p *UserProfile) GetTokenIfValidFromUserProfile() (*oauth2.Token, error) {
 	if p.GitHubOAuthTokenJson.String == "" {
 		return nil, ErrTokenEmpty
 	}
@@ -153,4 +153,12 @@ func tokenFromJSON(jsonStr string) (*oauth2.Token, error) {
 		return nil, err
 	}
 	return &token, nil
+}
+
+func GetTokenIfValid(d db.QueryReceiver, userID int64) (*oauth2.Token, error) {
+	p, err := Find(d, userID)
+	if err != nil {
+		return nil, err
+	}
+	return p.GetTokenIfValidFromUserProfile()
 }
