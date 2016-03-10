@@ -38,6 +38,13 @@ against production.  This will write an `inventory` file and all the private
 keys needed in a subdir of `/tmp`.  You can pass an argument to use a different
 directory.  Previously written private keys are reused.
 
+You will need to export these env vars:
+
+* `NITROUS_PG_URL`
+* `AES_KEY`
+* `SSH_KEYS_DIR`
+* `AWS_ENV`
+
 *NOTE*: this gives access to every single user host.  Only run this in a safe
 environment.
 

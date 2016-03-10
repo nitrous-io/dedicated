@@ -977,6 +977,32 @@ func (s *Server) wsAttachToContainer(w http.ResponseWriter, r *http.Request) err
 	}
 }
 
+func (s *Server) wsRunCommand(w http.ResponseWriter, r *http.Request) error {
+	id := mux.Vars(r)["id"]
+
+	binary, _ := strconv.ParseBool(r.FormValue("binary"))
+	timeout, err := strconv.ParseInt(r.FormValue("timeout"), 10, 64)
+	if err != nil {
+		logrus.Errorf("runCommand handler failed, err: %v, command: %s, timeout: %s", err, r.FormValue("command"), r.FormValue("timeout"))
+		return err
+	}
+
+	conn, err := upgrader.Upgrade(w, r, nil)
+	if err != nil {
+		return fmt.Errorf("failed to upgrade websocket: %v", err)
+	}
+	stream := NewWebSocketConnection(conn, binary)
+	defer stream.Close()
+
+	outputStream := shell.NewShellWriter(stream)
+	err = s.provider.RunCommand(id, r.FormValue("command"), time.Duration(timeout)*time.Second, outputStream)
+	if err != nil {
+		logrus.Errorf("runCommand handler failed, err: %v, command: %s, timeout: %s", err, r.FormValue("command"), r.FormValue("timeout"))
+		return err
+	}
+	return nil
+}
+
 func (s *Server) downloadContainerFile(w http.ResponseWriter, r *http.Request) error {
 	id := mux.Vars(r)["id"]
 	info, err := s.provider.GetInfo(id)

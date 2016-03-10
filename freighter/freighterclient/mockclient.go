@@ -101,6 +101,9 @@ type MockClient struct {
 	ReceivedEmail    string
 	ReceivedRegistry string
 
+	ReceivedCommand string
+	ReceivedTimeout int64
+
 	ListImagesCalled int
 	ListImagesArray  []*Image
 	ListImagesError  error
