@@ -1,7 +1,6 @@
 package serializers
 
 import (
-	"github.com/nitrous-io/dedicated/nitrous/controllers/github"
 	"github.com/nitrous-io/dedicated/nitrous/models/userprofile"
 )
 
@@ -18,7 +17,7 @@ func SerializeUserProfile(p *userprofile.UserProfile) *UserProfile {
 		UserID:                    p.UserID,
 		MaxHosts:                  p.MaxHosts,
 		Advanced:                  p.Advanced,
-		AuthorizedGitHubUserName:  github.AuthorizedGitHubUserName(p),
-		CanDeleteGitHubPublicKeys: github.CanDeleteGitHubPublicKeys(p),
+		AuthorizedGitHubUserName:  p.AuthorizedGitHubUserName(),
+		CanDeleteGitHubPublicKeys: p.CanDeleteGitHubPublicKeys(),
 	}
 }

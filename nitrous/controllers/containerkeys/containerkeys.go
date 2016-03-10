@@ -11,6 +11,7 @@ import (
 	"github.com/nitrous-io/dedicated/nitrous/middleware"
 	"github.com/nitrous-io/dedicated/nitrous/models/container"
 	"github.com/nitrous-io/dedicated/nitrous/models/host"
+	"github.com/nitrous-io/dedicated/nitrous/models/userprofile"
 	"github.com/nitrous-io/dedicated/nitrous/pkg/httperror"
 	"github.com/nitrous-io/nitrous-common/sshkey"
 )
@@ -104,8 +105,13 @@ func addToGitHub(cn *container.Container, h *host.Host, env *middleware.Env, w h
 }
 
 func getGitHubKeys(cn *container.Container, h *host.Host, env *middleware.Env) ([]string, error) {
-	token, err := github.GetTokenIfValid(env)
+	token, err := userprofile.GetTokenIfValid(env.DB, env.User.ID)
 	if err != nil {
+		if err == userprofile.ErrTokenEmpty {
+			return nil, errGitHubTokenEmpty
+		} else if err == userprofile.ErrTokenNotValid {
+			return nil, errGitHubTokenNotValid
+		}
 		return nil, err
 	}
 
@@ -149,8 +155,13 @@ func getGitHubSSHKeys(cn *container.Container, h *host.Host, env *middleware.Env
 }
 
 func removeGitHubKey(cn *container.Container, h *host.Host, env *middleware.Env) error {
-	token, err := github.GetTokenIfValid(env)
+	token, err := userprofile.GetTokenIfValid(env.DB, env.User.ID)
 	if err != nil {
+		if err == userprofile.ErrTokenEmpty {
+			return errGitHubTokenEmpty
+		} else if err == userprofile.ErrTokenNotValid {
+			return errGitHubTokenNotValid
+		}
 		return err
 	}
 

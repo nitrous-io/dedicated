@@ -103,7 +103,7 @@ var _ = Describe("models/bonus", func() {
 		})
 	})
 
-	Describe("Insert", func() {
+	Describe("EarnedBonus.Insert", func() {
 		It("creates a new record if does not exist and returns error if record exists", func() {
 			bn, err := bonus.FindBySlug(db, "follow-twitter")
 			Expect(err).To(BeNil())
@@ -206,6 +206,33 @@ var _ = Describe("models/bonus", func() {
 			ebns, err := bonus.FindEarnedByUser(db, u.ID+9999)
 			Expect(err).To(BeNil())
 			Expect(ebns).To(HaveLen(0))
+		})
+	})
+
+	Describe("Insert", func() {
+		It("creates a new record if does not exist", func() {
+			bn, err := bonus.FindBySlug(db, "connect-github")
+			Expect(err).ToNot(BeNil())
+			Expect(bn).To(BeNil())
+
+			bn1, err := bonus.Insert(db, "connect-github", 18000)
+			Expect(err).To(BeNil())
+			Expect(bn1.Slug).To(Equal("connect-github"))
+			Expect(bn1.Amount).To(Equal(int64(18000)))
+		})
+
+		It("returns error if record exists", func() {
+			bn, err := bonus.FindBySlug(db, "connect-github")
+			Expect(err).ToNot(BeNil())
+			Expect(bn).To(BeNil())
+
+			bn1, err := bonus.Insert(db, "connect-github", 18000)
+			Expect(err).To(BeNil())
+			Expect(bn1.Slug).To(Equal("connect-github"))
+			Expect(bn1.Amount).To(Equal(int64(18000)))
+
+			_, err = bonus.Insert(db, "connect-github", 18000)
+			Expect(err).ToNot(BeNil())
 		})
 	})
 })

@@ -44,6 +44,13 @@ func FindAll(d db.QueryReceiver) ([]*Bonus, error) {
 	return bns, err
 }
 
+func Insert(d db.QueryReceiver, slug string, amount int64) (*Bonus, error) {
+	bn := &Bonus{}
+	err := d.Get(bn, `INSERT INTO bonuses (slug, amount) VALUES ($1, $2)
+	  RETURNING *;`, slug, amount)
+	return bn, err
+}
+
 func (ebn *EarnedBonus) Insert(d db.QueryReceiver) error {
 	nstmt, err := d.PrepareNamed(`INSERT INTO earned_bonuses (bonus_id, user_id) VALUES (:bonus_id, :user_id) 
 	  RETURNING *;`)
