@@ -37,7 +37,6 @@ var (
 	errFailedToTweet        = httperror.New(http.StatusBadRequest, "tweet_failed", "failed to tweet")
 	errDuplicateTweet       = httperror.New(http.StatusBadRequest, "tweet_failed", "duplicate tweet")
 	errTokenNotFound        = httperror.New(http.StatusNotFound, "token_not_found", "token not found, please connect with twitter")
-	errInvalidBonusAction   = httperror.New(http.StatusNotFound, "bonus_not_found", "the bonus type is invalid")
 	errInvalidOAuthParam    = httperror.New(http.StatusBadRequest, "invalid_param", "invalid oauth param")
 	errBonusAlreadyEarned   = httperror.New(http.StatusForbidden, "forbidden", "you have already earned this bonus")
 	errForbidden            = httperror.New(http.StatusForbidden, "forbidden", "you do not have permission to access the requested resource")
@@ -145,9 +144,13 @@ func OAuthCallback(env *middleware.Env, w http.ResponseWriter, r *http.Request) 
 	bn, err := bonus.FindBySlug(env.DB, "connect-twitter")
 	if err != nil {
 		if err == sql.ErrNoRows {
-			return errInvalidBonusAction
+			bn, err = bonus.Insert(env.DB, "connect-twitter", 10800)
+			if err != nil {
+				return err
+			}
+		} else {
+			return err
 		}
-		return err
 	}
 	if err := env.User.GrantBonus(env.DB, bn); err != nil {
 		if err == bonus.ErrBonusAlreadyEarned {
@@ -199,9 +202,13 @@ func Follow(env *middleware.Env, w http.ResponseWriter, r *http.Request) error {
 	bn, err := bonus.FindBySlug(env.DB, "follow-twitter")
 	if err != nil {
 		if err == sql.ErrNoRows {
-			return errInvalidBonusAction
+			bn, err = bonus.Insert(env.DB, "follow-twitter", 10800)
+			if err != nil {
+				return err
+			}
+		} else {
+			return err
 		}
-		return err
 	}
 	if err := env.User.GrantBonus(env.DB, bn); err != nil {
 		if err == bonus.ErrBonusAlreadyEarned {
@@ -261,9 +268,13 @@ func Tweet(env *middleware.Env, w http.ResponseWriter, r *http.Request) error {
 	bn, err := bonus.FindBySlug(env.DB, "tweet")
 	if err != nil {
 		if err == sql.ErrNoRows {
-			return errInvalidBonusAction
+			bn, err = bonus.Insert(env.DB, "tweet", 18000)
+			if err != nil {
+				return err
+			}
+		} else {
+			return err
 		}
-		return err
 	}
 	if err := env.User.GrantBonus(env.DB, bn); err != nil {
 		if err == bonus.ErrBonusAlreadyEarned {

@@ -54,8 +54,9 @@ func Earn(env *middleware.Env, w http.ResponseWriter, r *http.Request) error {
 	if err != nil {
 		if err == sql.ErrNoRows {
 			return errInvalidBonusAction
+		} else {
+			return err
 		}
-		return err
 	}
 
 	if err := u.GrantBonus(env.DB, bn); err != nil {

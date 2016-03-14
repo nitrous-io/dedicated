@@ -171,15 +171,6 @@ var _ = Describe("controllers/twitter", func() {
 			Expect(errDesc).To(Equal("you do not have permission to access the requested resource"))
 		})
 
-		It("returns not found if bonus action does not exist in db", func() {
-			res := doRequest("mock-request-token", "mock-oauth-verifier")
-			Expect(res.Code).To(Equal(http.StatusNotFound))
-
-			errSlug, errDesc := test.ErrorSlug(res.Body)
-			Expect(errSlug).To(Equal("bonus_not_found"))
-			Expect(errDesc).To(Equal("the bonus type is invalid"))
-		})
-
 		It("returns not found if user does not have free host", func() {
 			_, err := db.Exec(`INSERT INTO bonuses (slug, amount) VALUES ('connect-twitter', 12345);`)
 			Expect(err).To(BeNil())
@@ -271,18 +262,6 @@ var _ = Describe("controllers/twitter", func() {
 			Expect(errDesc).To(Equal("token not found, please connect with twitter"))
 		})
 
-		It("returns error if there is no bonus record", func() {
-			_, err := db.Exec(`INSERT INTO oauth_tokens (user_id, service, nitrous_token, request_token, access_token, secret) VALUES ($1, 'twitter', 'random', 'mock-request-token', 'mock-access-token', 'mock-token-secret');`, u.ID)
-			Expect(err).To(BeNil())
-
-			res := doRequest()
-			Expect(res.Code).To(Equal(http.StatusNotFound))
-
-			errSlug, errDesc := test.ErrorSlug(res.Body)
-			Expect(errSlug).To(Equal("bonus_not_found"))
-			Expect(errDesc).To(Equal("the bonus type is invalid"))
-		})
-
 		It("returns error if the bonus is already earned", func() {
 			_, err := db.Exec(`INSERT INTO oauth_tokens (user_id, service, nitrous_token, request_token, access_token, secret) VALUES ($1, 'twitter', 'random', 'mock-request-token', 'mock-access-token', 'mock-token-secret');`, u.ID)
 			Expect(err).To(BeNil())
@@ -359,18 +338,6 @@ var _ = Describe("controllers/twitter", func() {
 			errSlug, errDesc := test.ErrorSlug(res.Body)
 			Expect(errSlug).To(Equal("token_not_found"))
 			Expect(errDesc).To(Equal("token not found, please connect with twitter"))
-		})
-
-		It("returns error if there is no bonus record", func() {
-			_, err := db.Exec(`INSERT INTO oauth_tokens (user_id, service, nitrous_token, request_token, access_token, secret) VALUES ($1, 'twitter', 'random', 'mock-request-token', 'mock-access-token', 'mock-token-secret');`, u.ID)
-			Expect(err).To(BeNil())
-
-			res := doRequest()
-			Expect(res.Code).To(Equal(http.StatusNotFound))
-
-			errSlug, errDesc := test.ErrorSlug(res.Body)
-			Expect(errSlug).To(Equal("bonus_not_found"))
-			Expect(errDesc).To(Equal("the bonus type is invalid"))
 		})
 
 		It("returns error if the bonus is already earned", func() {

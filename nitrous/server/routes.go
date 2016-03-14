@@ -108,6 +108,7 @@ func (s *Server) drawRoutes() {
 		s.route("/events", routeWritesResponse, mw.AuthQS(mw.Call("events.Stream", events.Stream)), RouteOpts{Methods: []string{"GET"}, LogParams: true})
 		s.route("/hosts/{id}/activity", routeWritesResponse, mw.AuthQS(mw.Call("pinger.ForHost", pinger.ForHost)), RouteOpts{Methods: []string{"GET"}, LogParams: true})
 		s.route("/oauth/authorize", routeJSON, chainMiddleware(false, r("oauth.GetAuthorize", oauth.GetAuthorize)), RouteOpts{Methods: []string{"GET"}, LogParams: true})
+		s.route("/usersurvey/webhook_cb", routeJSON, chainMiddleware(false, r("usersurvey.WebhookCallback", usersurvey.WebhookCallback)), RouteOpts{Methods: []string{"POST"}, LogParams: true})
 
 		nonAuth := map[string]map[string]routeData{
 			"GET": {
