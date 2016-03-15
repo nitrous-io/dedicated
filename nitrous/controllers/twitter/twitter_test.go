@@ -52,7 +52,6 @@ var _ = Describe("controllers/twitter", func() {
 		t       *token.Token
 		u       *user.User
 		ft      *test.FakeTracker
-		res     *httptest.ResponseRecorder
 		handler *mux.Router
 	)
 
@@ -68,7 +67,6 @@ var _ = Describe("controllers/twitter", func() {
 		ft = test.NewFakeTracker()
 		svr = test.NewTestServer("", db, ft)
 		handler = svr.Router()
-		res = httptest.NewRecorder()
 
 		u = &user.User{
 			Username: "alice",
