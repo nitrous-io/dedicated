@@ -163,9 +163,6 @@ func OAuthCallback(env *middleware.Env, w http.ResponseWriter, r *http.Request) 
 
 	http.Redirect(w, r, redirectUrl, http.StatusFound)
 
-	env.Status = http.StatusFound
-	env.Data = map[string]interface{}{}
-
 	return nil
 }
 
