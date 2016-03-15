@@ -1,20 +1,12 @@
 ---
 - hosts: userhosts
   vars:
-    - freighterd_version: 1.8.1.1+1445362831-466-1c685ca
+    - freighterd_version: 1.8.1.1+1457608649-534-b407727
   gather_facts: no
   sudo: yes
   tasks:
-  - name: install ntp
-    apt: name=ntp state=present force=yes
-  - name: copy block-ec2-metadata upstart
-    copy: src=files/block-ec2-metadata.conf dest=/etc/init/block-ec2-metadata.conf backup=yes mode=0644
-  - shell: ip route ls type unreachable
-    register: blocked_routes
-    changed_when: false
-  - name: run block-ec2-metadata
-    service: name=block-ec2-metadata state=started
-    when: blocked_routes.stdout.find('169.254.169.254') == -1
-  - name: latest freighter
+  - name: remove apt lists in case there are corrupted ones
+    shell: rm -rf /var/lib/apt/lists/*
+  - name: install freighterd package
     apt: name=freighterd={{ freighterd_version }} state=present update_cache=yes
 

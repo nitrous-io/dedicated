@@ -29,7 +29,9 @@ ansible_ssh_port=65100
 ansible_ssh_user=ubuntu
 
 [userhosts]
-{{ range .Hosts }}
+{{ range .Hosts -}}
+{{ if .IPAddress.Valid -}}
 {{ .Slug }} ansible_ssh_host={{ .IPAddress.String }} ansible_ssh_private_key_file={{ .FullKeyPath }}
-{{ end }}
+{{ end -}}
+{{ end -}}
 `
