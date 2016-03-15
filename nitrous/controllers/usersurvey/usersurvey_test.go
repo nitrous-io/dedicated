@@ -6,8 +6,8 @@ import (
 	"net/url"
 	"testing"
 
-	"github.com/nitrous-io/dedicated/nitrous/controllers/usersurvey"
 	"github.com/nitrous-io/dedicated/nitrous/db"
+	"github.com/nitrous-io/dedicated/nitrous/envvars"
 	"github.com/nitrous-io/dedicated/nitrous/models/bonus"
 	"github.com/nitrous-io/dedicated/nitrous/models/host"
 	"github.com/nitrous-io/dedicated/nitrous/models/token"
@@ -88,7 +88,7 @@ var _ = Describe("controllers/usersurvey", func() {
 		})
 
 		It("returns not found if email does not exist", func() {
-			res := doRequest(usersurvey.WufooHandshakeKey, "an-invalid-email")
+			res := doRequest(envvars.WufooHandshakeKey, "an-invalid-email")
 			Expect(res.Code).To(Equal(http.StatusNotFound))
 
 			errSlug, errDesc := test.ErrorSlug(res.Body)
@@ -97,7 +97,7 @@ var _ = Describe("controllers/usersurvey", func() {
 		})
 
 		It("returns forbidden if user does not have free host", func() {
-			res := doRequest(usersurvey.WufooHandshakeKey, u.Username)
+			res := doRequest(envvars.WufooHandshakeKey, u.Username)
 			Expect(res.Code).To(Equal(http.StatusForbidden))
 
 			errSlug, errDesc := test.ErrorSlug(res.Body)
@@ -115,7 +115,7 @@ var _ = Describe("controllers/usersurvey", func() {
 			})
 			Expect(err).To(BeNil())
 
-			res := doRequest(usersurvey.WufooHandshakeKey, u.Username)
+			res := doRequest(envvars.WufooHandshakeKey, u.Username)
 			Expect(res.Code).To(Equal(http.StatusFound))
 			Expect(res.HeaderMap.Get("Location")).To(ContainSubstring("earn-bonuses?completed_survey=true"))
 

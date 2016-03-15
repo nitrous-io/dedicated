@@ -12,10 +12,6 @@ import (
 	"github.com/nitrous-io/dedicated/nitrous/pkg/httperror"
 )
 
-const (
-	WufooHandshakeKey = "nitrousWufooHSKey"
-)
-
 var (
 	errBonusAlreadyEarned     = httperror.New(http.StatusForbidden, "forbidden", "you have already earned this bonus")
 	errUserIneligibleForBonus = httperror.New(http.StatusForbidden, "user_ineligible_for_bonus", "you are not eligible for bonus")
@@ -28,7 +24,7 @@ var (
 // http://help.wufoo.com/articles/en_US/SurveyMonkeyArticleType/Webhooks
 func WebhookCallback(env *middleware.Env, w http.ResponseWriter, r *http.Request) error {
 	handshakeKey := r.FormValue("HandshakeKey")
-	if handshakeKey != WufooHandshakeKey {
+	if handshakeKey != envvars.WufooHandshakeKey {
 		return errInvalidHandshakeKey
 	}
 
