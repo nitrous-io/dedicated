@@ -43,6 +43,7 @@ import (
 	"github.com/nitrous-io/dedicated/nitrous/controllers/userprofiles"
 	"github.com/nitrous-io/dedicated/nitrous/controllers/users"
 	"github.com/nitrous-io/dedicated/nitrous/controllers/usersettings"
+	"github.com/nitrous-io/dedicated/nitrous/controllers/usersurvey"
 	"github.com/nitrous-io/dedicated/nitrous/controllers/volumes"
 	"github.com/nitrous-io/dedicated/nitrous/envvars"
 	mw "github.com/nitrous-io/dedicated/nitrous/middleware"
@@ -97,6 +98,7 @@ func (s *Server) drawRoutes() {
 	s.route("/api/v0/github/oauth_cb", routeWritesResponse, mw.Call("github.OAuthCallback", github.OAuthCallback), RouteOpts{Methods: []string{"GET"}, LogParams: true})
 	s.route("/api/v0/twitter/oauth_cb", routeWritesResponse, mw.Call("twitter.OAuthCallback", twitter.OAuthCallback), RouteOpts{Methods: []string{"GET"}, LogParams: true})
 	s.route("/project/new", routeWritesResponse, mw.Call("hack.New", hack.New), RouteOpts{Methods: []string{"GET"}, LogParams: true})
+	s.route("/api/v0/usersurvey/webhook_cb", routeWritesResponse, mw.Call("usersurvey.WebhookCallback", usersurvey.WebhookCallback), RouteOpts{Methods: []string{"POST"}, LogParams: true})
 
 	if envvars.Debug == "true" {
 		s.router.HandleFunc("/sleep", s.sleep).Methods("GET")
@@ -204,7 +206,7 @@ func (s *Server) drawRoutes() {
 				"/github/authorize":                        r("github.Authorize", github.Authorize),
 				"/user/profile":                            r("userprofiles.Update", userprofiles.Update),
 				"/user/settings":                           r("usersettings.Update", usersettings.Update),
-				"/user/bonus":                              r("users.IncrementUsageQuota", users.IncrementUsageQuota),
+				"/bonuses/earn":                            r("bonuses.Earn", bonuses.Earn),
 				"/coupons":                                 r("coupon.Create", coupons.Create),
 				"/user/dismiss_first_time":                 r("users.DismissFirstTime", users.DismissFirstTime),
 				"/hosts":                                   r("hosts.Create", hosts.Create, EventHostCreated),

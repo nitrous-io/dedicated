@@ -80,6 +80,8 @@ var (
 	TwitterOAuthConsumerKey    = os.Getenv("TWITTER_CONSUMER_KEY")
 	TwitterOAuthConsumerSecret = os.Getenv("TWITTER_CONSUMER_SECRET")
 
+	WufooHandshakeKey = os.Getenv("WUFOO_HANDSHAKE_KEY")
+
 	SecretToken = os.Getenv("SECRET_TOKEN")
 
 	QueueType    = os.Getenv("QUEUE_TYPE")
