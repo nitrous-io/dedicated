@@ -171,16 +171,16 @@ var _ = Describe("controllers/twitter", func() {
 			Expect(errDesc).To(Equal("you do not have permission to access the requested resource"))
 		})
 
-		It("returns not found if user does not have free host", func() {
+		It("returns forbidden if user does not have free host", func() {
 			_, err := db.Exec(`INSERT INTO bonuses (slug, amount) VALUES ('connect-twitter', 12345);`)
 			Expect(err).To(BeNil())
 
 			res := doRequest("mock-request-token", "mock-oauth-verifier")
-			Expect(res.Code).To(Equal(http.StatusNotFound))
+			Expect(res.Code).To(Equal(http.StatusForbidden))
 
 			errSlug, errDesc := test.ErrorSlug(res.Body)
-			Expect(errSlug).To(Equal("user_not_found"))
-			Expect(errDesc).To(Equal("user eligible for bonus not found"))
+			Expect(errSlug).To(Equal("ineligible_for_bonus"))
+			Expect(errDesc).To(Equal("you are not eligible for bonus"))
 		})
 
 		It("updates db with access token and secret and redirects", func() {

@@ -184,6 +184,7 @@ var _ = Describe("controllers/bonuses", func() {
 			Expect(serializedEarnedBonuses[0].BonusID).To(Equal(bn.ID))
 		})
 	})
+
 	Describe("POST /api/v0/bonuses/earn", func() {
 		var (
 			threeHours = int64(3 * 60 * 60) // in seconds
@@ -242,6 +243,21 @@ var _ = Describe("controllers/bonuses", func() {
 			Expect(serializedEarnedBonuses).To(HaveLen(1))
 			Expect(serializedEarnedBonuses[0].UserID).To(Equal(u.ID))
 			Expect(serializedEarnedBonuses[0].BonusID).To(Equal(bn.ID))
+		})
+
+		It("returns forbidden if user ineligible for bonus", func() {
+			_, err := db.Exec("INSERT INTO bonuses (slug, amount) VALUES ('follow-twitter', 10800);")
+			Expect(err).To(BeNil())
+
+			params := &url.Values{}
+			params.Set("action", "follow-twitter")
+
+			doRequest(params)
+			Expect(res.Code).To(Equal(http.StatusForbidden))
+
+			errSlug, errDesc := test.ErrorSlug(res.Body)
+			Expect(errSlug).To(Equal("ineligible_for_bonus"))
+			Expect(errDesc).To(Equal("you are not eligible for bonus"))
 		})
 
 		It("should return not found if the bonus type is not valid", func() {

@@ -13,7 +13,7 @@ import (
 var (
 	errInvalidBonusAction     = httperror.New(http.StatusNotFound, "bonus_not_found", "the bonus type is invalid")
 	errBonusAlreadyEarned     = httperror.New(http.StatusForbidden, "forbidden", "you have already earned this bonus")
-	errUserIneligibleForBonus = httperror.New(http.StatusForbidden, "user_ineligible_for_bonus", "you are not eligible for bonus")
+	errUserIneligibleForBonus = httperror.New(http.StatusForbidden, "ineligible_for_bonus", "you are not eligible for bonus")
 )
 
 func Index(env *middleware.Env, w http.ResponseWriter, r *http.Request) error {
