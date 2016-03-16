@@ -86,6 +86,9 @@ type Host struct {
 	// this host. This is copied over from the associated Plan so that it can
 	// be changed independently when necessary.
 	MaxContainers sql.NullInt64 `db:"max_containers"`
+	// ContainerCount is the number of unterminated containers on this host.
+	// It's selected from the containers table and is not always present.
+	ContainerCount sql.NullInt64 `db:"container_count"`
 
 	// Size is currently the name of the plan of this host. This is copied over
 	// from the associated Plan since size is often read.
@@ -150,11 +153,12 @@ type HostWithUser struct {
 
 func FindAllByProvider(db *db.Database, provider string) ([]*Host, error) {
 	hosts := []*Host{}
-	err := db.Select(&hosts, `SELECT hosts.*, username FROM hosts
-		INNER JOIN provider_templates pt
-			ON hosts.provider_template_id = pt.id
-		INNER JOIN users
-			ON users.id = hosts.user_id
+	err := db.Select(&hosts, `SELECT hosts.*, username
+		FROM hosts
+			INNER JOIN provider_templates pt
+				ON hosts.provider_template_id = pt.id
+			INNER JOIN users
+				ON users.id = hosts.user_id
 		WHERE hosts.terminated_at IS NULL AND pt.provider = $1
 		ORDER BY id;`, provider)
 	if err != nil {
@@ -165,18 +169,21 @@ func FindAllByProvider(db *db.Database, provider string) ([]*Host, error) {
 
 func FindAllByUser(db db.QueryReceiver, userID int64) ([]*Host, error) {
 	hosts := []*Host{}
-	err := db.Select(&hosts, `SELECT hosts.*, pt.provider, pt.config, sub.slug AS subscription_slug, orgs.slug AS org_slug
-			FROM hosts
+	err := db.Select(&hosts, `SELECT
+			hosts.*, pt.provider, pt.config, sub.slug AS subscription_slug,
+			orgs.slug AS org_slug,
+			(SELECT COUNT(*) FROM containers WHERE host_id = hosts.id AND terminated_at IS NULL) AS container_count
+		FROM hosts
 			INNER JOIN provider_templates AS pt ON hosts.provider_template_id = pt.id
 			LEFT JOIN subscriptions AS sub ON hosts.subscription_id = sub.id
 			LEFT JOIN orgs ON hosts.org_id = orgs.id
-			WHERE user_id = $1 AND terminated_at IS NULL
-				AND hosts.state NOT IN ($2, $3)
-				AND (
-					sub.state IS NULL OR -- users with no subscriptions still exist
-					sub.state != $4 -- deleted subscriptions should not be visible to the user
-				)
-			ORDER BY id;`,
+		WHERE user_id = $1 AND terminated_at IS NULL
+			AND hosts.state NOT IN ($2, $3)
+			AND (
+				sub.state IS NULL OR -- users with no subscriptions still exist
+				sub.state != $4 -- deleted subscriptions should not be visible to the user
+			)
+		ORDER BY id;`,
 		userID, StateOrphan, StateMigrating, subscription.StateDeleted)
 	if err != nil {
 		return nil, err
@@ -186,13 +193,15 @@ func FindAllByUser(db db.QueryReceiver, userID int64) ([]*Host, error) {
 
 func FindAllUnterminated(db db.QueryReceiver, userID int64) ([]*Host, error) {
 	hosts := []*Host{}
-	err := db.Select(&hosts, `SELECT hosts.*, pt.provider, pt.config, sub.slug AS subscription_slug, orgs.slug AS org_slug
-			FROM hosts
+	err := db.Select(&hosts, `SELECT
+			hosts.*, pt.provider, pt.config, sub.slug AS subscription_slug,
+			orgs.slug AS org_slug
+		FROM hosts
 			INNER JOIN provider_templates AS pt ON hosts.provider_template_id = pt.id
 			LEFT JOIN subscriptions AS sub ON hosts.subscription_id = sub.id
 			LEFT JOIN orgs ON hosts.org_id = orgs.id
-			WHERE user_id = $1 AND terminated_at IS NULL
-			ORDER BY id;`,
+		WHERE user_id = $1 AND terminated_at IS NULL
+		ORDER BY id;`,
 		userID)
 	if err != nil {
 		return nil, err
@@ -202,20 +211,22 @@ func FindAllUnterminated(db db.QueryReceiver, userID int64) ([]*Host, error) {
 
 func FindAllByUserAndOrg(db db.QueryReceiver, userID, orgID int64) ([]*Host, error) {
 	hosts := []*Host{}
-	err := db.Select(&hosts, `SELECT hosts.*, pt.provider, pt.config, sub.slug AS subscription_slug, orgs.slug AS org_slug
-			FROM hosts
+	err := db.Select(&hosts, `SELECT
+			hosts.*, pt.provider, pt.config, sub.slug AS subscription_slug,
+			orgs.slug AS org_slug
+		FROM hosts
 			INNER JOIN provider_templates AS pt ON hosts.provider_template_id = pt.id
 			LEFT JOIN subscriptions AS sub ON hosts.subscription_id = sub.id
 			INNER JOIN orgs ON hosts.org_id = orgs.id
-			WHERE user_id = $1
-				AND org_id = $2
-				AND terminated_at IS NULL
-				AND hosts.state NOT IN ($3, $4)
-				AND (
-					sub.state IS NULL OR -- users with no subscriptions still exist
-					sub.state != $5 -- deleted subscriptions should not be visible to the user
-				)
-			ORDER BY id;`,
+		WHERE user_id = $1
+			AND org_id = $2
+			AND terminated_at IS NULL
+			AND hosts.state NOT IN ($3, $4)
+			AND (
+				sub.state IS NULL OR -- users with no subscriptions still exist
+				sub.state != $5 -- deleted subscriptions should not be visible to the user
+			)
+		ORDER BY id;`,
 		userID, orgID, StateOrphan, StateMigrating, subscription.StateDeleted)
 	if err != nil {
 		return nil, err
@@ -302,7 +313,10 @@ func Find(db *db.Database, user *user.User, identifier string) (*Host, error) {
 	if err != nil {
 		// If we can't parse an int, identifier is a slug.
 		err = db.Get(host,
-			`SELECT hosts.*, pt.provider, pt.config, sub.slug AS subscription_slug, orgs.slug AS org_slug
+			`SELECT
+				hosts.*, pt.provider, pt.config, sub.slug AS subscription_slug,
+				orgs.slug AS org_slug,
+				(SELECT COUNT(*) FROM containers WHERE host_id = hosts.id AND terminated_at IS NULL) AS container_count
 			FROM hosts
 			INNER JOIN provider_templates AS pt ON hosts.provider_template_id = pt.id
 			LEFT JOIN subscriptions AS sub ON hosts.subscription_id = sub.id
@@ -314,7 +328,10 @@ func Find(db *db.Database, user *user.User, identifier string) (*Host, error) {
 			AND terminated_at IS NULL;`, identifier, user.ID)
 	} else {
 		err = db.Get(host,
-			`SELECT hosts.*, pt.provider, pt.config, sub.slug AS subscription_slug, orgs.slug AS org_slug
+			`SELECT
+				hosts.*, pt.provider, pt.config, sub.slug AS subscription_slug,
+				orgs.slug AS org_slug,
+				(SELECT COUNT(*) FROM containers WHERE host_id = hosts.id AND terminated_at IS NULL) AS container_count
 			FROM hosts
 			INNER JOIN provider_templates AS pt ON hosts.provider_template_id = pt.id
 			LEFT JOIN subscriptions AS sub ON hosts.subscription_id = sub.id
@@ -344,7 +361,9 @@ func FindShared(db *db.Database, user *user.User, identifier string) (*Host, err
 	if err != nil {
 		// If we can't parse an int, identifier is a slug.
 		err = db.Get(host,
-			`SELECT hosts.*, pt.provider, pt.config, sub.slug AS subscription_slug, orgs.slug AS org_slug
+			`SELECT
+				hosts.*, pt.provider, pt.config, sub.slug AS subscription_slug,
+				orgs.slug AS org_slug
 			FROM hosts
 			INNER JOIN provider_templates AS pt ON hosts.provider_template_id = pt.id
 			INNER JOIN containers AS c ON hosts.id = c.host_id
@@ -355,7 +374,9 @@ func FindShared(db *db.Database, user *user.User, identifier string) (*Host, err
 			AND hosts.terminated_at IS NULL;`, user.ID, identifier)
 	} else {
 		err = db.Get(host,
-			`SELECT hosts.*, pt.provider, pt.config, sub.slug AS subscription_slug, orgs.slug AS org_slug
+			`SELECT
+				hosts.*, pt.provider, pt.config, sub.slug AS subscription_slug,
+				orgs.slug AS org_slug
 			FROM hosts
 			INNER JOIN provider_templates AS pt ON hosts.provider_template_id = pt.id
 			INNER JOIN containers AS c ON hosts.id = c.host_id
@@ -383,7 +404,10 @@ func FindByIdentifier(db db.QueryReceiver, identifier string) (*Host, error) {
 	if err != nil {
 		// If we can't parse an int, identifier is a slug.
 		err = db.Get(host,
-			`SELECT hosts.*, pt.provider, pt.config, sub.slug AS subscription_slug, orgs.slug AS org_slug
+			`SELECT
+				hosts.*, pt.provider, pt.config, sub.slug AS subscription_slug,
+				orgs.slug AS org_slug,
+				(SELECT COUNT(*) FROM containers WHERE host_id = hosts.id AND terminated_at IS NULL) AS container_count
 			FROM hosts
 			INNER JOIN provider_templates AS pt ON hosts.provider_template_id = pt.id
 			LEFT JOIN subscriptions AS sub ON hosts.subscription_id = sub.id
@@ -392,7 +416,10 @@ func FindByIdentifier(db db.QueryReceiver, identifier string) (*Host, error) {
 			AND terminated_at IS NULL;`, identifier)
 	} else {
 		err = db.Get(host,
-			`SELECT hosts.*, pt.provider, pt.config, sub.slug AS subscription_slug, orgs.slug AS org_slug
+			`SELECT
+				hosts.*, pt.provider, pt.config, sub.slug AS subscription_slug,
+				orgs.slug AS org_slug,
+				(SELECT COUNT(*) FROM containers WHERE host_id = hosts.id AND terminated_at IS NULL) AS container_count
 			FROM hosts
 			INNER JOIN provider_templates AS pt ON hosts.provider_template_id = pt.id
 			LEFT JOIN subscriptions AS sub ON hosts.subscription_id = sub.id
