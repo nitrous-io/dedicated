@@ -199,6 +199,19 @@ var _ = Describe("controllers/quickstart", func() {
 			Expect(u.ConfirmationToken.Valid).To(Equal(false))
 			Expect(bp.State).To(Equal(billingprofile.StateFree))
 		})
+
+		It("returns error if template slug does not exist", func() {
+			_, err := db.Exec(`UPDATE users
+				SET confirmation_sent_at = now()
+				WHERE id = $1;`, hs.U.ID)
+			Expect(err).To(BeNil())
+			// delete all templates to make nitrous.json template invalid
+			_, err = db.Exec(`DELETE FROM templates;`)
+			Expect(err).To(BeNil())
+
+			res := doRequest("https://github.com/yeouchien/hack.git")
+			Expect(res.Code).To(Equal(http.StatusForbidden))
+		})
 	})
 
 	Describe("POST /api/v0/quickstart", func() {

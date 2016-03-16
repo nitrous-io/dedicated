@@ -119,7 +119,7 @@ func RepoInfo(env *mw.Env, w http.ResponseWriter, r *http.Request) error {
 		return err
 	}
 
-	if err := validateRepoInfo(&repoInfo); err != nil {
+	if err := validateRepoInfo(&repoInfo, env); err != nil {
 		return err
 	}
 
@@ -170,11 +170,25 @@ func Create(env *mw.Env, w http.ResponseWriter, r *http.Request) error {
 	return nil
 }
 
-func validateRepoInfo(repoInfo *repository) error {
-	if repoInfo.Template == "" {
+func validateRepoInfo(repoInfo *repository, env *mw.Env) error {
+	valid := false
+
+	tmpls, err := template.All(env.DB)
+	if err != nil {
+		return err
+	}
+
+	for _, tmpl := range tmpls {
+		if tmpl.Slug == repoInfo.Template {
+			valid = true
+		}
+	}
+
+	if valid {
+		return nil
+	} else {
 		return errRepoInfo
 	}
-	return nil
 }
 
 func confirmEmail(env *mw.Env) error {
