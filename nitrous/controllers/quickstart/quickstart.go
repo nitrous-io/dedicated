@@ -1,4 +1,4 @@
-package hack
+package quickstart
 
 import (
 	"encoding/json"
@@ -60,7 +60,7 @@ func New(env *mw.Env, w http.ResponseWriter, r *http.Request) error {
 
 	query := url.Values{}
 	query.Set("repo", repo)
-	redirectURL := fmt.Sprintf("/app/#/dashboard/hack?%s", query.Encode())
+	redirectURL := fmt.Sprintf("/app/#/dashboard/quickstart?%s", query.Encode())
 	http.Redirect(w, r, redirectURL, http.StatusMovedPermanently)
 	return nil
 }
@@ -128,7 +128,7 @@ func RepoInfo(env *mw.Env, w http.ResponseWriter, r *http.Request) error {
 
 	env.Status = http.StatusOK
 	env.Data = map[string]interface{}{
-		"hack": repoInfo,
+		"quickstart": repoInfo,
 	}
 
 	return nil

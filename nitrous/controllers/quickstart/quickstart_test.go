@@ -1,4 +1,4 @@
-package hack_test
+package quickstart_test
 
 import (
 	"database/sql"
@@ -11,7 +11,7 @@ import (
 
 	"github.com/gorilla/mux"
 
-	"github.com/nitrous-io/dedicated/nitrous/controllers/hack"
+	"github.com/nitrous-io/dedicated/nitrous/controllers/quickstart"
 	"github.com/nitrous-io/dedicated/nitrous/db"
 	"github.com/nitrous-io/dedicated/nitrous/models/billingprofile"
 	"github.com/nitrous-io/dedicated/nitrous/models/host"
@@ -25,10 +25,10 @@ import (
 
 func Test(t *testing.T) {
 	RegisterFailHandler(Fail)
-	RunSpecs(t, "controllers/hack")
+	RunSpecs(t, "controllers/quickstart")
 }
 
-var _ = Describe("controllers/hack", func() {
+var _ = Describe("controllers/quickstart", func() {
 	var (
 		db      *db.Database
 		handler *mux.Router
@@ -45,7 +45,7 @@ var _ = Describe("controllers/hack", func() {
 		ft = test.NewFakeTracker()
 		svr = test.NewTestServer("", db, ft)
 		handler = svr.Router()
-		hack.GithubRepoClient = &test.FakeRepoClient{}
+		quickstart.GithubRepoClient = &test.FakeRepoClient{}
 
 		hs, err = test.CreateHostStack(db, &test.HostStack{
 			H: &host.Host{
@@ -69,10 +69,10 @@ var _ = Describe("controllers/hack", func() {
 		}
 	})
 
-	Describe("GET /project/new", func() {
+	Describe("GET /quickstart", func() {
 		doRequest := func(params *url.Values, referer string) *httptest.ResponseRecorder {
 			var err error
-			req, err := test.NewRequest("GET", "/project/new", params)
+			req, err := test.NewRequest("GET", "/quickstart", params)
 			req.Header.Set("Referer", referer)
 			Expect(err).To(BeNil())
 			res := httptest.NewRecorder()
@@ -80,19 +80,19 @@ var _ = Describe("controllers/hack", func() {
 			return res
 		}
 
-		It("redirects to hack dashboard with repo url value from query string", func() {
+		It("redirects to quickstart dashboard with repo url value from query string", func() {
 			params := &url.Values{}
 			params.Set("repo", "https://github.com/yeouchien/hack.git")
 			res := doRequest(params, "")
 			Expect(res.Code).To(Equal(http.StatusMovedPermanently))
-			redirectURL := "/app/#/dashboard/hack?repo=https%3A%2F%2Fgithub.com%2Fyeouchien%2Fhack.git"
+			redirectURL := "/app/#/dashboard/quickstart?repo=https%3A%2F%2Fgithub.com%2Fyeouchien%2Fhack.git"
 			Expect(res.Header().Get("Location")).To(Equal(redirectURL))
 		})
 
-		It("redirects to hack dashboard with repo url value from http referer", func() {
+		It("redirects to quickstart dashboard with repo url value from http referer", func() {
 			res := doRequest(nil, "https://github.com/yeouchien/hack.git")
 			Expect(res.Code).To(Equal(http.StatusMovedPermanently))
-			redirectURL := "/app/#/dashboard/hack?repo=https%3A%2F%2Fgithub.com%2Fyeouchien%2Fhack.git"
+			redirectURL := "/app/#/dashboard/quickstart?repo=https%3A%2F%2Fgithub.com%2Fyeouchien%2Fhack.git"
 			Expect(res.Header().Get("Location")).To(Equal(redirectURL))
 		})
 
@@ -103,13 +103,13 @@ var _ = Describe("controllers/hack", func() {
 		})
 	})
 
-	Describe("GET /api/v0/hack/repo_info", func() {
+	Describe("GET /api/v0/quickstart/repo_info", func() {
 		doRequest := func(repoUrl, token string) *httptest.ResponseRecorder {
 			params := &url.Values{}
 			if repoUrl != "" {
 				params.Set("repo", repoUrl)
 			}
-			req, err := test.NewRequest("GET", "/api/v0/hack/repo_info", params)
+			req, err := test.NewRequest("GET", "/api/v0/quickstart/repo_info", params)
 			Expect(err).To(BeNil())
 			req.Header.Set("Authorization", fmt.Sprintf("Bearer %s", token))
 			res := httptest.NewRecorder()
@@ -127,19 +127,19 @@ var _ = Describe("controllers/hack", func() {
 			Expect(res.Code).To(Equal(http.StatusOK))
 
 			var j struct {
-				Hack struct {
+				Quickstart struct {
 					Owner    string  `json:"owner"`
 					RepoName string  `json:"repo_name"`
 					Template string  `json:"template"`
 					Ports    []int64 `json:"ports"`
-				} `json:"hack"`
+				} `json:"quickstart"`
 			}
 			err = json.NewDecoder(res.Body).Decode(&j)
 			Expect(err).To(BeNil())
 
-			Expect(j.Hack.Template).To(Equal("rails"))
-			Expect(j.Hack.Owner).To(Equal("owner"))
-			Expect(j.Hack.RepoName).To(Equal("repo-name"))
+			Expect(j.Quickstart.Template).To(Equal("rails"))
+			Expect(j.Quickstart.Owner).To(Equal("owner"))
+			Expect(j.Quickstart.RepoName).To(Equal("repo-name"))
 		})
 
 		It("confirms user automatically if they have not yet confirmed their email", func() {
