@@ -54,7 +54,7 @@ func All(d db.QueryReceiver) ([]*Template, error) {
 	return tmpls, nil
 }
 
-func Find(d db.QueryReceiver, slug string) (*Template, error) {
+func FindBySlug(d db.QueryReceiver, slug string) (*Template, error) {
 	tmpl := &Template{}
 	err := d.Get(tmpl, `SELECT * FROM templates WHERE slug = $1;`, slug)
 	if err != nil {

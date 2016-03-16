@@ -322,7 +322,7 @@ func validateCreateAtomicForm(r *http.Request) error {
 }
 
 func fromTemplate(d ndb.QueryReceiver, templateSlug string) (string, *freighterclient.ContainerConfig, error) {
-	tmpl, err := template.Find(d, templateSlug)
+	tmpl, err := template.FindBySlug(d, templateSlug)
 	if err != nil {
 		return "", nil, err
 	}
