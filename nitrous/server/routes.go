@@ -253,6 +253,7 @@ func (s *Server) drawRoutes() {
 				"/twitter/connect":                   r("twitter.Connect", twitter.Connect),
 				"/twitter/follow":                    r("twitter.Follow", twitter.Follow),
 				"/twitter/tweet":                     r("twitter.Tweet", twitter.Tweet),
+				"/quickstart":                        r("quickstart.Create", quickstart.Create),
 			},
 			"PUT": {
 				"/users":                            r("users.Update", users.Update, EventUserUpdatedProfile),

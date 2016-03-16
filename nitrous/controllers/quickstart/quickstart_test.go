@@ -7,6 +7,7 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"net/url"
+	"strconv"
 	"testing"
 
 	"github.com/gorilla/mux"
@@ -14,7 +15,10 @@ import (
 	"github.com/nitrous-io/dedicated/nitrous/controllers/quickstart"
 	"github.com/nitrous-io/dedicated/nitrous/db"
 	"github.com/nitrous-io/dedicated/nitrous/models/billingprofile"
+	"github.com/nitrous-io/dedicated/nitrous/models/container"
 	"github.com/nitrous-io/dedicated/nitrous/models/host"
+	qs "github.com/nitrous-io/dedicated/nitrous/models/quickstart"
+	"github.com/nitrous-io/dedicated/nitrous/models/template"
 	"github.com/nitrous-io/dedicated/nitrous/models/token"
 	"github.com/nitrous-io/dedicated/nitrous/models/user"
 	"github.com/nitrous-io/dedicated/nitrous/server"
@@ -36,6 +40,8 @@ var _ = Describe("controllers/quickstart", func() {
 		ft      *test.FakeTracker
 		hs      *test.HostStack
 		t       *token.Token
+		tmpl    *template.Template
+		c       *container.Container
 	)
 
 	BeforeEach(func() {
@@ -45,6 +51,7 @@ var _ = Describe("controllers/quickstart", func() {
 		ft = test.NewFakeTracker()
 		svr = test.NewTestServer("", db, ft)
 		handler = svr.Router()
+
 		quickstart.GithubRepoClient = &test.FakeRepoClient{}
 
 		hs, err = test.CreateHostStack(db, &test.HostStack{
@@ -54,13 +61,37 @@ var _ = Describe("controllers/quickstart", func() {
 				MaxContainers: sql.NullInt64{1, true},
 			},
 		})
+		Expect(err).To(BeNil())
 
 		t = &token.Token{
 			UserID: hs.U.ID,
 			Token:  "minitoken",
 		}
-		err = t.Insert(db)
-		Expect(err).To(BeNil())
+		Expect(t.Insert(db)).To(BeNil())
+
+		tmpl = &template.Template{
+			Slug:        "rails",
+			Name:        sql.NullString{"Ruby on Rails", true},
+			Description: sql.NullString{"A ruby on rails stack template", true},
+			Image:       "rails:latest",
+			Config: `{
+						"privileged": true,
+						"publish_all": false,
+						"ports": ["public::2341", "public::8931"],
+						"env": ["SHELL=powershell"]
+					}`,
+			Type: template.TypeStack,
+		}
+		Expect(tmpl.Insert(db)).To(BeNil())
+
+		c = &container.Container{
+			CID:    "container-id-id-id",
+			UserID: hs.U.ID,
+			HostID: hs.H.ID,
+			Image:  "nitrous-base",
+			Slug:   "rails-test-container",
+		}
+		Expect(c.Insert(db)).To(BeNil())
 	})
 
 	AfterEach(func() {
@@ -104,14 +135,14 @@ var _ = Describe("controllers/quickstart", func() {
 	})
 
 	Describe("GET /api/v0/quickstart/repo_info", func() {
-		doRequest := func(repoUrl, token string) *httptest.ResponseRecorder {
+		doRequest := func(repoUrl string) *httptest.ResponseRecorder {
 			params := &url.Values{}
 			if repoUrl != "" {
 				params.Set("repo", repoUrl)
 			}
 			req, err := test.NewRequest("GET", "/api/v0/quickstart/repo_info", params)
 			Expect(err).To(BeNil())
-			req.Header.Set("Authorization", fmt.Sprintf("Bearer %s", token))
+			req.Header.Set("Authorization", fmt.Sprintf("Bearer %s", t.Token))
 			res := httptest.NewRecorder()
 			handler.ServeHTTP(res, req)
 			return res
@@ -123,7 +154,7 @@ var _ = Describe("controllers/quickstart", func() {
 				WHERE id = $1;`, hs.U.ID)
 			Expect(err).To(BeNil())
 
-			res := doRequest("https://github.com/yeouchien/hack.git", t.Token)
+			res := doRequest("https://github.com/yeouchien/hack.git")
 			Expect(res.Code).To(Equal(http.StatusOK))
 
 			var j struct {
@@ -154,7 +185,7 @@ var _ = Describe("controllers/quickstart", func() {
 
 			Expect(u.ConfirmedAt.Valid).ToNot(Equal(true))
 
-			res := doRequest("https://github.com/yeouchien/hack.git", t.Token)
+			res := doRequest("https://github.com/yeouchien/hack.git")
 			Expect(res.Code).To(Equal(http.StatusOK))
 
 			u, err = user.FindByID(db, hs.U.ID)
@@ -167,6 +198,37 @@ var _ = Describe("controllers/quickstart", func() {
 			Expect(u.ConfirmationSentAt.Valid).To(Equal(false))
 			Expect(u.ConfirmationToken.Valid).To(Equal(false))
 			Expect(bp.State).To(Equal(billingprofile.StateFree))
+		})
+	})
+
+	Describe("POST /api/v0/quickstart", func() {
+		doRequest := func(params *url.Values) *httptest.ResponseRecorder {
+			req, err := test.NewFormRequest("POST", "/api/v0/quickstart", params)
+			Expect(err).To(BeNil())
+			req.Header.Set("Authorization", fmt.Sprintf("Bearer %s", t.Token))
+			res := httptest.NewRecorder()
+			handler.ServeHTTP(res, req)
+			return res
+		}
+
+		It("returns 201 Created and creates an quickstart in the db", func() {
+			params := &url.Values{}
+			params.Set("container_id", strconv.FormatInt(c.ID, 10))
+			params.Set("repo", "https://github.com/yeouchien/discourse")
+			params.Set("template", "rails")
+			res := doRequest(params)
+			Expect(res.Code).To(Equal(http.StatusCreated))
+
+			q := &qs.Quickstart{}
+			err := db.Get(q, `SELECT * FROM quickstarts LIMIT 1`)
+			Expect(err).To(BeNil())
+
+			Expect(q.ID).NotTo(BeZero())
+			Expect(q.UserID).To(Equal(hs.U.ID))
+			Expect(q.ContainerID).To(Equal(c.ID))
+			Expect(q.TemplateID).To(Equal(tmpl.ID))
+			Expect(q.CreatedAt).NotTo(BeNil())
+			Expect(q.UpdatedAt).NotTo(BeNil())
 		})
 	})
 })
