@@ -65,10 +65,10 @@ var _ = Describe("controllers/usersurvey", func() {
 	})
 
 	Describe("POST /api/v0/usersurvey/webhook_cb", func() {
-		doRequest := func(wufooHandshakeKey, email string) *httptest.ResponseRecorder {
+		doRequest := func(wufooHandshakeKey, username string) *httptest.ResponseRecorder {
 			params := &url.Values{}
 			params.Set("HandshakeKey", wufooHandshakeKey)
-			params.Add("Field1", email)
+			params.Add("Field113", username)
 
 			req, err := test.NewRequest("POST", "/api/v0/usersurvey/webhook_cb", params)
 			Expect(err).To(BeNil())
@@ -87,8 +87,8 @@ var _ = Describe("controllers/usersurvey", func() {
 			Expect(errDesc).To(Equal("invalid handshake key"))
 		})
 
-		It("returns not found if email does not exist", func() {
-			res := doRequest(envvars.WufooHandshakeKey, "an-invalid-email")
+		It("returns not found if username does not exist", func() {
+			res := doRequest(envvars.WufooHandshakeKey, "an-invalid-username")
 			Expect(res.Code).To(Equal(http.StatusNotFound))
 
 			errSlug, errDesc := test.ErrorSlug(res.Body)
