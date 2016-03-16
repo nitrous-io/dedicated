@@ -28,10 +28,10 @@ func WebhookCallback(env *middleware.Env, w http.ResponseWriter, r *http.Request
 		return errInvalidHandshakeKey
 	}
 
-	// Field1 is the first field in the survey form that we prefill for user, which contains
+	// Field113 is the field in the survey form that we prefill for user, which contains
 	// the user's nitrous username that enables us to track the user in this callback
-	// http://www.wufoo.com/guides/multiple-form-submissions-with-prefilled-fields/
-	username := r.FormValue("Field1")
+	// http://help.wufoo.com/articles/en_US/SurveyMonkeyArticleType/URL-Modifications
+	username := r.FormValue("Field113")
 	u, err := user.FindByUsername(env.DB, username)
 	if err != nil {
 		return errUsernameNotFound
