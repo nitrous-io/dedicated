@@ -7,7 +7,6 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"net/url"
-	"strconv"
 	"testing"
 
 	"github.com/gorilla/mux"
@@ -15,9 +14,7 @@ import (
 	"github.com/nitrous-io/dedicated/nitrous/controllers/quickstart"
 	"github.com/nitrous-io/dedicated/nitrous/db"
 	"github.com/nitrous-io/dedicated/nitrous/models/billingprofile"
-	"github.com/nitrous-io/dedicated/nitrous/models/container"
 	"github.com/nitrous-io/dedicated/nitrous/models/host"
-	qs "github.com/nitrous-io/dedicated/nitrous/models/quickstart"
 	"github.com/nitrous-io/dedicated/nitrous/models/template"
 	"github.com/nitrous-io/dedicated/nitrous/models/token"
 	"github.com/nitrous-io/dedicated/nitrous/models/user"
@@ -41,7 +38,6 @@ var _ = Describe("controllers/quickstart", func() {
 		hs      *test.HostStack
 		t       *token.Token
 		tmpl    *template.Template
-		c       *container.Container
 	)
 
 	BeforeEach(func() {
@@ -75,23 +71,14 @@ var _ = Describe("controllers/quickstart", func() {
 			Description: sql.NullString{"A ruby on rails stack template", true},
 			Image:       "rails:latest",
 			Config: `{
-						"privileged": true,
-						"publish_all": false,
-						"ports": ["public::2341", "public::8931"],
-						"env": ["SHELL=powershell"]
-					}`,
+				"privileged": true,
+				"publish_all": false,
+				"ports": ["public::2341", "public::8931"],
+				"env": ["SHELL=powershell"]
+			}`,
 			Type: template.TypeStack,
 		}
 		Expect(tmpl.Insert(db)).To(BeNil())
-
-		c = &container.Container{
-			CID:    "container-id-id-id",
-			UserID: hs.U.ID,
-			HostID: hs.H.ID,
-			Image:  "nitrous-base",
-			Slug:   "rails-test-container",
-		}
-		Expect(c.Insert(db)).To(BeNil())
 	})
 
 	AfterEach(func() {
@@ -211,37 +198,6 @@ var _ = Describe("controllers/quickstart", func() {
 
 			res := doRequest("https://github.com/yeouchien/hack.git")
 			Expect(res.Code).To(Equal(http.StatusForbidden))
-		})
-	})
-
-	Describe("POST /api/v0/quickstart", func() {
-		doRequest := func(params *url.Values) *httptest.ResponseRecorder {
-			req, err := test.NewFormRequest("POST", "/api/v0/quickstart", params)
-			Expect(err).To(BeNil())
-			req.Header.Set("Authorization", fmt.Sprintf("Bearer %s", t.Token))
-			res := httptest.NewRecorder()
-			handler.ServeHTTP(res, req)
-			return res
-		}
-
-		It("returns 201 Created and creates an quickstart in the db", func() {
-			params := &url.Values{}
-			params.Set("container_id", strconv.FormatInt(c.ID, 10))
-			params.Set("repo", "https://github.com/yeouchien/discourse")
-			params.Set("template", "rails")
-			res := doRequest(params)
-			Expect(res.Code).To(Equal(http.StatusCreated))
-
-			q := &qs.Quickstart{}
-			err := db.Get(q, `SELECT * FROM quickstarts LIMIT 1`)
-			Expect(err).To(BeNil())
-
-			Expect(q.ID).NotTo(BeZero())
-			Expect(q.UserID).To(Equal(hs.U.ID))
-			Expect(q.ContainerID).To(Equal(c.ID))
-			Expect(q.TemplateID).To(Equal(tmpl.ID))
-			Expect(q.CreatedAt).NotTo(BeNil())
-			Expect(q.UpdatedAt).NotTo(BeNil())
 		})
 	})
 })

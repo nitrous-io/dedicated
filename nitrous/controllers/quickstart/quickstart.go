@@ -5,14 +5,11 @@ import (
 	"fmt"
 	"net/http"
 	"net/url"
-	"strconv"
 	"strings"
 
-	"github.com/Sirupsen/logrus"
 	"github.com/nitrous-io/dedicated/nitrous/envvars"
 	mw "github.com/nitrous-io/dedicated/nitrous/middleware"
 	"github.com/nitrous-io/dedicated/nitrous/models/billingprofile"
-	"github.com/nitrous-io/dedicated/nitrous/models/quickstart"
 	"github.com/nitrous-io/dedicated/nitrous/models/template"
 	"github.com/nitrous-io/dedicated/nitrous/models/userprofile"
 	"github.com/nitrous-io/dedicated/nitrous/pkg/httperror"
@@ -134,38 +131,6 @@ func RepoInfo(env *mw.Env, w http.ResponseWriter, r *http.Request) error {
 	env.Data = map[string]interface{}{
 		"quickstart": repoInfo,
 	}
-
-	return nil
-}
-
-func Create(env *mw.Env, w http.ResponseWriter, r *http.Request) error {
-	db := env.DB
-	user := env.User
-
-	containerID, err := strconv.ParseInt(r.FormValue("container_id"), 10, 64)
-	if err != nil {
-		return err
-	}
-	repoURL := strings.ToLower(r.FormValue("repo"))
-	tmpl, err := template.FindBySlug(db, r.FormValue("template"))
-	if err != nil {
-		logrus.Errorf(`Quickstart: failed to find template "%s": %v`, r.FormValue("template"), err)
-		return err
-	}
-
-	q := &quickstart.Quickstart{
-		UserID:      user.ID,
-		ContainerID: containerID,
-		TemplateID:  tmpl.ID,
-		RepoURL:     repoURL,
-	}
-	if err := q.Insert(db); err != nil {
-		logrus.Errorf(`Quickstart: failed to persist quickstart "%v": %v`, q, err)
-		return err
-	}
-
-	env.Status = http.StatusCreated
-	env.Data = map[string]interface{}{}
 
 	return nil
 }
