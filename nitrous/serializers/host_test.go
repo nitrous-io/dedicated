@@ -38,6 +38,7 @@ var _ = Describe("host serializer", func() {
 			ProviderIdentifier:        sql.NullString{"digitalocean", true},
 			ProviderStorageIdentifier: sql.NullString{"vol-beef", true},
 			MaxContainers:             sql.NullInt64{3, true},
+			ContainerCount:            sql.NullInt64{1, true},
 			Size:                      sql.NullString{"micro", true},
 			TerminatedAt:              &terminatedAt,
 			CreatedAt:                 &createdAt,
@@ -77,6 +78,7 @@ var _ = Describe("host serializer", func() {
 				"last_pinged_at": "2013-11-02T01:00:00Z",
 				"auto_shutdown": true,
 				"max_containers": 3,
+				"container_count": 1,
 				"pending_respec": true,
 				"free": true,
 				"shared": true
@@ -113,6 +115,7 @@ var _ = Describe("host serializer", func() {
 				"last_pinged_at": "2013-11-02T01:00:00Z",
 				"auto_shutdown": true,
 				"max_containers": 3,
+				"container_count": 1,
 				"pending_respec": true,
 				"free": true,
 				"shared": true
@@ -145,6 +148,7 @@ var _ = Describe("host serializer", func() {
 				"updated_at": "2013-11-02T00:00:00Z",
 				"auto_shutdown": true,
 				"max_containers": 3,
+				"container_count": 1,
 				"pending_respec": true,
 				"free": true,
 				"shared": true
@@ -178,6 +182,7 @@ var _ = Describe("host serializer", func() {
 				"last_pinged_at": "2013-11-02T01:00:00Z",
 				"auto_shutdown": true,
 				"max_containers": 3,
+				"container_count": 1,
 				"pending_respec": true,
 				"subscription_slug": "ASUB",
 				"free": true,
@@ -212,6 +217,7 @@ var _ = Describe("host serializer", func() {
 				"last_pinged_at": "2013-11-02T01:00:00Z",
 				"auto_shutdown": true,
 				"max_containers": 3,
+				"container_count": 1,
 				"pending_respec": true,
 				"free": true,
 				"shared": true
@@ -257,6 +263,7 @@ var _ = Describe("host serializer", func() {
 				"last_pinged_at": "2013-11-02T01:00:00Z",
 				"auto_shutdown": true,
 				"max_containers": 3,
+				"container_count": 1,
 				"pending_respec": true,
 				"free": true,
 				"shared": true
@@ -305,6 +312,7 @@ var _ = Describe("host serializer", func() {
 					"last_pinged_at": "2013-11-02T01:00:00Z",
 					"auto_shutdown": true,
 					"max_containers": 3,
+					"container_count": 1,
 					"pending_respec": true,
 					"free": true,
 					"shared": true

@@ -33,7 +33,8 @@ type Host struct {
 	LastPingedAt  *time.Time `json:"last_pinged_at,omitempty"`
 	AutoShutdown  bool       `json:"auto_shutdown"`
 
-	MaxContainers int64 `json:"max_containers,omitempty"`
+	MaxContainers  int64 `json:"max_containers,omitempty"`
+	ContainerCount int64 `json:"container_count,omitempty"`
 
 	PendingRespec bool `json:"pending_respec"`
 
@@ -79,6 +80,9 @@ func SerializeHost(h *host.Host) *Host {
 		SubscriptionSlug: h.SubscriptionSlug.String,
 		Free:             h.Free,
 		Shared:           h.Shared,
+	}
+	if h.ContainerCount.Valid {
+		serialized.ContainerCount = h.ContainerCount.Int64
 	}
 	if h.LastRunningAt.Valid {
 		serialized.LastRunningAt = &(h.LastRunningAt.Time)
