@@ -47,4 +47,8 @@ class PagesController < ApplicationController
 
   def awsactivate
   end
+
+  def quickstart
+    render layout: "quickstart"
+  end
 end
