@@ -104,8 +104,8 @@ const paymentFinalFailedHtmlTmpl = `
   </head>
   <body>
     <h3>Hello {{ .Name }},</h3>
-    <p>Unfortunately, we have been unable to successfully bill your provided credit card ending in {{ .LastFour }} to the value of {{ .InvoiceAmount }}.</p>
-    <p>Your workspaces have been marked for termination and will be terminated soon, to avoid this termination please <a href="{{ .BillingUrl }}">verify your credit card</a>.</p>
+    <p>Unfortunately, we have been unable to successfully charge your provided credit card ending in {{ .LastFour }} for your outstanding invoice amounting to {{ .InvoiceAmount }}.</p>
+    <p>Your workspaces have been marked for termination and will be terminated soon. To avoid this termination please <a href="{{ .BillingUrl }}">verify your credit card</a>.</p>
     <p>If you have any questions please email our support team at <a href="mailto:{{ .SupportEmail }}">{{ .SupportEmail }}</a>.</p>
     <br />
     <p>Thanks,</p>
@@ -116,8 +116,8 @@ const paymentFinalFailedHtmlTmpl = `
 
 const paymentFinalFailedTxtTmpl = `
 Hello {{ .Name }},
-Unfortunately, we have been unable to successfully bill your provided credit card ending in {{ .LastFour }} to the value of {{ .InvoiceAmount }}.
-Your workspaces have been marked for termination and will be terminated soon, to avoid this termination please verify your credit card at {{ .BillingUrl }}.
+Unfortunately, we have been unable to successfully charge your provided credit card ending in {{ .LastFour }} for your outstanding invoice amounting to {{ .InvoiceAmount }}.
+Your workspaces have been marked for termination and will be terminated soon. To avoid this termination please verify your credit card at {{ .BillingUrl }}.
 If you have any questions please email our support team at {{ .SupportEmail }}.
 
 Thanks,
