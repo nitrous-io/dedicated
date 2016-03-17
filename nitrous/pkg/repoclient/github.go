@@ -41,7 +41,7 @@ func (gh *Github) FileContent(owner, repo, file string) (string, error) {
 
 func (gh *Github) ParseURL(u string) (string, string, error) {
 	path := strings.TrimPrefix(u, "https://github.com/")
-	path = strings.TrimPrefix(path, "git@github.com/")
+	path = strings.TrimPrefix(path, "git@github.com:")
 	pathSegments := strings.Split(path, "/")
 	if len(pathSegments) != 2 {
 		return "", "", ErrInvalidURLPath
