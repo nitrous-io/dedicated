@@ -77,7 +77,7 @@ var _ = Describe("models/template", func() {
 			_, err := db.Exec(`INSERT INTO templates (slug, name, description, config, image) VALUES ($1, $2, $3, $4, $5);`, "rails-stack", "Ruby on Rails", "RoR template", config, "freebsd:10.1")
 			Expect(err).To(BeNil())
 
-			tmpl, err := template.Find(db, "rails-stack")
+			tmpl, err := template.FindBySlug(db, "rails-stack")
 			Expect(err).To(BeNil())
 
 			cfg, err := tmpl.ParsedConfig()
@@ -105,7 +105,7 @@ var _ = Describe("models/template", func() {
 			err := tmpl.Insert(db)
 			Expect(err).To(BeNil())
 
-			tmpl2, err := template.Find(db, "rails-stack")
+			tmpl2, err := template.FindBySlug(db, "rails-stack")
 			Expect(err).To(BeNil())
 
 			Expect(tmpl2.Slug).To(Equal("rails-stack"))
@@ -156,7 +156,7 @@ var _ = Describe("models/template", func() {
 			Expect(err).To(BeNil())
 		})
 		It("updates the template in the database", func() {
-			tmpl, err := template.Find(db, "rails-stack")
+			tmpl, err := template.FindBySlug(db, "rails-stack")
 			Expect(err).To(BeNil())
 
 			tmpl.Description = sql.NullString{"A Rails stack template with Ubuntu 18.10", true}
@@ -177,7 +177,7 @@ var _ = Describe("models/template", func() {
 		})
 
 		It("returns ErrConfigInvalid when .Config is invalid JSON", func() {
-			tmpl, err := template.Find(db, "rails-stack")
+			tmpl, err := template.FindBySlug(db, "rails-stack")
 			Expect(err).To(BeNil())
 
 			tmpl.Config = `{ invalid: "JSON" }`
@@ -187,7 +187,7 @@ var _ = Describe("models/template", func() {
 		})
 
 		It("returns ErrInvalidType when invalid type is provided", func() {
-			tmpl, err := template.Find(db, "rails-stack")
+			tmpl, err := template.FindBySlug(db, "rails-stack")
 			Expect(err).To(BeNil())
 
 			tmpl.Type = "invalid-type"

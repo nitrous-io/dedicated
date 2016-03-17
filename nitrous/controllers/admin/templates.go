@@ -70,7 +70,7 @@ func templatesCreate(env *middleware.Env, w http.ResponseWriter, r *http.Request
 }
 
 func findTemplate(d *db.Database, slug string) (*template.Template, error) {
-	tmpl, err := template.Find(d, slug)
+	tmpl, err := template.FindBySlug(d, slug)
 	if err != nil {
 		if err == sql.ErrNoRows {
 			return nil, errTemplateNotFound

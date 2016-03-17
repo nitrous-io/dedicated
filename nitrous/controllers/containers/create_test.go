@@ -23,6 +23,7 @@ import (
 	"github.com/nitrous-io/dedicated/nitrous/models/image"
 	"github.com/nitrous-io/dedicated/nitrous/models/org"
 	"github.com/nitrous-io/dedicated/nitrous/models/orgmembership"
+	"github.com/nitrous-io/dedicated/nitrous/models/quickstart"
 	"github.com/nitrous-io/dedicated/nitrous/models/snapshot"
 	"github.com/nitrous-io/dedicated/nitrous/models/template"
 	"github.com/nitrous-io/dedicated/nitrous/models/token"
@@ -895,6 +896,75 @@ var _ = Describe("CreateAtomic", func() {
 						Expect(mockClient.ReceivedImage).To(Equal(expectedImage))
 					}
 				})
+			})
+		})
+
+		Context("when repo param is given", func() {
+			var tmpl *template.Template
+
+			BeforeEach(func() {
+				tmpl = &template.Template{
+					Slug:        "rails-template",
+					Name:        sql.NullString{"rails", true},
+					Description: sql.NullString{"A rails stack template", true},
+					Image:       "golang:latest",
+					Config: `{
+						"privileged": true,
+						"publish_all": false,
+						"ports": ["public::2341", "public::8931"],
+						"env": ["SHELL=powershell"]
+					}`,
+					Type: template.TypeStack,
+				}
+				Expect(tmpl.Insert(db)).To(BeNil())
+			})
+
+			It("persists quickstart in the db", func() {
+				ch := svr.Events.Subscribe(u.Topic())
+				defer svr.Events.Unsubscribe(ch, u.Topic())
+
+				params := &url.Values{}
+				params.Set("host", hs.H.Slug)
+				params.Set("name", "discourse-project")
+				params.Set("template", tmpl.Slug)
+				params.Set("repo", "https://github.com/yeouchien/discourse")
+
+				res := doRequest(params)
+				Expect(res.Code).To(Equal(http.StatusAccepted))
+
+				evtCh := make(chan *controllers.Event)
+				go func() {
+					for msg := range ch { // Ignore events we don't care about.
+						evt := msg.(*controllers.Event)
+						if evt.Name == controllers.EventContainerCreated {
+							evtCh <- evt
+							break
+						}
+					}
+				}()
+
+				select {
+				case <-time.After(50 * time.Millisecond):
+					Fail("Timed out waiting for container created event")
+				case evt := <-evtCh:
+					Expect(evt.Name).To(Equal(controllers.EventContainerCreated))
+					evtData, ok := evt.Data.(map[string]interface{})
+					Expect(ok).To(BeTrue())
+
+					cn, ok := evtData["container"].(*serializers.Container)
+					Expect(ok).To(BeTrue())
+
+					q := &quickstart.Quickstart{}
+					err := db.Get(q, `SELECT * FROM quickstarts LIMIT 1`)
+					Expect(err).To(BeNil())
+
+					Expect(q.ID).NotTo(BeZero())
+					Expect(q.UserID).To(Equal(u.ID))
+					Expect(q.ContainerID).To(Equal(cn.ID))
+					Expect(q.TemplateID).To(Equal(tmpl.ID))
+					Expect(q.CreatedAt).NotTo(BeNil())
+					Expect(q.UpdatedAt).NotTo(BeNil())
+				}
 			})
 		})
 

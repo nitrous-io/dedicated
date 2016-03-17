@@ -19,6 +19,7 @@ import (
 	"github.com/nitrous-io/dedicated/nitrous/models/host"
 	"github.com/nitrous-io/dedicated/nitrous/models/org"
 	"github.com/nitrous-io/dedicated/nitrous/models/orgmembership"
+	"github.com/nitrous-io/dedicated/nitrous/models/quickstart"
 	"github.com/nitrous-io/dedicated/nitrous/models/snapshot"
 	"github.com/nitrous-io/dedicated/nitrous/models/template"
 	"github.com/nitrous-io/dedicated/nitrous/models/token"
@@ -88,6 +89,7 @@ func createAtomic(h *host.Host, env *middleware.Env, w http.ResponseWriter, r *h
 
 	var snapshotID int64
 
+	var tmpl *template.Template
 	repository := "" // The container will be created using this Docker image.
 	containerCfg := &freighterclient.ContainerConfig{}
 
@@ -97,11 +99,12 @@ func createAtomic(h *host.Host, env *middleware.Env, w http.ResponseWriter, r *h
 
 	case templateSlug != "":
 		var err error
-		repository, containerCfg, err = fromTemplate(tx, templateSlug)
+		tmpl, containerCfg, err = fromTemplate(tx, templateSlug)
 		if err != nil {
 			tx.Rollback()
 			return err
 		}
+		repository = tmpl.Image
 
 	case snapshotIDStr != "":
 		var err error
@@ -290,6 +293,19 @@ func createAtomic(h *host.Host, env *middleware.Env, w http.ResponseWriter, r *h
 			return
 		}
 
+		repo := r.PostFormValue("repo")
+		if repo != "" && tmpl != nil {
+			q := &quickstart.Quickstart{
+				UserID:      env.User.ID,
+				ContainerID: cn.ID,
+				TemplateID:  tmpl.ID,
+				RepoURL:     repo,
+			}
+			if err := q.Insert(env.DB); err != nil {
+				logrus.Errorf(`Quickstart: failed to persist quickstart "%v": %v`, q, err)
+			}
+		}
+
 		PublishContainerEvent(env, controllers.EventContainerCreated, cn, map[string]interface{}{
 			"request_id": env.UUID,
 		})
@@ -321,16 +337,16 @@ func validateCreateAtomicForm(r *http.Request) error {
 	return nil
 }
 
-func fromTemplate(d ndb.QueryReceiver, templateSlug string) (string, *freighterclient.ContainerConfig, error) {
-	tmpl, err := template.Find(d, templateSlug)
+func fromTemplate(d ndb.QueryReceiver, templateSlug string) (*template.Template, *freighterclient.ContainerConfig, error) {
+	tmpl, err := template.FindBySlug(d, templateSlug)
 	if err != nil {
-		return "", nil, err
+		return nil, nil, err
 	}
 
 	// Use container config from template.
 	tmplCfg, err := tmpl.ParsedConfig()
 	if err != nil {
-		return "", nil, err
+		return nil, nil, err
 	}
 	containerCfg := &freighterclient.ContainerConfig{
 		Privileged: &(tmplCfg.Privileged),
@@ -343,7 +359,7 @@ func fromTemplate(d ndb.QueryReceiver, templateSlug string) (string, *freighterc
 		containerCfg.PortBindings = append(containerCfg.PortBindings, p)
 	}
 
-	return tmpl.Image, containerCfg, nil
+	return tmpl, containerCfg, nil
 }
 
 func fromSnapshot(d ndb.QueryReceiver, u *user.User, snapshotIDStr string) (string, error) {

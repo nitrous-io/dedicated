@@ -1,4 +1,4 @@
-package hack
+package quickstart
 
 import (
 	"encoding/json"
@@ -10,6 +10,7 @@ import (
 	"github.com/nitrous-io/dedicated/nitrous/envvars"
 	mw "github.com/nitrous-io/dedicated/nitrous/middleware"
 	"github.com/nitrous-io/dedicated/nitrous/models/billingprofile"
+	"github.com/nitrous-io/dedicated/nitrous/models/template"
 	"github.com/nitrous-io/dedicated/nitrous/models/userprofile"
 	"github.com/nitrous-io/dedicated/nitrous/pkg/httperror"
 	"github.com/nitrous-io/dedicated/nitrous/pkg/repoclient"
@@ -60,7 +61,7 @@ func New(env *mw.Env, w http.ResponseWriter, r *http.Request) error {
 
 	query := url.Values{}
 	query.Set("repo", repo)
-	redirectURL := fmt.Sprintf("/app/#/dashboard/hack?%s", query.Encode())
+	redirectURL := fmt.Sprintf("/app/#/dashboard/quickstart?%s", query.Encode())
 	http.Redirect(w, r, redirectURL, http.StatusMovedPermanently)
 	return nil
 }
@@ -115,7 +116,7 @@ func RepoInfo(env *mw.Env, w http.ResponseWriter, r *http.Request) error {
 		return err
 	}
 
-	if err := validateRepoInfo(&repoInfo); err != nil {
+	if err := validateRepoInfo(&repoInfo, env); err != nil {
 		return err
 	}
 
@@ -128,17 +129,31 @@ func RepoInfo(env *mw.Env, w http.ResponseWriter, r *http.Request) error {
 
 	env.Status = http.StatusOK
 	env.Data = map[string]interface{}{
-		"hack": repoInfo,
+		"quickstart": repoInfo,
 	}
 
 	return nil
 }
 
-func validateRepoInfo(repoInfo *repository) error {
-	if repoInfo.Template == "" {
+func validateRepoInfo(repoInfo *repository, env *mw.Env) error {
+	valid := false
+
+	tmpls, err := template.All(env.DB)
+	if err != nil {
+		return err
+	}
+
+	for _, tmpl := range tmpls {
+		if tmpl.Slug == repoInfo.Template {
+			valid = true
+		}
+	}
+
+	if valid {
+		return nil
+	} else {
 		return errRepoInfo
 	}
-	return nil
 }
 
 func confirmEmail(env *mw.Env) error {
