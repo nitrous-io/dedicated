@@ -14,5 +14,5 @@ func (c *FakeRepoClient) ParseURL(u string) (string, string, error) {
 }
 
 func (c *FakeRepoClient) OwnerAvatar(owner, repo string) (string, error) {
-	return "owner", "https://example.com/rails.png"
+	return "https://example.com/rails.png", nil
 }

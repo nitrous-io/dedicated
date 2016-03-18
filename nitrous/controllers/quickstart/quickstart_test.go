@@ -146,10 +146,11 @@ var _ = Describe("controllers/quickstart", func() {
 
 			var j struct {
 				Quickstart struct {
-					Owner    string  `json:"owner"`
-					RepoName string  `json:"repo_name"`
-					Template string  `json:"template"`
-					Ports    []int64 `json:"ports"`
+					Owner       string  `json:"owner"`
+					OwnerAvatar string  `json:"owner_avatar"`
+					RepoName    string  `json:"repo_name"`
+					Template    string  `json:"template"`
+					Ports       []int64 `json:"ports"`
 				} `json:"quickstart"`
 			}
 			err = json.NewDecoder(res.Body).Decode(&j)
@@ -157,6 +158,7 @@ var _ = Describe("controllers/quickstart", func() {
 
 			Expect(j.Quickstart.Template).To(Equal("rails"))
 			Expect(j.Quickstart.Owner).To(Equal("owner"))
+			Expect(j.Quickstart.OwnerAvatar).To(Equal("https://example.com/rails.png"))
 			Expect(j.Quickstart.RepoName).To(Equal("repo-name"))
 		})
 
