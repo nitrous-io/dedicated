@@ -104,7 +104,7 @@ func CreateContainer(h *host.Host, options url.Values, env *middleware.Env) (res
 	// populate config with template-predefined settings
 	config := &freighterclient.ContainerConfig{}
 	if templateSlug != "" {
-		tmpl, err := template.Find(env.DB, templateSlug)
+		tmpl, err := template.FindBySlug(env.DB, templateSlug)
 		if err != nil {
 			return nil, err
 		}

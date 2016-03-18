@@ -7,6 +7,7 @@ Rails.application.routes.draw do
   get '/pricing' => 'pages#pricing'
   get '/company' => 'pages#company'
   get '/press' => 'pages#press'
+  get '/quickstarts' => 'pages#quickstart'
 
   get '/flatiron' => 'pages#flatiron'
   get '/education' => 'pages#education'

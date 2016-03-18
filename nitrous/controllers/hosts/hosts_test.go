@@ -1237,15 +1237,18 @@ var _ = Describe("controllers/hosts", func() {
 				select {
 				case <-time.After(50 * time.Millisecond):
 					Fail("Timed out waiting for host destroyed event")
-				case msg := <-destroyedEvent:
+				case evt := <-destroyedEvent:
 					deleted, err := queryHost(db, hs.H.ID)
 					Expect(err).To(BeNil())
-					Expect(msg).To(Equal(&controllers.Event{
-						Name: controllers.EventHostDestroyed,
-						Data: map[string]*serializers.Host{
-							"host": serializers.SerializeHost(deleted),
-						},
-					}))
+
+					Expect(evt.Name).To(Equal(controllers.EventHostDestroyed))
+
+					evtData, ok := evt.Data.(map[string]*serializers.Host)
+					Expect(ok).To(BeTrue())
+					h := evtData["host"]
+					Expect(h.Slug).To(Equal(deleted.Slug))
+					Expect(h.State).To(Equal(deleted.State))
+					Expect(h.State).To(Equal(host.StateTerminated))
 				}
 			})
 
@@ -1760,12 +1763,16 @@ var _ = Describe("controllers/hosts", func() {
 			case msg := <-ch:
 				updated, err := queryHost(db, hs.H.ID)
 				Expect(err).To(BeNil())
-				Expect(msg).To(Equal(&controllers.Event{
-					Name: controllers.EventHostUpdated,
-					Data: map[string]*serializers.Host{
-						"host": serializers.SerializeHost(updated),
-					},
-				}))
+
+				evt, ok := msg.(*controllers.Event)
+				Expect(ok).To(BeTrue())
+				Expect(evt.Name).To(Equal(controllers.EventHostUpdated))
+
+				evtData, ok := evt.Data.(map[string]*serializers.Host)
+				Expect(ok).To(BeTrue())
+				h := evtData["host"]
+				Expect(h.Slug).To(Equal(updated.Slug))
+				Expect(h.State).To(Equal(updated.State))
 			}
 		})
 

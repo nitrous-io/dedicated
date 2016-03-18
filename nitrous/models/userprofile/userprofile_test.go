@@ -192,4 +192,178 @@ var _ = Describe("models/userprofile", func() {
 			Expect(p.UserID).To(Equal(u.ID))
 		})
 	})
+
+	Describe("ConnectedGithub", func() {
+		BeforeEach(func() {
+			u = &user.User{
+				Username: "foo",
+				Email:    "foo@example.com",
+				Password: "123456",
+			}
+
+			err := WrapInTransaction(db, u.Insert)
+			Expect(err).NotTo(HaveOccurred())
+		})
+
+		It("returns true if github records exist", func() {
+			p, err := userprofile.Find(db, u.ID)
+			Expect(err).NotTo(HaveOccurred())
+
+			p.GitHubUserName = sql.NullString{"foo-github", true}
+			p.GitHubOAuthTokenJson = sql.NullString{`{"access_token":"746d66f0dfa22fbb73a994a2ec621ef6e52c05ef","token_type":"bearer","expiry":"0001-01-01T00:00:00Z"}`, true}
+			p.GitHubUserScopesJson = sql.NullString{`["user:email","repo","admin:public_key"]`, true}
+			err = p.UpdateGithubInfo(db)
+			Expect(err).NotTo(HaveOccurred())
+
+			connected, err := userprofile.ConnectedToGithub(db, u.ID)
+			Expect(err).NotTo(HaveOccurred())
+			Expect(connected).To(BeTrue())
+		})
+
+		It("returns false if none of the github records exist", func() {
+			connected, err := userprofile.ConnectedToGithub(db, u.ID)
+			Expect(err).NotTo(HaveOccurred())
+			Expect(connected).To(BeFalse())
+		})
+
+		It("returns false if one of the required github record does not exist", func() {
+			p, err := userprofile.Find(db, u.ID)
+			Expect(err).NotTo(HaveOccurred())
+
+			p.GitHubUserName = sql.NullString{"", false}
+			p.GitHubOAuthTokenJson = sql.NullString{`{"access_token":"746d66f0dfa22fbb73a994a2ec621ef6e52c05ef","token_type":"bearer","expiry":"0001-01-01T00:00:00Z"}`, true}
+			p.GitHubUserScopesJson = sql.NullString{`["user:email","repo","admin:public_key"]`, true}
+			err = p.UpdateGithubInfo(db)
+			Expect(err).NotTo(HaveOccurred())
+
+			connected, err := userprofile.ConnectedToGithub(db, u.ID)
+			Expect(err).NotTo(HaveOccurred())
+			Expect(connected).To(BeFalse())
+
+			p.GitHubUserName = sql.NullString{"foo-github", true}
+			p.GitHubOAuthTokenJson = sql.NullString{"", false}
+			p.GitHubUserScopesJson = sql.NullString{`["user:email","repo","admin:public_key"]`, true}
+			err = p.UpdateGithubInfo(db)
+			Expect(err).NotTo(HaveOccurred())
+
+			connected, err = userprofile.ConnectedToGithub(db, u.ID)
+			Expect(err).NotTo(HaveOccurred())
+			Expect(connected).To(BeFalse())
+
+			p.GitHubUserName = sql.NullString{"foo-github", true}
+			p.GitHubOAuthTokenJson = sql.NullString{`{"access_token":"746d66f0dfa22fbb73a994a2ec621ef6e52c05ef","token_type":"bearer","expiry":"0001-01-01T00:00:00Z"}`, true}
+			p.GitHubUserScopesJson = sql.NullString{"", false}
+			err = p.UpdateGithubInfo(db)
+			Expect(err).NotTo(HaveOccurred())
+
+			connected, err = userprofile.ConnectedToGithub(db, u.ID)
+			Expect(err).NotTo(HaveOccurred())
+			Expect(connected).To(BeFalse())
+		})
+	})
+
+	Describe("CanDeleteGitHubPublicKeys", func() {
+		var up *userprofile.UserProfile
+
+		BeforeEach(func() {
+			up = &userprofile.UserProfile{}
+		})
+
+		It("returns false when github scopes is nil", func() {
+			Expect(up.CanDeleteGitHubPublicKeys()).To(Equal(false))
+		})
+
+		It("returns false when github scopes is empty", func() {
+			up.GitHubUserScopesJson = sql.NullString{"", true}
+			Expect(up.CanDeleteGitHubPublicKeys()).To(Equal(false))
+		})
+
+		It("returns false when github scopes does not contain `admin:public_key`", func() {
+			up.GitHubUserScopesJson = sql.NullString{`["repo", "write:public_key"]`, true}
+			Expect(up.CanDeleteGitHubPublicKeys()).To(Equal(false))
+		})
+
+		It("returns true when github scopes contains `admin:public_key`", func() {
+			up.GitHubUserScopesJson = sql.NullString{`["repo", "admin:public_key"]`, true}
+			Expect(up.CanDeleteGitHubPublicKeys()).To(Equal(true))
+		})
+	})
+
+	Describe("AuthorizedGitHubUserName", func() {
+		var up *userprofile.UserProfile
+
+		BeforeEach(func() {
+			up = &userprofile.UserProfile{}
+		})
+
+		It("returns empty string when username is empty", func() {
+			Expect(up.AuthorizedGitHubUserName()).To(Equal(""))
+		})
+
+		It("returns empty string when token is not empty", func() {
+			up.GitHubUserName = sql.NullString{"spongebob", true}
+			Expect(up.AuthorizedGitHubUserName()).To(Equal(""))
+		})
+
+		It("returns username when github username and token are valid", func() {
+			up.GitHubOAuthTokenJson = sql.NullString{`{"access_token":"746d66f0dfa22fbb73a994a2ec621ef6e52c05ef","token_type":"bearer","expiry":"0001-01-01T00:00:00Z"}`, true}
+			up.GitHubUserName = sql.NullString{"spongebob", true}
+			Expect(up.AuthorizedGitHubUserName()).To(Equal("spongebob"))
+		})
+	})
+
+	Describe("GetTokenIfValidFromUserProfile", func() {
+		var up *userprofile.UserProfile
+
+		BeforeEach(func() {
+			up = &userprofile.UserProfile{}
+		})
+
+		It("returns error when token is empty", func() {
+			_, err := up.GetTokenIfValidFromUserProfile()
+			Expect(err.Error()).To(Equal("token is empty"))
+		})
+
+		It("returns error when token not valid", func() {
+			up.GitHubOAuthTokenJson = sql.NullString{`{"access_token":"","token_type":"bearer","expiry":"0001-01-01T00:00:00Z"}`, true}
+			_, err := up.GetTokenIfValidFromUserProfile()
+			Expect(err.Error()).To(Equal("token not valid"))
+		})
+
+		It("returns token", func() {
+			up.GitHubOAuthTokenJson = sql.NullString{`{"access_token":"123","token_type":"bearer","expiry":"0001-01-01T00:00:00Z"}`, true}
+			t, err := up.GetTokenIfValidFromUserProfile()
+			Expect(err).To(BeNil())
+			Expect(t.AccessToken).To(Equal("123"))
+			Expect(t.TokenType).To(Equal("bearer"))
+		})
+	})
+
+	Describe("GetTokenIfValid", func() {
+		var up *userprofile.UserProfile
+
+		BeforeEach(func() {
+			up = &userprofile.UserProfile{}
+		})
+
+		It("returns error when no user profile", func() {
+			_, err := userprofile.GetTokenIfValid(db, u.ID)
+			Expect(err).To(Equal(sql.ErrNoRows))
+		})
+
+		It("return error when token is empty", func() {
+			u = &user.User{
+				Username: "foo",
+				Email:    "foo@example.com",
+				Password: "123456",
+			}
+
+			err := WrapInTransaction(db, u.Insert)
+			Expect(err).To(BeNil())
+
+			_, err = userprofile.GetTokenIfValid(db, u.ID)
+			Expect(err.Error()).To(Equal("token is empty"))
+		})
+	})
+
 })

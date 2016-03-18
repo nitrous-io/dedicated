@@ -1,4 +1,4 @@
-package hack
+package quickstart
 
 import (
 	"encoding/json"
@@ -10,6 +10,7 @@ import (
 	"github.com/nitrous-io/dedicated/nitrous/envvars"
 	mw "github.com/nitrous-io/dedicated/nitrous/middleware"
 	"github.com/nitrous-io/dedicated/nitrous/models/billingprofile"
+	"github.com/nitrous-io/dedicated/nitrous/models/template"
 	"github.com/nitrous-io/dedicated/nitrous/models/userprofile"
 	"github.com/nitrous-io/dedicated/nitrous/pkg/httperror"
 	"github.com/nitrous-io/dedicated/nitrous/pkg/repoclient"
@@ -24,10 +25,11 @@ var (
 )
 
 type repository struct {
-	Owner    string  `json:"owner"`
-	RepoName string  `json:"repo_name"`
-	Template string  `json:"template"`
-	Ports    []int64 `json:"ports"`
+	Owner       string  `json:"owner"`
+	OwnerAvatar string  `json:"owner_avatar"`
+	RepoName    string  `json:"repo_name"`
+	Template    string  `json:"template"`
+	Ports       []int64 `json:"ports"`
 }
 
 func init() {
@@ -60,21 +62,16 @@ func New(env *mw.Env, w http.ResponseWriter, r *http.Request) error {
 
 	query := url.Values{}
 	query.Set("repo", repo)
-	redirectURL := fmt.Sprintf("/app/#/dashboard/hack?%s", query.Encode())
+	redirectURL := fmt.Sprintf("/app/#/dashboard/quickstart?%s", query.Encode())
 	http.Redirect(w, r, redirectURL, http.StatusMovedPermanently)
 	return nil
 }
 
 func RepoInfo(env *mw.Env, w http.ResponseWriter, r *http.Request) error {
 	repoURL := r.FormValue("repo")
-	parsedURL, err := url.Parse(repoURL)
-	if err != nil {
-		return err
-	}
-
-	var owner, content, repoName string
-	switch parsedURL.Host {
-	case "github.com":
+	var owner, content, repoName, ownerAvatar string
+	switch {
+	case strings.Contains(repoURL, "github.com"):
 		// We try to use user's access token to make Github API request
 		// to access their private repo. If user have not connected their
 		// Github account (don't have access token), it will use
@@ -99,23 +96,29 @@ func RepoInfo(env *mw.Env, w http.ResponseWriter, r *http.Request) error {
 			}
 			return err
 		}
+
+		ownerAvatar, err = GithubRepoClient.OwnerAvatar(owner, repoName)
+		if err != nil {
+			return err
+		}
 		break
 	default:
 		return errInvalidUrl
 	}
 
 	repoInfo := repository{
-		Owner:    owner,
-		RepoName: repoName,
-		Template: "",
-		Ports:    nil,
+		Owner:       owner,
+		OwnerAvatar: ownerAvatar,
+		RepoName:    repoName,
+		Template:    "",
+		Ports:       nil,
 	}
 
 	if err := json.NewDecoder(strings.NewReader(content)).Decode(&repoInfo); err != nil {
 		return err
 	}
 
-	if err := validateRepoInfo(&repoInfo); err != nil {
+	if err := validateRepoInfo(&repoInfo, env); err != nil {
 		return err
 	}
 
@@ -128,17 +131,31 @@ func RepoInfo(env *mw.Env, w http.ResponseWriter, r *http.Request) error {
 
 	env.Status = http.StatusOK
 	env.Data = map[string]interface{}{
-		"hack": repoInfo,
+		"quickstart": repoInfo,
 	}
 
 	return nil
 }
 
-func validateRepoInfo(repoInfo *repository) error {
-	if repoInfo.Template == "" {
+func validateRepoInfo(repoInfo *repository, env *mw.Env) error {
+	valid := false
+
+	tmpls, err := template.All(env.DB)
+	if err != nil {
+		return err
+	}
+
+	for _, tmpl := range tmpls {
+		if tmpl.Slug == repoInfo.Template {
+			valid = true
+		}
+	}
+
+	if valid {
+		return nil
+	} else {
 		return errRepoInfo
 	}
-	return nil
 }
 
 func confirmEmail(env *mw.Env) error {

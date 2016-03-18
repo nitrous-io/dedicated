@@ -2662,7 +2662,7 @@ var _ = Describe("subscriptions", func() {
 			Expect(fakeMailer.HTML).To(ContainSubstring("if we are unable to bill your credit card by Friday Jun 19 2015 (UTC)"))
 		})
 
-		It("should handle when the payment gives up", func() {
+		It("sends a final termination warning email when attempts have been exhausted", func() {
 			t := time.Unix(1434681522, 0)
 			_, err := db.Exec("UPDATE invoices SET first_attempt_at = $1 WHERE id = $2;", t, inv.ID)
 			Expect(err).To(BeNil())
@@ -2702,11 +2702,11 @@ var _ = Describe("subscriptions", func() {
 			Expect(fakeMailer.Bccs).To(BeEmpty())
 			Expect(fakeMailer.Subject).To(Equal("Nitrous - your workspaces will be terminated"))
 			Expect(fakeMailer.Body).To(ContainSubstring("Unfortunately, we have been unable to"))
-			Expect(fakeMailer.Body).To(ContainSubstring("ending in 2334 to the value of $14.99"))
+			Expect(fakeMailer.Body).To(ContainSubstring("ending in 2334 for your outstanding invoice amounting to $14.99"))
 			Expect(fakeMailer.Body).To(ContainSubstring("verify your credit card at https://nitrous.example/app/#/billing"))
 			Expect(fakeMailer.Body).To(ContainSubstring("email our support team at support@nitrous.io"))
 			Expect(fakeMailer.HTML).To(ContainSubstring("Unfortunately, we have been unable to successfully"))
-			Expect(fakeMailer.HTML).To(ContainSubstring("ending in 2334 to the value of $14.99"))
+			Expect(fakeMailer.HTML).To(ContainSubstring("ending in 2334 for your outstanding invoice amounting to $14.99"))
 			Expect(fakeMailer.HTML).To(ContainSubstring(`<a href="https://nitrous.example/app/#/billing">verify your credit card</a>`))
 			Expect(fakeMailer.HTML).To(ContainSubstring(`email our support team at <a href="mailto:support@nitrous.io">support@nitrous.io</a>`))
 		})

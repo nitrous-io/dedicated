@@ -40,6 +40,7 @@ var (
 	DockerRegistryWebhookToken = os.Getenv("DOCKER_REGISTRY_WEBHOOK_TOKEN")
 
 	BetaDashboardLocation = os.Getenv("BETA_DASHBOARD_LOCATION")
+	BetaEarnBonusLocation = os.Getenv("BETA_EARN_BONUS_LOCATION")
 	BetaLoginLocation     = os.Getenv("BETA_LOGIN_LOCATION")
 	BetaSignupLocation    = os.Getenv("BETA_SIGNUP_LOCATION")
 
@@ -78,6 +79,8 @@ var (
 
 	TwitterOAuthConsumerKey    = os.Getenv("TWITTER_CONSUMER_KEY")
 	TwitterOAuthConsumerSecret = os.Getenv("TWITTER_CONSUMER_SECRET")
+
+	WufooHandshakeKey = os.Getenv("WUFOO_HANDSHAKE_KEY")
 
 	SecretToken = os.Getenv("SECRET_TOKEN")
 

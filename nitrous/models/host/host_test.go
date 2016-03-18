@@ -291,11 +291,41 @@ var _ = Describe("models/host", func() {
 				Expect(err).To(BeNil())
 				Expect(hosts).To(HaveLen(1))
 
-				Expect(hosts[0].ID).NotTo(BeZero())
-				Expect(hosts[0].UserID).To(Equal(u1.ID))
-				Expect(hosts[0].Slug).To(Equal("my-host-1"))
-				Expect(hosts[0].SubscriptionSlug.String).To(Equal("subslug"))
-				Expect(hosts[0].OrgSlug.String).To(Equal("my-org"))
+				h := hosts[0]
+				Expect(h.ID).NotTo(BeZero())
+				Expect(h.UserID).To(Equal(u1.ID))
+				Expect(h.Slug).To(Equal("my-host-1"))
+				Expect(h.SubscriptionSlug.String).To(Equal("subslug"))
+				Expect(h.OrgSlug.String).To(Equal("my-org"))
+				Expect(h.ContainerCount.Valid).To(Equal(true))
+				Expect(h.ContainerCount.Int64).To(Equal(int64(0)))
+			})
+
+			It("includes the number of containers belonging to each host", func() {
+				hosts, err := host.FindAllByUser(db, u1.ID)
+				Expect(err).To(BeNil())
+				Expect(hosts).To(HaveLen(1))
+				h := hosts[0]
+				Expect(h.Slug).To(Equal("my-host-1"))
+				Expect(h.ContainerCount.Valid).To(Equal(true))
+				Expect(h.ContainerCount.Int64).To(Equal(int64(0)))
+
+				cn := &container.Container{
+					CID:    "abcdef",
+					UserID: u1.ID,
+					HostID: h.ID,
+					Image:  "nitrous-base",
+					Slug:   "test-container",
+				}
+				Expect(cn.Insert(db)).To(BeNil())
+
+				hosts, err = host.FindAllByUser(db, u1.ID)
+				Expect(err).To(BeNil())
+				Expect(hosts).To(HaveLen(1))
+
+				h = hosts[0]
+				Expect(h.Slug).To(Equal("my-host-1"))
+				Expect(h.ContainerCount.Int64).To(Equal(int64(1)))
 			})
 		})
 
@@ -1032,6 +1062,21 @@ var _ = Describe("models/host", func() {
 				Expect(h.ProviderTemplate.Config.Map["disable_eip"]).To(Equal(sql.NullString{"true", true}))
 			})
 
+			It("includes the number of containers belonging to the host", func() {
+				cn := &container.Container{
+					CID:    "abcdef",
+					UserID: hs.U.ID,
+					HostID: hs.H.ID,
+					Image:  "nitrous-base",
+					Slug:   "test-container",
+				}
+				Expect(cn.Insert(db)).To(BeNil())
+
+				h, err := host.Find(db, hs.U, strconv.FormatInt(hs.H.ID, 10))
+				Expect(err).To(BeNil())
+				Expect(h.ContainerCount.Int64).To(Equal(int64(1)))
+			})
+
 			It("returns an error when the matching record does not belong to the user", func() {
 				u := &user.User{
 					Username: "barbaz",
@@ -1117,6 +1162,21 @@ var _ = Describe("models/host", func() {
 				Expect(h.Slug).To(Equal(hs.H.Slug))
 				Expect(h.Provider).To(Equal(hs.PT.Provider))
 				Expect(h.ProviderTemplate.Config.Map["disable_eip"]).To(Equal(sql.NullString{"true", true}))
+			})
+
+			It("includes the number of containers belonging to the host", func() {
+				cn := &container.Container{
+					CID:    "abcdef",
+					UserID: hs.U.ID,
+					HostID: hs.H.ID,
+					Image:  "nitrous-base",
+					Slug:   "test-container",
+				}
+				Expect(cn.Insert(db)).To(BeNil())
+
+				h, err := host.Find(db, hs.U, hs.H.Slug)
+				Expect(err).To(BeNil())
+				Expect(h.ContainerCount.Int64).To(Equal(int64(1)))
 			})
 
 			It("returns an error when matching record does not belong to the user", func() {
@@ -1306,6 +1366,21 @@ var _ = Describe("models/host", func() {
 				Expect(h.ProviderTemplate.Config.Map["disable_eip"]).To(Equal(sql.NullString{"true", true}))
 			})
 
+			It("includes the number of containers belonging to the host", func() {
+				cn := &container.Container{
+					CID:    "abcdef",
+					UserID: hs.U.ID,
+					HostID: hs.H.ID,
+					Image:  "nitrous-base",
+					Slug:   "test-container",
+				}
+				Expect(cn.Insert(db)).To(BeNil())
+
+				h, err := host.FindByIdentifier(db, strconv.FormatInt(hs.H.ID, 10))
+				Expect(err).To(BeNil())
+				Expect(h.ContainerCount.Int64).To(Equal(int64(1)))
+			})
+
 			It("returns an error when there's no matching record", func() {
 				h, err := host.FindByIdentifier(db, "10001")
 				Expect(err).To(MatchError(sql.ErrNoRows))
@@ -1319,6 +1394,21 @@ var _ = Describe("models/host", func() {
 				Expect(err).To(BeNil())
 				Expect(h.Slug).To(Equal(hs.H.Slug))
 				Expect(h.ProviderTemplate.Config.Map["disable_eip"]).To(Equal(sql.NullString{"true", true}))
+			})
+
+			It("includes the number of containers belonging to the host", func() {
+				cn := &container.Container{
+					CID:    "abcdef",
+					UserID: hs.U.ID,
+					HostID: hs.H.ID,
+					Image:  "nitrous-base",
+					Slug:   "test-container",
+				}
+				Expect(cn.Insert(db)).To(BeNil())
+
+				h, err := host.FindByIdentifier(db, hs.H.Slug)
+				Expect(err).To(BeNil())
+				Expect(h.ContainerCount.Int64).To(Equal(int64(1)))
 			})
 
 			It("returns an error when there's no matching record'", func() {

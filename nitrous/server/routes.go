@@ -17,7 +17,6 @@ import (
 	"github.com/nitrous-io/dedicated/nitrous/controllers/feedback"
 	"github.com/nitrous-io/dedicated/nitrous/controllers/freighterd"
 	"github.com/nitrous-io/dedicated/nitrous/controllers/github"
-	"github.com/nitrous-io/dedicated/nitrous/controllers/hack"
 	"github.com/nitrous-io/dedicated/nitrous/controllers/home"
 	"github.com/nitrous-io/dedicated/nitrous/controllers/hosts"
 	"github.com/nitrous-io/dedicated/nitrous/controllers/images"
@@ -31,6 +30,7 @@ import (
 	"github.com/nitrous-io/dedicated/nitrous/controllers/plans"
 	"github.com/nitrous-io/dedicated/nitrous/controllers/promocodes"
 	"github.com/nitrous-io/dedicated/nitrous/controllers/providertemplates"
+	"github.com/nitrous-io/dedicated/nitrous/controllers/quickstart"
 	"github.com/nitrous-io/dedicated/nitrous/controllers/regions"
 	"github.com/nitrous-io/dedicated/nitrous/controllers/registries"
 	"github.com/nitrous-io/dedicated/nitrous/controllers/snapshots"
@@ -43,6 +43,7 @@ import (
 	"github.com/nitrous-io/dedicated/nitrous/controllers/userprofiles"
 	"github.com/nitrous-io/dedicated/nitrous/controllers/users"
 	"github.com/nitrous-io/dedicated/nitrous/controllers/usersettings"
+	"github.com/nitrous-io/dedicated/nitrous/controllers/usersurvey"
 	"github.com/nitrous-io/dedicated/nitrous/controllers/volumes"
 	"github.com/nitrous-io/dedicated/nitrous/envvars"
 	mw "github.com/nitrous-io/dedicated/nitrous/middleware"
@@ -96,7 +97,8 @@ func (s *Server) drawRoutes() {
 	s.route("/", routeWritesResponse, mw.Call("home.Index", home.Index), RouteOpts{Methods: []string{"GET"}, LogParams: true})
 	s.route("/api/v0/github/oauth_cb", routeWritesResponse, mw.Call("github.OAuthCallback", github.OAuthCallback), RouteOpts{Methods: []string{"GET"}, LogParams: true})
 	s.route("/api/v0/twitter/oauth_cb", routeWritesResponse, mw.Call("twitter.OAuthCallback", twitter.OAuthCallback), RouteOpts{Methods: []string{"GET"}, LogParams: true})
-	s.route("/project/new", routeWritesResponse, mw.Call("hack.New", hack.New), RouteOpts{Methods: []string{"GET"}, LogParams: true})
+	s.route("/quickstart", routeWritesResponse, mw.Call("quickstart.New", quickstart.New), RouteOpts{Methods: []string{"GET"}, LogParams: true})
+	s.route("/api/v0/usersurvey/webhook_cb", routeWritesResponse, mw.Call("usersurvey.WebhookCallback", usersurvey.WebhookCallback), RouteOpts{Methods: []string{"POST"}, LogParams: true})
 
 	if envvars.Debug == "true" {
 		s.router.HandleFunc("/sleep", s.sleep).Methods("GET")
@@ -197,14 +199,14 @@ func (s *Server) drawRoutes() {
 				"/orgs/{org_slug}/invoices":                r("billing.Invoices", billing.Invoices),
 				"/orgs/{org_slug}/snapshots":               r("snapshots.ForOrg", snapshots.ForOrg),
 				"/github/repos":                            r("github.Repos", github.Repos),
-				"/hack/repo_info":                          r("hack.RepoInfo", hack.RepoInfo),
+				"/quickstart/repo_info":                    r("quickstart.RepoInfo", quickstart.RepoInfo),
 			},
 			"POST": {
 				"/oauth/authorize":                         r("oauth.PostAuthorize", oauth.PostAuthorize),
 				"/github/authorize":                        r("github.Authorize", github.Authorize),
 				"/user/profile":                            r("userprofiles.Update", userprofiles.Update),
 				"/user/settings":                           r("usersettings.Update", usersettings.Update),
-				"/user/bonus":                              r("users.IncrementUsageQuota", users.IncrementUsageQuota),
+				"/bonuses/earn":                            r("bonuses.Earn", bonuses.Earn),
 				"/coupons":                                 r("coupon.Create", coupons.Create),
 				"/user/dismiss_first_time":                 r("users.DismissFirstTime", users.DismissFirstTime),
 				"/hosts":                                   r("hosts.Create", hosts.Create, EventHostCreated),
