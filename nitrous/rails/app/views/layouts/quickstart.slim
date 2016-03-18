@@ -1,0 +1,13 @@
+doctype 5
+html lang='en'
+  head
+    meta charset='utf-8'
+    title
+      = "Nitrous Quickstart"
+    = favicon_link_tag
+    link href="https://fonts.googleapis.com/css?family=Source+Sans+Pro:400,300,600" rel="stylesheet" type="text/css"
+    = stylesheet_link_tag 'quickstart', media: 'all'
+    = render 'layouts/google_analytics'
+    = render 'layouts/mixpanel'
+  body
+    = yield
