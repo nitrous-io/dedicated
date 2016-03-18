@@ -24,17 +24,17 @@ func TestGithubParseURL(t *testing.T) {
 			err: ErrInvalidURLPath,
 		},
 		{
-			url:      "git@github.com/sferik/rails_admin.git",
+			url:      "git@github.com:sferik/rails_admin.git",
 			owner:    "sferik",
 			repoName: "rails_admin",
 		},
 		{
-			url:      "git@github.com/sferik/rails_admin",
+			url:      "git@github.com:sferik/rails_admin",
 			owner:    "sferik",
 			repoName: "rails_admin",
 		},
 		{
-			url: "git@github.com/website/sferik/rails_admin.git",
+			url: "git@github.com:website/sferik/rails_admin.git",
 			err: ErrInvalidURLPath,
 		},
 	}

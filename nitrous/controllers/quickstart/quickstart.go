@@ -68,14 +68,9 @@ func New(env *mw.Env, w http.ResponseWriter, r *http.Request) error {
 
 func RepoInfo(env *mw.Env, w http.ResponseWriter, r *http.Request) error {
 	repoURL := r.FormValue("repo")
-	parsedURL, err := url.Parse(repoURL)
-	if err != nil {
-		return err
-	}
-
 	var owner, content, repoName string
-	switch parsedURL.Host {
-	case "github.com":
+	switch {
+	case strings.Contains(repoURL, "github.com"):
 		// We try to use user's access token to make Github API request
 		// to access their private repo. If user have not connected their
 		// Github account (don't have access token), it will use
