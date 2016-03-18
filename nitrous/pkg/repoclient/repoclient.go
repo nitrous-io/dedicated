@@ -9,6 +9,8 @@ type RepoClient interface {
 	FileContent(owner, repo, file string) (content string, err error)
 	// returns owner and repository name of a repository, given its URL
 	ParseURL(u string) (owner string, repoName string, err error)
+	// returns repo's owner avatar
+	OwnerAvatar(owner, repo string) (url string, err error)
 }
 
 var (

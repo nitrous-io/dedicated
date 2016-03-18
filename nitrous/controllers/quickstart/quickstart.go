@@ -25,10 +25,11 @@ var (
 )
 
 type repository struct {
-	Owner    string  `json:"owner"`
-	RepoName string  `json:"repo_name"`
-	Template string  `json:"template"`
-	Ports    []int64 `json:"ports"`
+	Owner       string  `json:"owner"`
+	OwnerAvatar string  `json:"owner_avatar"`
+	RepoName    string  `json:"repo_name"`
+	Template    string  `json:"template"`
+	Ports       []int64 `json:"ports"`
 }
 
 func init() {
@@ -68,7 +69,7 @@ func New(env *mw.Env, w http.ResponseWriter, r *http.Request) error {
 
 func RepoInfo(env *mw.Env, w http.ResponseWriter, r *http.Request) error {
 	repoURL := r.FormValue("repo")
-	var owner, content, repoName string
+	var owner, content, repoName, ownerAvatar string
 	switch {
 	case strings.Contains(repoURL, "github.com"):
 		// We try to use user's access token to make Github API request
@@ -95,16 +96,22 @@ func RepoInfo(env *mw.Env, w http.ResponseWriter, r *http.Request) error {
 			}
 			return err
 		}
+
+		ownerAvatar, err = GithubRepoClient.OwnerAvatar(owner, repoName)
+		if err != nil {
+			return err
+		}
 		break
 	default:
 		return errInvalidUrl
 	}
 
 	repoInfo := repository{
-		Owner:    owner,
-		RepoName: repoName,
-		Template: "",
-		Ports:    nil,
+		Owner:       owner,
+		OwnerAvatar: ownerAvatar,
+		RepoName:    repoName,
+		Template:    "",
+		Ports:       nil,
 	}
 
 	if err := json.NewDecoder(strings.NewReader(content)).Decode(&repoInfo); err != nil {

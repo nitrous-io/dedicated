@@ -1,6 +1,9 @@
 package repoclient
 
 import (
+	"encoding/json"
+	"fmt"
+	"net/http"
 	"strings"
 
 	"github.com/google/go-github/github"
@@ -50,4 +53,24 @@ func (gh *Github) ParseURL(u string) (string, string, error) {
 	owner := pathSegments[0]
 
 	return owner, repoName, nil
+}
+
+func (gh *Github) OwnerAvatar(owner, repo string) (string, error) {
+	resp, err := http.Get(fmt.Sprintf("https://api.github.com/repos/%s/%s", owner, repo))
+	defer resp.Body.Close()
+	if err != nil {
+		return "", err
+	}
+
+	var data struct {
+		Owner struct {
+			AvatarURL string `json:"avatar_url"`
+		} `json:"owner"`
+	}
+
+	if err := json.NewDecoder(resp.Body).Decode(&data); err != nil {
+		return "", err
+	}
+
+	return data.Owner.AvatarURL, err
 }
