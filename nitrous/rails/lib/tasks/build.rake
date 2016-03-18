@@ -10,11 +10,12 @@ namespace :build do
 
       '/templates/oauth_authorize.html.tmpl' => {layout: 'layouts/bare', template: 'templates/oauth_authorize'},
 
-      '/public/awsactivate/index.html' => { layout: 'layouts/pages', template: "pages/awsactivate"},
-      '/public/partners/awsactivate/index.html' => { layout: 'layouts/pages', template: "pages/awsactivate"}
+      '/public/awsactivate/index.html' => { layout: 'layouts/pages', template: 'pages/awsactivate'},
+      '/public/partners/awsactivate/index.html' => { layout: 'layouts/pages', template: 'pages/awsactivate'},
+      '/public/quickstarts/index.html' => { layout: 'layouts/quickstart', template: 'pages/quickstart' }
     }
 
-    %w(pricing features company stacks press flatiron education agencies orgs vpc teams-pricing education-pricing jobs quickstarts).each do |page|
+    %w(pricing features company stacks press flatiron education agencies orgs vpc teams-pricing education-pricing jobs).each do |page|
       locations["/public/#{page}/index.html"] = { layout: 'layouts/pages', template: "pages/#{page.underscore}"}
     end
 
