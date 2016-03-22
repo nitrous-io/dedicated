@@ -101,7 +101,7 @@ var _ = Describe("controllers/usersurvey", func() {
 			Expect(res.Code).To(Equal(http.StatusForbidden))
 
 			errSlug, errDesc := test.ErrorSlug(res.Body)
-			Expect(errSlug).To(Equal("user_ineligible_for_bonus"))
+			Expect(errSlug).To(Equal("ineligible_for_bonus"))
 			Expect(errDesc).To(Equal("you are not eligible for bonus"))
 		})
 

@@ -33,8 +33,6 @@ var _ = Describe("controllers/bonuses", func() {
 		db              *db.Database
 		handler         *mux.Router
 		authTokenInputs test.AuthTokenInputs
-		res             *httptest.ResponseRecorder
-		req             *http.Request
 		svr             *server.Server
 		t               *token.Token
 		u               *user.User
@@ -46,7 +44,6 @@ var _ = Describe("controllers/bonuses", func() {
 		Expect(err).To(BeNil())
 		svr = NewTestServer("", db, nil)
 		handler = svr.Router()
-		res = httptest.NewRecorder()
 		authTokenInputs = test.AuthTokenInputs{Handler: handler}
 
 		u = &user.User{
@@ -95,15 +92,16 @@ var _ = Describe("controllers/bonuses", func() {
 			}
 		})
 
-		doRequest := func() {
-			var err error
-			req, err = test.NewAuthedFormRequest(t, "GET", "/api/v0/bonuses", nil)
+		doRequest := func() *httptest.ResponseRecorder {
+			req, err := test.NewAuthedFormRequest(t, "GET", "/api/v0/bonuses", nil)
 			Expect(err).To(BeNil())
-			handler.ServeHTTP(res, req)
+			res := httptest.NewRecorder()
+			svr.Router().ServeHTTP(res, req)
+			return res
 		}
 
 		It("should return the bonuses if they exist", func() {
-			doRequest()
+			res := doRequest()
 			Expect(res.Code).To(Equal(http.StatusOK))
 
 			var j struct {
@@ -126,11 +124,12 @@ var _ = Describe("controllers/bonuses", func() {
 	})
 
 	Describe("GET /api/v0/user/earned_bonuses", func() {
-		doRequest := func() {
-			var err error
-			req, err = test.NewAuthedFormRequest(t, "GET", "/api/v0/user/earned_bonuses", nil)
+		doRequest := func() *httptest.ResponseRecorder {
+			req, err := test.NewAuthedFormRequest(t, "GET", "/api/v0/user/earned_bonuses", nil)
 			Expect(err).To(BeNil())
-			handler.ServeHTTP(res, req)
+			res := httptest.NewRecorder()
+			svr.Router().ServeHTTP(res, req)
+			return res
 		}
 
 		It("serializes earned bonuses belonging to user", func() {
@@ -168,7 +167,7 @@ var _ = Describe("controllers/bonuses", func() {
 			err = ebn.Insert(db)
 			Expect(err).To(BeNil())
 
-			doRequest()
+			res := doRequest()
 			Expect(res.Code).To(Equal(http.StatusOK))
 
 			var j struct {
@@ -184,17 +183,19 @@ var _ = Describe("controllers/bonuses", func() {
 			Expect(serializedEarnedBonuses[0].BonusID).To(Equal(bn.ID))
 		})
 	})
+
 	Describe("POST /api/v0/bonuses/earn", func() {
 		var (
 			threeHours = int64(3 * 60 * 60) // in seconds
 			fiveHours  = int64(5 * 60 * 60)
 		)
 
-		doRequest := func(params *url.Values) {
-			var err error
-			req, err = test.NewAuthedFormRequest(t, "POST", "/api/v0/bonuses/earn", params)
+		doRequest := func(params *url.Values) *httptest.ResponseRecorder {
+			req, err := test.NewAuthedFormRequest(t, "POST", "/api/v0/bonuses/earn", params)
 			Expect(err).To(BeNil())
-			handler.ServeHTTP(res, req)
+			res := httptest.NewRecorder()
+			svr.Router().ServeHTTP(res, req)
+			return res
 		}
 
 		It("updates the user's usage quota", func() {
@@ -225,7 +226,7 @@ var _ = Describe("controllers/bonuses", func() {
 			params := &url.Values{}
 			params.Set("action", "follow-twitter")
 
-			doRequest(params)
+			res := doRequest(params)
 			Expect(res.Code).To(Equal(http.StatusOK))
 
 			var j struct {
@@ -244,6 +245,21 @@ var _ = Describe("controllers/bonuses", func() {
 			Expect(serializedEarnedBonuses[0].BonusID).To(Equal(bn.ID))
 		})
 
+		It("returns forbidden if user ineligible for bonus", func() {
+			_, err := db.Exec("INSERT INTO bonuses (slug, amount) VALUES ('follow-twitter', 10800);")
+			Expect(err).To(BeNil())
+
+			params := &url.Values{}
+			params.Set("action", "follow-twitter")
+
+			res := doRequest(params)
+			Expect(res.Code).To(Equal(http.StatusForbidden))
+
+			errSlug, errDesc := test.ErrorSlug(res.Body)
+			Expect(errSlug).To(Equal("ineligible_for_bonus"))
+			Expect(errDesc).To(Equal("you are not eligible for bonus"))
+		})
+
 		It("should return not found if the bonus type is not valid", func() {
 			_, err := test.CreateHostStack(db, &test.HostStack{
 				U: u,
@@ -257,7 +273,7 @@ var _ = Describe("controllers/bonuses", func() {
 			params := &url.Values{}
 			params.Set("action", "tweeter")
 
-			doRequest(params)
+			res := doRequest(params)
 			Expect(res.Code).To(Equal(http.StatusNotFound))
 
 			errType, errDesc := test.ErrorSlug(res.Body)
@@ -292,7 +308,7 @@ var _ = Describe("controllers/bonuses", func() {
 			params := &url.Values{}
 			params.Set("action", "follow-twitter")
 
-			doRequest(params)
+			res := doRequest(params)
 			Expect(res.Code).To(Equal(http.StatusForbidden))
 
 			errType, errDesc := test.ErrorSlug(res.Body)
