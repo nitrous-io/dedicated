@@ -11,10 +11,12 @@ import (
 	"github.com/nitrous-io/dedicated/nitrous/controllers/github"
 	"github.com/nitrous-io/dedicated/nitrous/envvars"
 	"github.com/nitrous-io/dedicated/nitrous/middleware"
+	"github.com/nitrous-io/dedicated/nitrous/models/bonus"
 	"github.com/nitrous-io/dedicated/nitrous/models/containercollab"
 	"github.com/nitrous-io/dedicated/nitrous/models/oauthclient"
 	"github.com/nitrous-io/dedicated/nitrous/models/orgmembership"
 	"github.com/nitrous-io/dedicated/nitrous/models/promocode"
+	"github.com/nitrous-io/dedicated/nitrous/models/referralcode"
 	"github.com/nitrous-io/dedicated/nitrous/models/user"
 	"github.com/nitrous-io/dedicated/nitrous/pkg/cidrblacklist"
 	"github.com/nitrous-io/dedicated/nitrous/pkg/googlerecaptcha"
@@ -26,6 +28,8 @@ var (
 	errInvalidOrgSlug       = httperror.New(http.StatusBadRequest, "invalid_org_slug", "org_slug is not allowed")
 	errInvalidOrgPermission = httperror.New(http.StatusBadRequest, "invalid_org_permission", "org_permission must be `member` or `limited`")
 	errOrgNotFound          = httperror.New(http.StatusNotFound, "org_not_found", "org not found")
+	errInvalidReferralCode  = httperror.New(http.StatusBadRequest, "invalid_ref_code", "the referral code is invalid")
+	errReferralCapExceeded  = httperror.New(http.StatusBadRequest, "referral_limit_reached", "the referral code is invalid")
 
 	invalidPromoCode  = httperror.New(http.StatusBadRequest, "invalid_promo_code", "promo code does not exist")
 	invalidRemoteAddr = httperror.New(http.StatusBadRequest, "invalid_remote_addr", "remote_addr must be provided")
@@ -49,10 +53,11 @@ func Create(env *middleware.Env, w http.ResponseWriter, r *http.Request) error {
 	username := strings.ToLower(r.FormValue("username"))
 	password := r.FormValue("password")
 	name := r.FormValue("name")
-	promocodeSlug := r.FormValue("promo_code")
-	invitecode := r.FormValue("invite_code")
+	promoCode := r.FormValue("promo_code")
+	inviteCode := r.FormValue("invite_code")
+	referralCode := r.FormValue("referral_code")
 	distinctID := r.FormValue("distinct_id")
-	gitHubUserName := r.FormValue("github_username")
+	githubUsername := r.FormValue("github_username")
 	captchaToken := r.FormValue("captcha_token")
 
 	u := &user.User{
@@ -104,8 +109,8 @@ func Create(env *middleware.Env, w http.ResponseWriter, r *http.Request) error {
 	}
 
 	var pc *promocode.PromoCodeWithPlans
-	if promocodeSlug != "" {
-		pc, err = promocode.Find(db, promocodeSlug)
+	if promoCode != "" {
+		pc, err = promocode.Find(db, promoCode)
 		if err == sql.ErrNoRows {
 			return invalidPromoCode
 		} else if err != nil {
@@ -141,8 +146,8 @@ func Create(env *middleware.Env, w http.ResponseWriter, r *http.Request) error {
 		}
 	}
 
-	if gitHubUserName != "" {
-		if err := github.UpdateGitHubInfoFromRedis(tx, u.ID, gitHubUserName); err != nil {
+	if githubUsername != "" {
+		if err := github.UpdateGitHubInfoFromRedis(tx, u.ID, githubUsername); err != nil {
 			tx.Rollback()
 			return err
 		}
@@ -154,24 +159,37 @@ func Create(env *middleware.Env, w http.ResponseWriter, r *http.Request) error {
 	}
 
 	if pc != nil {
-		if _, err := promocode.ClaimForUser(db, promocodeSlug, u.ID); err != nil {
-			logrus.Errorf("Error claiming promocode '%s' for user %s, err: %v", promocodeSlug, u.Username, err)
+		if _, err := promocode.ClaimForUser(db, promoCode, u.ID); err != nil {
+			logrus.Errorf("Error claiming promocode '%s' for user %s, err: %v", promoCode, u.Username, err)
 		}
 	}
 
 	confirmable := client != nil
-	if !confirmable && invitecode != "" {
-		if _, err := orgmembership.PromotePendingMemberToUser(db, u.Email, invitecode, u.ID); err == nil {
-			confirmable = true
-		} else {
-			if err != orgmembership.ErrDoesNotExist {
+	if !confirmable {
+		if referralCode != "" {
+			if _, err := referralcode.Use(db, referralCode, u.ID); err != nil {
+				if err == sql.ErrNoRows {
+					return errInvalidReferralCode
+				} else if err == bonus.ErrBonusAlreadyEarned {
+					return errReferralCapExceeded
+				}
 				return err
-			}
-			if _, err := containercollab.PromotePendingMemberToUser(db, u.Email, invitecode, u.ID); err == nil {
+			} else {
 				confirmable = true
-				notifySharedContainers(env, u)
-			} else if err != containercollab.ErrDoesNotExist {
-				return err
+			}
+		} else if inviteCode != "" {
+			if _, err := orgmembership.PromotePendingMemberToUser(db, u.Email, inviteCode, u.ID); err == nil {
+				confirmable = true
+			} else {
+				if err != orgmembership.ErrDoesNotExist {
+					return err
+				}
+				if _, err := containercollab.PromotePendingMemberToUser(db, u.Email, inviteCode, u.ID); err == nil {
+					confirmable = true
+					notifySharedContainers(env, u)
+				} else if err != containercollab.ErrDoesNotExist {
+					return err
+				}
 			}
 		}
 	}
