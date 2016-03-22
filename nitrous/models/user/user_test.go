@@ -16,6 +16,7 @@ import (
 	"github.com/nitrous-io/dedicated/nitrous/models/container"
 	"github.com/nitrous-io/dedicated/nitrous/models/containercollab"
 	"github.com/nitrous-io/dedicated/nitrous/models/host"
+	"github.com/nitrous-io/dedicated/nitrous/models/referralcode"
 	"github.com/nitrous-io/dedicated/nitrous/models/user"
 	"github.com/nitrous-io/dedicated/nitrous/models/userprofile"
 	"github.com/nitrous-io/dedicated/nitrous/pkg/bcrypt"
@@ -743,6 +744,19 @@ var _ = Describe("models/user", func() {
 				Expect(up.MaxHosts).To(Equal(int64(10)))
 				Expect(up.CreatedAt).NotTo(BeNil())
 				Expect(up.UpdatedAt).NotTo(BeNil())
+			})
+
+			It("creates a referral code record", func() {
+				rc := &referralcode.ReferralCode{}
+				err := db.Get(rc, "SELECT * FROM referral_codes WHERE user_id = $1;", u.ID)
+				Expect(err).To(BeNil())
+
+				Expect(rc.UserID).To(Equal(u.ID))
+				Expect(rc.Code).ToNot(BeNil())
+				Expect(rc.Bonus).To(Equal(int64(10800)))
+				Expect(rc.Cap).To(Equal(int64(10)))
+				Expect(rc.CreatedAt).NotTo(BeNil())
+				Expect(rc.UpdatedAt).NotTo(BeNil())
 			})
 
 			It("creates a billing profile record", func() {
