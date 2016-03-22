@@ -72,6 +72,7 @@ func RepoInfo(env *mw.Env, w http.ResponseWriter, r *http.Request) error {
 	var owner, content, repoName, ownerAvatar string
 	switch {
 	case strings.Contains(repoURL, "github.com"):
+		client := GithubRepoClient
 		// We try to use user's access token to make Github API request
 		// to access their private repo. If user have not connected their
 		// Github account (don't have access token), it will use
@@ -81,15 +82,15 @@ func RepoInfo(env *mw.Env, w http.ResponseWriter, r *http.Request) error {
 			return err
 		}
 		if accessToken != envvars.GithubAccessToken {
-			GithubRepoClient = repoclient.NewGithubClient(accessToken)
+			client = repoclient.NewGithubClient(accessToken)
 		}
 
-		owner, repoName, err = GithubRepoClient.ParseURL(repoURL)
+		owner, repoName, err = client.ParseURL(repoURL)
 		if err == repoclient.ErrInvalidURLPath {
 			return errInvalidUrl
 		}
 
-		content, err = GithubRepoClient.FileContent(owner, repoName, "nitrous.json")
+		content, err = client.FileContent(owner, repoName, "nitrous.json")
 		if err != nil {
 			if err == repoclient.ErrContentNotFound {
 				return errFileContentNotFound
@@ -97,7 +98,7 @@ func RepoInfo(env *mw.Env, w http.ResponseWriter, r *http.Request) error {
 			return err
 		}
 
-		ownerAvatar, err = GithubRepoClient.OwnerAvatar(owner, repoName)
+		ownerAvatar, err = client.OwnerAvatar(owner, repoName)
 		if err != nil {
 			return err
 		}

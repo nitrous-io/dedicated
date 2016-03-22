@@ -37,7 +37,7 @@
 }
 
 #header h1 {
-  margin: 200px 0 50px;
+  padding: 200px 0 50px;
   color: #fff;
   font-weight: 300;
   font-size: 75px;
@@ -110,13 +110,33 @@
   overflow-y: auto;
 }
 
-#categories .category {
-  padding: 50px;
+#categories .howto {
+  padding: 25px 50px;
+  background: #f8f8f8;
+  border-top: 1px solid #ddd;
   border-bottom: 1px solid #ddd;
 }
 
-#categories .category.alt {
-  background: #fafafa;
+#categories .howto h4 {
+  margin-bottom: 5px;
+  color: #393c44;
+  font-weight: 600;
+  font-size: 17px;
+  line-height: 24px;
+}
+
+#categories .howto p {
+  color: #777;
+  font-size: 15px;
+  line-height: 20px;
+}
+
+#categories .howto p a {
+  color: #0099ed;
+}
+
+#categories .category {
+  padding: 50px;
 }
 
 #categories .category h2 {
@@ -144,22 +164,27 @@
 }
 
 #categories .category .repo img {
-  float: left;
+  position: absolute;
+  top: 20px;
+  left: 20px;
   width: 50px;
   height: 50px;
-  margin-right: 15px;
 }
 
 #categories .category .repo h3 {
-  margin: 6px 0 5px;
+  margin: 5px 0 0 65px;
   font-size: 18px;
-  line-height: 18px;
+  line-height: 20px;
   font-weight: 600;
 }
 
 #categories .category .repo h3 a {
+  display: block;
   color: #0099ed;
   text-decoration: none;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 #categories .category .repo h3 a:hover {
@@ -167,21 +192,30 @@
 }
 
 #categories .category .repo p.who {
-  float: left;
+  margin: 3px 0 15px 65px;
   color: #393c44;
   font-size: 15px;
-  line-height: 15px;
+  line-height: 17px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 #categories .category .repo p.description {
-  margin: 10px 0;
+  height: 36px;
   color: #8696a0;
   font-size: 13px;
   line-height: 18px;
+  overflow: hidden;
+}
+
+#categories .category .repo p.description a {
+  color: #0099ed;
 }
 
 #categories .category .repo .button {
   display: inline-block;
+  margin-top: 10px;
   padding: 10px 20px;
   color: #fff;
   font-size: 13px;
@@ -195,4 +229,78 @@
   text-decoration: none;
   text-shadow: 0 -1px 0 rgba(0, 0, 0, .2);
   box-shadow: 0 1px 0 rgba(0, 0, 0, .2);
+}
+
+@media (max-width: 1024px) {
+
+  #header {
+    position: relative;
+    top: auto;
+    left: auto;
+    bottom: auto;
+    width: 100%;
+    padding-bottom: 50px;
+    border: none;
+    border-bottom: 1px solid rgba(0, 0, 0, .3);
+  }
+
+  #header h1 {
+    padding: 120px 0 50px;
+  }
+
+  #header h1 br {
+    display: none;
+  }
+
+  #header p.wtf {
+    width: 500px;
+    margin: 0 auto 50px;
+  }
+
+  #categories {
+    position: relative;
+    top: auto;
+    left: auto;
+    right: auto;
+    bottom: auto;
+    overflow-y: visible;
+  }
+}
+
+@media (max-width: 600px) {
+
+  #header h1 {
+    font-size: 60px;
+    line-height: 60px;
+    letter-spacing: 0;
+  }
+
+  #header p.wtf {
+    width: 100%;
+    padding: 0 30px;
+    box-sizing: border-box;
+  }
+
+  #categories .category {
+    padding: 30px;
+  }
+
+  #categories .category h2 {
+    margin-bottom: 20px;
+  }
+
+  #categories .category .repo {
+    float: none;
+    width: 100%;
+    margin-left: 0;
+    margin-top: 0;
+    border: none;
+    border-top: 1px solid #ddd;
+    border-radius: 0;
+  }
+
+  #categories .category .clear {
+    border-top: 1px solid #ddd
+  }
+
 }
