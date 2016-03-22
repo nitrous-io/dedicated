@@ -37,7 +37,7 @@
 }
 
 #header h1 {
-  margin: 200px 0 50px;
+  padding: 200px 0 50px;
   color: #fff;
   font-weight: 300;
   font-size: 75px;
@@ -176,7 +176,6 @@
   font-size: 18px;
   line-height: 20px;
   font-weight: 600;
-
 }
 
 #categories .category .repo h3 a {
@@ -230,4 +229,78 @@
   text-decoration: none;
   text-shadow: 0 -1px 0 rgba(0, 0, 0, .2);
   box-shadow: 0 1px 0 rgba(0, 0, 0, .2);
+}
+
+@media (max-width: 1024px) {
+
+  #header {
+    position: relative;
+    top: auto;
+    left: auto;
+    bottom: auto;
+    width: 100%;
+    padding-bottom: 50px;
+    border: none;
+    border-bottom: 1px solid rgba(0, 0, 0, .3);
+  }
+
+  #header h1 {
+    padding: 120px 0 50px;
+  }
+
+  #header h1 br {
+    display: none;
+  }
+
+  #header p.wtf {
+    width: 500px;
+    margin: 0 auto 50px;
+  }
+
+  #categories {
+    position: relative;
+    top: auto;
+    left: auto;
+    right: auto;
+    bottom: auto;
+    overflow-y: visible;
+  }
+}
+
+@media (max-width: 600px) {
+
+  #header h1 {
+    font-size: 60px;
+    line-height: 60px;
+    letter-spacing: 0;
+  }
+
+  #header p.wtf {
+    width: 100%;
+    padding: 0 30px;
+    box-sizing: border-box;
+  }
+
+  #categories .category {
+    padding: 30px;
+  }
+
+  #categories .category h2 {
+    margin-bottom: 20px;
+  }
+
+  #categories .category .repo {
+    float: none;
+    width: 100%;
+    margin-left: 0;
+    margin-top: 0;
+    border: none;
+    border-top: 1px solid #ddd;
+    border-radius: 0;
+  }
+
+  #categories .category .clear {
+    border-top: 1px solid #ddd
+  }
+
 }
