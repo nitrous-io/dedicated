@@ -7,7 +7,10 @@ freighterFeaturesRetry = 3000 # 3s
 autoShutdownUser = 'host-provisioner' # username of system user that initiates auto-shutdown
 
 App.IdeController = Em.ObjectController.extend
+  queryParams: ['codeDir']
   needs: ['ideFindInProject', 'ideFileFinder', 'ideGit']
+
+  codeDir: null # directory where project code lives under ~/code.
 
   opsSocket: null
   collabSocket: null

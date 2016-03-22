@@ -1,5 +1,5 @@
 App.IdeSidebarController = Em.ArrayController.extend
-  needs: ['ideFindInProject', 'ideEditor']
+  needs: ['ide', 'ideFindInProject', 'ideEditor']
 
   homePath: null # home (~/) path
   rootPath: null # current root path in the sidebar
@@ -78,6 +78,23 @@ App.IdeSidebarController = Em.ArrayController.extend
 
   openRepoReadme: (settings = {}) ->
     App.get('container').setMetadata({readmeOpened: true})
+
+    if codeDir = @get('controllers.ide.codeDir')
+      homePath = @get('homePath.absolutePath')
+
+      dirPath = App.Path.create absolutePath: "#{homePath}/code", directory: true
+      this.openPath dirPath, error: false
+
+      codeDirPath = App.Path.create absolutePath: "#{homePath}/code/#{codeDir}", directory: true
+      this.openPath codeDirPath, error: false
+
+      _.each ['README.nitrous.md', 'README.md', 'README.markdown', 'README'], (readme) =>
+        path = "#{homePath}/code/#{codeDir}/#{readme}"
+        readmePath = App.Path.create absolutePath: path, directory: false
+        this.openPath readmePath, error: false, active: settings.active, index: settings.index
+
+      return
+
     if (readme_url = App.get('container.env.NITROUS_README_URL'))
       editorController = @get('controllers.ideEditor')
       tab = editorController.createTab(
@@ -88,10 +105,6 @@ App.IdeSidebarController = Em.ArrayController.extend
         title: 'README'
         readme: true
       , App.Iframe)
-    else
-      _.each ['README.md', 'README.markdown', 'README'], (readme) =>
-        readmePath = App.Path.create absolutePath: "#{@get('homePath.absolutePath')}/#{readme}", directory: false
-        this.openPath readmePath, error: false, active: settings.active, index: settings.index
 
   # settings options:
   #   done: callback (document)
