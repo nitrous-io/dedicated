@@ -22,6 +22,7 @@ var _ = Describe("models/referralcode", func() {
 	var (
 		db    *db.Database
 		u, u2 *user.User
+		code  string
 	)
 
 	BeforeEach(func() {
@@ -43,6 +44,9 @@ var _ = Describe("models/referralcode", func() {
 			Email:    "bar@example.com",
 		}
 		Expect(test.WrapInTransaction(db, u2.Insert)).To(BeNil())
+
+		err = db.Get(&code, `SELECT code FROM referral_codes WHERE user_id = $1`, u.ID)
+		Expect(err).To(BeNil())
 	})
 
 	AfterEach(func() {
@@ -66,12 +70,37 @@ var _ = Describe("models/referralcode", func() {
 		})
 	})
 
-	Describe("Use", func() {
-		It("inserts record into referral code uses", func() {
-			var code string
-			err := db.Get(&code, `SELECT code FROM referral_codes WHERE user_id = $1`, u.ID)
+	Describe("FindByUserID", func() {
+		It("returns referral code record if it exists", func() {
+			rc, err := referralcode.FindByUserID(db, u.ID)
 			Expect(err).To(BeNil())
 
+			Expect(rc.UserID).To(Equal(u.ID))
+			Expect(rc.Code).ToNot(BeNil())
+			Expect(rc.Bonus).To(Equal(int64(10800)))
+			Expect(rc.Cap).To(Equal(int64(10)))
+			Expect(rc.CreatedAt).NotTo(BeNil())
+			Expect(rc.UpdatedAt).NotTo(BeNil())
+		})
+
+		It("creates and returns referral code record if it does not exist", func() {
+			_, err := db.Exec(`DELETE FROM referral_codes WHERE user_id = $1;`, u.ID)
+			Expect(err).To(BeNil())
+
+			rc, err := referralcode.FindByUserID(db, u.ID)
+			Expect(err).To(BeNil())
+
+			Expect(rc.UserID).To(Equal(u.ID))
+			Expect(rc.Code).ToNot(Equal(code))
+			Expect(rc.Bonus).To(Equal(int64(10800)))
+			Expect(rc.Cap).To(Equal(int64(10)))
+			Expect(rc.CreatedAt).NotTo(BeNil())
+			Expect(rc.UpdatedAt).NotTo(BeNil())
+		})
+	})
+
+	Describe("Use", func() {
+		It("inserts record into referral code uses", func() {
 			rcu, err := referralcode.Use(db, code, u2.ID)
 			Expect(err).To(BeNil())
 
@@ -86,10 +115,6 @@ var _ = Describe("models/referralcode", func() {
 		It("grants bonus to referer and referee", func() {
 			var origQuota int64
 			err := db.Get(&origQuota, `SELECT usage_quota FROM users WHERE id = $1`, u.ID)
-			Expect(err).To(BeNil())
-
-			var code string
-			err = db.Get(&code, `SELECT code FROM referral_codes WHERE user_id = $1`, u.ID)
 			Expect(err).To(BeNil())
 
 			_, err = referralcode.Use(db, code, u2.ID)
@@ -155,10 +180,6 @@ var _ = Describe("models/referralcode", func() {
 			})
 
 			It("does not insert referral code uses record", func() {
-				var code string
-				err := db.Get(&code, `SELECT code FROM referral_codes WHERE user_id = $1`, u.ID)
-				Expect(err).To(BeNil())
-
 				rcu, err := referralcode.Use(db, code, u2.ID)
 				Expect(err).To(BeNil())
 
@@ -168,10 +189,6 @@ var _ = Describe("models/referralcode", func() {
 			It("does not grant bonuses", func() {
 				var origQuota int64
 				err := db.Get(&origQuota, `SELECT usage_quota FROM users WHERE id = $1`, u.ID)
-				Expect(err).To(BeNil())
-
-				var code string
-				err = db.Get(&code, `SELECT code FROM referral_codes WHERE user_id = $1`, u.ID)
 				Expect(err).To(BeNil())
 
 				_, err = referralcode.Use(db, code, u2.ID)
@@ -189,15 +206,15 @@ var _ = Describe("models/referralcode", func() {
 			})
 
 			It("checks that referral code uses for a referral code does not exceed cap", func() {
-				var code string
-				err := db.Get(&code, `SELECT code FROM referral_codes WHERE user_id = $1`, u2.ID)
+				var code2 string
+				err := db.Get(&code2, `SELECT code FROM referral_codes WHERE user_id = $1`, u2.ID)
 				Expect(err).To(BeNil())
 
-				rcu, err := referralcode.Use(db, code, u2.ID)
+				rcu, err := referralcode.Use(db, code2, u2.ID)
 				Expect(err).To(BeNil())
 
 				rc := &referralcode.ReferralCode{}
-				err = db.Get(rc, `SELECT * FROM referral_codes WHERE code = $1`, code)
+				err = db.Get(rc, `SELECT * FROM referral_codes WHERE code = $1`, code2)
 				Expect(err).To(BeNil())
 
 				Expect(rcu.UserID).To(Equal(u2.ID))
@@ -205,11 +222,7 @@ var _ = Describe("models/referralcode", func() {
 			})
 
 			It("inserts earned bonuses record if cap exceeded", func() {
-				var code string
-				err := db.Get(&code, `SELECT code FROM referral_codes WHERE user_id = $1`, u.ID)
-				Expect(err).To(BeNil())
-
-				_, err = referralcode.Use(db, code, u2.ID)
+				_, err := referralcode.Use(db, code, u2.ID)
 				Expect(err).To(BeNil())
 
 				bn, err := bonus.FindBySlug(db, "refer-friend")

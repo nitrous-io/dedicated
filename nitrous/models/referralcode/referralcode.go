@@ -15,8 +15,11 @@ type ReferralCode struct {
 	UserID int64  `db:"user_id"` // Referer's user id
 	Code   string `db:"code"`
 
-	Bonus int64 `db:"bonus"` // In seconds, to be added to usage_quota in users
-	Cap   int64 `db:"cap"`   // Number of times this code can be used
+	// In seconds, to be added to usage_quota in users
+	// Bonus hours for each use and not total earnable bonus
+	// To get total earnable bonus, take Bonus * Cap
+	Bonus int64 `db:"bonus"`
+	Cap   int64 `db:"cap"` // Number of times this code can be used
 
 	CreatedAt *time.Time `db:"created_at"`
 	UpdatedAt *time.Time `db:"updated_at"`
@@ -28,6 +31,26 @@ type ReferralCodeUse struct {
 	UserID         int64      `db:"user_id"` // Referee's user id
 	CreatedAt      *time.Time `db:"created_at"`
 	UpdatedAt      *time.Time `db:"updated_at"`
+}
+
+func FindByUserID(d db.QueryReceiver, userID int64) (*ReferralCode, error) {
+	rc := &ReferralCode{}
+
+	err := d.Get(rc, `SELECT * FROM referral_codes WHERE user_id = $1;`, userID)
+	if err != nil {
+		if err == sql.ErrNoRows {
+			// Existing users before referral_codes table was created will not have an rc record, so
+			// we add it for them if it doesn't exist.
+			rc, err = Create(d, userID)
+			if err != nil {
+				return rc, err
+			}
+		} else {
+			return rc, err
+		}
+	}
+
+	return rc, err
 }
 
 func Create(d db.QueryReceiver, userID int64) (*ReferralCode, error) {
