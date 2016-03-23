@@ -14,7 +14,7 @@ import (
 
 var (
 	errBonusAlreadyEarned     = httperror.New(http.StatusForbidden, "forbidden", "you have already earned this bonus")
-	errUserIneligibleForBonus = httperror.New(http.StatusForbidden, "user_ineligible_for_bonus", "you are not eligible for bonus")
+	errUserIneligibleForBonus = httperror.New(http.StatusForbidden, "ineligible_for_bonus", "you are not eligible for bonus")
 	errInvalidHandshakeKey    = httperror.New(http.StatusForbidden, "forbidden", "invalid handshake key")
 	errUsernameNotFound       = httperror.New(http.StatusNotFound, "username_not_found", "username not found")
 )

@@ -30,17 +30,16 @@ var (
 )
 
 var (
-	errGetTokenAndUrlFailed = httperror.New(http.StatusInternalServerError, "get_token_url_failed", "failed to get token and url")
-	errUserNotFound         = httperror.New(http.StatusNotFound, "user_not_found", "user eligible for bonus not found")
-	errAuthorizeFailed      = httperror.New(http.StatusUnauthorized, "authorize_failed", "failed to authorize token")
-	errFailedToFollow       = httperror.New(http.StatusBadRequest, "follow_failed", "failed to follow")
-	errFailedToTweet        = httperror.New(http.StatusBadRequest, "tweet_failed", "failed to tweet")
-	errDuplicateTweet       = httperror.New(http.StatusBadRequest, "tweet_failed", "duplicate tweet")
-	errTokenNotFound        = httperror.New(http.StatusNotFound, "token_not_found", "token not found, please connect with twitter")
-	errInvalidBonusAction   = httperror.New(http.StatusNotFound, "bonus_not_found", "the bonus type is invalid")
-	errInvalidOAuthParam    = httperror.New(http.StatusBadRequest, "invalid_param", "invalid oauth param")
-	errBonusAlreadyEarned   = httperror.New(http.StatusForbidden, "forbidden", "you have already earned this bonus")
-	errForbidden            = httperror.New(http.StatusForbidden, "forbidden", "you do not have permission to access the requested resource")
+	errGetTokenAndUrlFailed   = httperror.New(http.StatusInternalServerError, "get_token_url_failed", "failed to get token and url")
+	errUserIneligibleForBonus = httperror.New(http.StatusForbidden, "ineligible_for_bonus", "you are not eligible for bonus")
+	errAuthorizeFailed        = httperror.New(http.StatusUnauthorized, "authorize_failed", "failed to authorize token")
+	errFailedToFollow         = httperror.New(http.StatusBadRequest, "follow_failed", "failed to follow")
+	errFailedToTweet          = httperror.New(http.StatusBadRequest, "tweet_failed", "failed to tweet")
+	errDuplicateTweet         = httperror.New(http.StatusBadRequest, "tweet_failed", "duplicate tweet")
+	errTokenNotFound          = httperror.New(http.StatusNotFound, "token_not_found", "token not found, please connect with twitter")
+	errInvalidOAuthParam      = httperror.New(http.StatusBadRequest, "invalid_param", "invalid oauth param")
+	errBonusAlreadyEarned     = httperror.New(http.StatusForbidden, "forbidden", "you have already earned this bonus")
+	errForbidden              = httperror.New(http.StatusForbidden, "forbidden", "you do not have permission to access the requested resource")
 )
 
 func init() {
@@ -145,23 +144,24 @@ func OAuthCallback(env *middleware.Env, w http.ResponseWriter, r *http.Request) 
 	bn, err := bonus.FindBySlug(env.DB, "connect-twitter")
 	if err != nil {
 		if err == sql.ErrNoRows {
-			return errInvalidBonusAction
+			bn, err = bonus.Insert(env.DB, "connect-twitter", 10800)
+			if err != nil {
+				return err
+			}
+		} else {
+			return err
 		}
-		return err
 	}
 	if err := env.User.GrantBonus(env.DB, bn); err != nil {
 		if err == bonus.ErrBonusAlreadyEarned {
 			return errBonusAlreadyEarned
 		}
-		return errUserNotFound
+		return errUserIneligibleForBonus
 	}
 
 	redirectUrl := fmt.Sprintf("https://%s/app/#/dashboard/earn-bonuses?connected_twitter=true", envvars.WebHostname)
 
 	http.Redirect(w, r, redirectUrl, http.StatusFound)
-
-	env.Status = http.StatusFound
-	env.Data = map[string]interface{}{}
 
 	return nil
 }
@@ -199,15 +199,19 @@ func Follow(env *middleware.Env, w http.ResponseWriter, r *http.Request) error {
 	bn, err := bonus.FindBySlug(env.DB, "follow-twitter")
 	if err != nil {
 		if err == sql.ErrNoRows {
-			return errInvalidBonusAction
+			bn, err = bonus.Insert(env.DB, "follow-twitter", 10800)
+			if err != nil {
+				return err
+			}
+		} else {
+			return err
 		}
-		return err
 	}
 	if err := env.User.GrantBonus(env.DB, bn); err != nil {
 		if err == bonus.ErrBonusAlreadyEarned {
 			return errBonusAlreadyEarned
 		}
-		return errUserNotFound
+		return errUserIneligibleForBonus
 	}
 
 	ebns, err := bonus.FindEarnedByUser(env.DB, env.User.ID)
@@ -261,15 +265,19 @@ func Tweet(env *middleware.Env, w http.ResponseWriter, r *http.Request) error {
 	bn, err := bonus.FindBySlug(env.DB, "tweet")
 	if err != nil {
 		if err == sql.ErrNoRows {
-			return errInvalidBonusAction
+			bn, err = bonus.Insert(env.DB, "tweet", 18000)
+			if err != nil {
+				return err
+			}
+		} else {
+			return err
 		}
-		return err
 	}
 	if err := env.User.GrantBonus(env.DB, bn); err != nil {
 		if err == bonus.ErrBonusAlreadyEarned {
 			return errBonusAlreadyEarned
 		}
-		return errUserNotFound
+		return errUserIneligibleForBonus
 	}
 
 	ebns, err := bonus.FindEarnedByUser(env.DB, env.User.ID)

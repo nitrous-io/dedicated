@@ -1,5 +1,5 @@
 App.IdeSidebarController = Em.ArrayController.extend
-  needs: ['ideFindInProject', 'ideEditor']
+  needs: ['ide', 'ideFindInProject', 'ideEditor']
 
   homePath: null # home (~/) path
   rootPath: null # current root path in the sidebar
@@ -78,6 +78,37 @@ App.IdeSidebarController = Em.ArrayController.extend
 
   openRepoReadme: (settings = {}) ->
     App.get('container').setMetadata({readmeOpened: true})
+
+    if codeDir = @get('controllers.ide.codeDir')
+      homePath = @get('homePath.absolutePath')
+
+      dirPath = App.Path.create absolutePath: "#{homePath}/code", directory: true
+      this.openPath dirPath, error: false
+
+      codeDirPath = App.Path.create absolutePath: "#{homePath}/code/#{codeDir}", directory: true
+      this.openPath codeDirPath, error: false
+
+      # Try to open one of these readme files.
+      readmes = ['README.nitrous.md', 'README.md', 'README.markdown', 'README']
+      processingIdx = 0
+
+      tryNextReadme = (errMsg) =>
+        processingIdx = processingIdx + 1
+        if processingIdx < readmes.length
+          openReadme(readmes[processingIdx])
+
+      openReadme = (readme) =>
+        path = "#{homePath}/code/#{codeDir}/#{readme}"
+        readmePath = App.Path.create absolutePath: path, directory: false
+        this.openPath readmePath,
+          error: tryNextReadme
+          active: settings.active
+          index: settings.index
+
+      openReadme(readmes[0])
+
+      return
+
     if (readme_url = App.get('container.env.NITROUS_README_URL'))
       editorController = @get('controllers.ideEditor')
       tab = editorController.createTab(
@@ -88,10 +119,6 @@ App.IdeSidebarController = Em.ArrayController.extend
         title: 'README'
         readme: true
       , App.Iframe)
-    else
-      _.each ['README.md', 'README.markdown', 'README'], (readme) =>
-        readmePath = App.Path.create absolutePath: "#{@get('homePath.absolutePath')}/#{readme}", directory: false
-        this.openPath readmePath, error: false, active: settings.active, index: settings.index
 
   # settings options:
   #   done: callback (document)
@@ -99,7 +126,7 @@ App.IdeSidebarController = Em.ArrayController.extend
   openPath: (path, settings = {}) ->
     return if path.get('loading') || !@get('opsSocketReady')
 
-    if settings.error != false
+    if settings.error != false && typeof settings.error != 'function'
       settings.error = (err) ->
         message = switch err
           when 'aio:file_too_large'

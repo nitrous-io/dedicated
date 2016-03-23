@@ -74,7 +74,7 @@ var (
 	ErrKeyAlreadyExists = errors.New("key is already added to GitHub")
 
 	errBonusAlreadyEarned     = httperror.New(http.StatusForbidden, "forbidden", "you have already earned this bonus")
-	errUserIneligibleForBonus = httperror.New(http.StatusForbidden, "user_ineligible_for_bonus", "you are not eligible for bonus")
+	errUserIneligibleForBonus = httperror.New(http.StatusForbidden, "ineligible_for_bonus", "you are not eligible for bonus")
 	errAlreadyConnectedGithub = httperror.New(http.StatusForbidden, "already_connected_github", "you have already connected with github")
 )
 
