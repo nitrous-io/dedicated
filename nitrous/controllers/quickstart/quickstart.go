@@ -20,6 +20,7 @@ var (
 	GithubRepoClient repoclient.RepoClient
 
 	errRepoInfo            = httperror.New(http.StatusForbidden, "invalid_request", "Invalid repository info")
+	errInvalidNitrousJSON  = httperror.New(http.StatusForbidden, "invalid_request", "Invalid nitrous.json")
 	errInvalidUrl          = httperror.New(http.StatusForbidden, "invalid_request", "Invalid repository URL")
 	errFileContentNotFound = httperror.New(http.StatusForbidden, "invalid_request", "Failed to retrieve repository info")
 )
@@ -116,7 +117,7 @@ func RepoInfo(env *mw.Env, w http.ResponseWriter, r *http.Request) error {
 	}
 
 	if err := json.NewDecoder(strings.NewReader(content)).Decode(&repoInfo); err != nil {
-		return err
+		return errInvalidNitrousJSON
 	}
 
 	if err := validateRepoInfo(&repoInfo, env); err != nil {

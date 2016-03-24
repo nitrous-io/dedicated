@@ -1,8 +1,13 @@
 package test
 
-type FakeRepoClient struct{}
+type FakeRepoClient struct {
+	Content string
+}
 
 func (c *FakeRepoClient) FileContent(owner, repo, file string) (string, error) {
+	if c.Content != "" {
+		return c.Content, nil
+	}
 	return `{
 		"template": "rails",
 		"ports": [8000, 9000, 10000]
