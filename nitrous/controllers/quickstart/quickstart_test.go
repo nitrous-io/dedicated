@@ -189,17 +189,42 @@ var _ = Describe("controllers/quickstart", func() {
 			Expect(bp.State).To(Equal(billingprofile.StateFree))
 		})
 
+		It("returns invalid json error if nitrous.json is invalid", func() {
+			_, err := db.Exec(`UPDATE users
+				SET confirmation_sent_at = now()
+				WHERE id = $1;`, hs.U.ID)
+			Expect(err).To(BeNil())
+
+			quickstart.GithubRepoClient = &test.FakeRepoClient{
+				Content: `{
+					"template": "rails",,
+					"ports": [8000, 9000, 10000],,,,,
+				}`,
+			}
+
+			res := doRequest("https://github.com/yeouchien/hack.git")
+			errType, errDesc := test.ErrorSlug(res.Body)
+			Expect(errType).To(Equal("invalid_request"))
+			Expect(errDesc).To(Equal("Invalid nitrous.json"))
+		})
+
 		It("returns error if template slug does not exist", func() {
 			_, err := db.Exec(`UPDATE users
 				SET confirmation_sent_at = now()
 				WHERE id = $1;`, hs.U.ID)
 			Expect(err).To(BeNil())
-			// delete all templates to make nitrous.json template invalid
-			_, err = db.Exec(`DELETE FROM templates;`)
-			Expect(err).To(BeNil())
+
+			quickstart.GithubRepoClient = &test.FakeRepoClient{
+				Content: `{
+					"template": "ruby-on-rails",
+					"ports": [8000, 9000, 10000]
+				}`,
+			}
 
 			res := doRequest("https://github.com/yeouchien/hack.git")
-			Expect(res.Code).To(Equal(http.StatusForbidden))
+			errType, errDesc := test.ErrorSlug(res.Body)
+			Expect(errType).To(Equal("invalid_request"))
+			Expect(errDesc).To(Equal("Invalid repository info"))
 		})
 	})
 })
