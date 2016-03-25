@@ -45,10 +45,14 @@ class Users < Thor
       r = DB[:users].where(id: u.uid).update(usage_quota: u.usage_quota + bn[:amount])
       rows_expected!(r, 1)
       u1 = User.find(ident) {|ds| ds.where(users__deleted_at: nil) }
-      puts "#{u.summary}: usage_quota updated from '#{u.usage_quota}' to '#{u1.usage_quota}'"
-
-      DB[:earned_bonuses].insert(bonus_id: bn[:id], user_id: u.uid)
-      puts "earned_bonuses record inserted"
+      begin
+        DB[:earned_bonuses].insert(bonus_id: bn[:id], user_id: u.uid)
+        puts "#{u.summary}:"
+        puts "\tusage_quota updated from #{u.usage_quota} to #{u1.usage_quota}"
+        puts "\tearned_bonuses record inserted"
+      rescue Sequel::UniqueConstraintViolation
+        puts "#{u.summary} has already earned bonus '#{bonus}'"
+      end
     end
   end
 
