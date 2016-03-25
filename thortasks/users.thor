@@ -36,6 +36,22 @@ class Users < Thor
     end
   end
 
+  # Should only be used on bonuses that are not granted automatically by the server
+  desc "grant_bonus IDENT BONUS",  "Grants bonus to user by adding to usage_quota and inserting earned_bonus record"
+  def grant_bonus(ident, bonus)
+    u = User.find(ident) {|ds| ds.where(users__deleted_at: nil) }
+    DB.transaction do
+      bn = DB[:bonuses].where(slug: bonus).first
+      r = DB[:users].where(id: u.uid).update(usage_quota: u.usage_quota + bn[:amount])
+      rows_expected!(r, 1)
+      u1 = User.find(ident) {|ds| ds.where(users__deleted_at: nil) }
+      puts "#{u.summary}: usage_quota updated from '#{u.usage_quota}' to '#{u1.usage_quota}'"
+
+      DB[:earned_bonuses].insert(bonus_id: bn[:id], user_id: u.uid)
+      puts "earned_bonuses record inserted"
+    end
+  end
+
   desc "search TERM", "Searches user usernames and e-mails for TERM"
   def search(term)
     term = term.gsub('_', '\_') # escape for LIKE
