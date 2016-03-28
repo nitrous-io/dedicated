@@ -87,17 +87,17 @@ var _ = Describe("controllers/usersurvey", func() {
 			Expect(errDesc).To(Equal("invalid handshake key"))
 		})
 
-		It("returns not found if username does not exist", func() {
-			res := doRequest(envvars.WufooHandshakeKey, "an-invalid-username")
+		It("returns not found if email does not exist", func() {
+			res := doRequest(envvars.WufooHandshakeKey, "an-invalid-email")
 			Expect(res.Code).To(Equal(http.StatusNotFound))
 
 			errSlug, errDesc := test.ErrorSlug(res.Body)
-			Expect(errSlug).To(Equal("username_not_found"))
-			Expect(errDesc).To(Equal("username not found"))
+			Expect(errSlug).To(Equal("email_not_found"))
+			Expect(errDesc).To(Equal("email not found"))
 		})
 
 		It("returns forbidden if user does not have free host", func() {
-			res := doRequest(envvars.WufooHandshakeKey, u.Username)
+			res := doRequest(envvars.WufooHandshakeKey, u.Email)
 			Expect(res.Code).To(Equal(http.StatusForbidden))
 
 			errSlug, errDesc := test.ErrorSlug(res.Body)
@@ -115,7 +115,7 @@ var _ = Describe("controllers/usersurvey", func() {
 			})
 			Expect(err).To(BeNil())
 
-			res := doRequest(envvars.WufooHandshakeKey, u.Username)
+			res := doRequest(envvars.WufooHandshakeKey, u.Email)
 			Expect(res.Code).To(Equal(http.StatusFound))
 			Expect(res.HeaderMap.Get("Location")).To(ContainSubstring("earn-bonuses?completed_survey=true"))
 
