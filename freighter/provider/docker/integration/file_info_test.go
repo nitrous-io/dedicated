@@ -22,7 +22,7 @@ var _ = Describe("FileInfo", func() {
 	RUN echo -n hello > /copyfile
 	`
 
-	createImageTarball := func(df string) (io.Reader, error) {
+	createDockerfileTar := func(df string) (io.Reader, error) {
 		buf := new(bytes.Buffer)
 		tarWriter := tar.NewWriter(buf)
 		if err := tarWriter.WriteHeader(&tar.Header{
@@ -56,7 +56,7 @@ var _ = Describe("FileInfo", func() {
 		Expect(err).To(BeNil(), "failed to initialize docker provider")
 		defer os.RemoveAll(dataPath)
 
-		input, err := createImageTarball(dockerfile)
+		input, err := createDockerfileTar(dockerfile)
 		Expect(err).To(BeNil(), "failed to create dockerfile tarball")
 
 		err = prov.BuildImage(provider.BuildImageOptions{

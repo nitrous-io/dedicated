@@ -1,12 +1,16 @@
 package docker
 
 import (
+	"bytes"
+	"encoding/json"
 	"fmt"
 	"os"
 	"path/filepath"
 	"strings"
 
+	"github.com/Sirupsen/logrus"
 	dockerclient "github.com/fsouza/go-dockerclient"
+	"github.com/nitrous-io/dedicated/freighter/cops"
 	"github.com/nitrous-io/dedicated/freighter/provider"
 	"github.com/nitrous-io/dedicated/freighter/provider/docker/parsers"
 	"github.com/nitrous-io/dedicated/pkg/uuid"
@@ -90,7 +94,7 @@ func (p *DockerProvider) configFromContainer(container *dockerclient.Container) 
 		serializedRuntimePortBindings = serializePortBindings(runtimePortBindings)
 	}
 
-	containerConfig := &provider.ContainerConfig{
+	return &provider.ContainerConfig{
 		Privileged:         &container.HostConfig.Privileged,
 		Cmd:                container.Config.Cmd,
 		Env:                container.Config.Env,
@@ -98,9 +102,56 @@ func (p *DockerProvider) configFromContainer(container *dockerclient.Container) 
 		Mounts:             mountBindsFromDocker(container.HostConfig.Binds, p.VolumesDir("")),
 		PortBindings:       serializedRuntimePortBindings,
 		ConfigPortBindings: serializedConfigPortBindings,
+		Scripts:            p.parseScripts(container),
+	}
+}
+
+// parseScripts returns the pre-defined scripts stored in, in order of
+// precedence:
+//   1. /home/$NITROUS_USERNAME/nitrous.json
+//   2. /home/$NITROUS_USERNAME/.nitrous-scripts.json.
+// i.e. scripts defined in nitrous.json will override those in
+// .nitrous-scripts.json.
+func (p *DockerProvider) parseScripts(container *dockerclient.Container) map[string]string {
+	if !container.State.Running {
+		return nil
 	}
 
-	return containerConfig
+	usr, ok := p.appUser(container)
+	if !ok {
+		return nil
+	}
+
+	cnScriptsPath := filepath.Join("home", usr, ".nitrous-scripts.json")
+	containerScripts := map[string]string{}
+	buf := bytes.NewBuffer(nil)
+	if err := cops.ReadFromContainer(container.ID, cnScriptsPath, buf); err == nil {
+		if err := json.NewDecoder(buf).Decode(&containerScripts); err != nil {
+			logrus.Warnf("failed to unmarshal JSON file %q, err: %v", cnScriptsPath, err)
+		}
+	}
+
+	userScriptsPath := filepath.Join("home", usr, "nitrous.json")
+	userScripts := struct {
+		// Scripts in nitrous.json are contained in a "scripts" envelope.
+		Scripts map[string]string `json:"scripts"`
+	}{}
+	buf = bytes.NewBuffer(nil)
+	if err := cops.ReadFromContainer(container.ID, userScriptsPath, buf); err == nil {
+		if err := json.NewDecoder(buf).Decode(&userScripts); err != nil {
+			logrus.Warnf("failed to unmarshal JSON file %q, err: %v", userScriptsPath, err)
+		}
+	}
+
+	combinedScripts := map[string]string{}
+	for k, v := range containerScripts {
+		combinedScripts[k] = v
+	}
+	for k, v := range userScripts.Scripts {
+		combinedScripts[k] = v
+	}
+
+	return combinedScripts
 }
 
 func (p *DockerProvider) mkContainerConfig(cfg *provider.ContainerConfig, isTrustedImage bool) (*dockerclient.Config, error) {
