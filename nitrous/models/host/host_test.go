@@ -692,7 +692,7 @@ var _ = Describe("models/host", func() {
 
 	Describe("FindAllIdleForAutoShutdown()", func() {
 		var (
-			h1, h2, h3, h4, h5, h6, h7, h8, h9, h10, h11, h12, h13, h14 *host.Host
+			h1, h2, h3, h4, h5, h6, h7, h8, h9 *host.Host
 		)
 
 		BeforeEach(func() {
@@ -816,83 +816,6 @@ var _ = Describe("models/host", func() {
 				ProviderTemplateID: h1.ProviderTemplateID,
 			}
 			Expect(h9.Insert(db)).To(BeNil())
-
-			// started but has never been pinged, only recently running; will
-			// not be returned.
-			h10 = &host.Host{
-				Slug:               "host-10",
-				State:              host.StateRunning,
-				LastPingedAt:       pq.NullTime{},
-				LastRunningAt:      pq.NullTime{now, true},
-				AutoShutdown:       true,
-				UserID:             hs.U.ID,
-				PlanID:             h1.PlanID,
-				RegionID:           h1.RegionID,
-				ProviderTemplateID: h1.ProviderTemplateID,
-			}
-			Expect(h10.Insert(db)).To(BeNil())
-
-			// pinged at exceeds idle_timeout, only recently running; will not
-			// be returned.
-			h11 = &host.Host{
-				Slug:               "host-11",
-				State:              host.StateRunning,
-				LastPingedAt:       pq.NullTime{t4, true},
-				LastRunningAt:      pq.NullTime{now.Add(-15 * time.Minute), true},
-				AutoShutdown:       true,
-				UserID:             hs.U.ID,
-				PlanID:             h1.PlanID,
-				RegionID:           h1.RegionID,
-				ProviderTemplateID: h1.ProviderTemplateID,
-			}
-			Expect(h11.Insert(db)).To(BeNil())
-
-			// pinged at exceeds idle_timeout, became running > 45 minutes ago;
-			// will be returned.
-			h12 = &host.Host{
-				Slug:               "host-12",
-				State:              host.StateRunning,
-				LastPingedAt:       pq.NullTime{t4, true},
-				LastRunningAt:      pq.NullTime{now.Add(-46 * time.Minute), true},
-				AutoShutdown:       true,
-				UserID:             hs.U.ID,
-				PlanID:             h1.PlanID,
-				RegionID:           h1.RegionID,
-				ProviderTemplateID: h1.ProviderTemplateID,
-			}
-			Expect(h12.Insert(db)).To(BeNil())
-
-			// pinged at exceeds idle_timeout, became running 1 hour 1 minute
-			// ago (i.e. host has been running within 45 minutes of the hour);
-			// will not be returned.
-			h13 = &host.Host{
-				Slug:               "host-13",
-				State:              host.StateRunning,
-				LastPingedAt:       pq.NullTime{t4, true},
-				LastRunningAt:      pq.NullTime{now.Add(-61 * time.Minute), true},
-				AutoShutdown:       true,
-				UserID:             hs.U.ID,
-				PlanID:             h1.PlanID,
-				RegionID:           h1.RegionID,
-				ProviderTemplateID: h1.ProviderTemplateID,
-			}
-			Expect(h13.Insert(db)).To(BeNil())
-
-			// pinged at exceeds idle_timeout, became running 1 hour 46 minutes
-			// (107 minutes) ago (i.e. host has been running > 45 minutes of the
-			// hour); will be returned.
-			h14 = &host.Host{
-				Slug:               "host-14",
-				State:              host.StateRunning,
-				LastPingedAt:       pq.NullTime{t4, true},
-				LastRunningAt:      pq.NullTime{now.Add(-107 * time.Minute), true},
-				AutoShutdown:       true,
-				UserID:             hs.U.ID,
-				PlanID:             h1.PlanID,
-				RegionID:           h1.RegionID,
-				ProviderTemplateID: h1.ProviderTemplateID,
-			}
-			Expect(h14.Insert(db)).To(BeNil())
 		})
 
 		It("returns a list of idle hosts that are eligible for auto shutdown", func() {
@@ -903,7 +826,7 @@ var _ = Describe("models/host", func() {
 			for _, h := range hosts {
 				slugs = append(slugs, h.Slug)
 			}
-			Expect(slugs).To(ConsistOf(h4.Slug, h8.Slug, h9.Slug, h12.Slug, h14.Slug))
+			Expect(slugs).To(ConsistOf(h4.Slug, h8.Slug, h9.Slug))
 
 			// Sanity-check that SQL query populates "provider" field
 			// (required by hostcontrol).
@@ -2050,14 +1973,6 @@ var _ = Describe("models/host", func() {
 			idle, err = h.IsIdle(db)
 			Expect(err).To(BeNil())
 			Expect(idle).To(BeTrue())
-
-			// unless the host has been running for less than 45 minutes
-			_, err = db.Exec(`UPDATE hosts SET last_running_at = now() - interval '43 minutes' WHERE id = $1`, h.ID)
-			Expect(err).To(BeNil())
-
-			idle, err = h.IsIdle(db)
-			Expect(err).To(BeNil())
-			Expect(idle).To(BeFalse())
 		})
 
 		It("returns false if host does have the auto_shutdown=true", func() {
