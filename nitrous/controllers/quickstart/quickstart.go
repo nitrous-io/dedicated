@@ -25,12 +25,18 @@ var (
 	errFileContentNotFound = httperror.New(http.StatusForbidden, "invalid_request", "Failed to retrieve repository info")
 )
 
+type scripts struct {
+	Preclone  string `json:"preclone"`
+	Postclone string `json:"postclone"`
+}
+
 type repository struct {
 	Owner       string  `json:"owner"`
 	OwnerAvatar string  `json:"owner_avatar"`
 	RepoName    string  `json:"repo_name"`
 	Template    string  `json:"template"`
 	Ports       []int64 `json:"ports"`
+	Scripts     scripts `json:"scripts"`
 }
 
 func init() {
@@ -114,6 +120,10 @@ func RepoInfo(env *mw.Env, w http.ResponseWriter, r *http.Request) error {
 		RepoName:    repoName,
 		Template:    "",
 		Ports:       nil,
+		Scripts: scripts{
+			Preclone:  "",
+			Postclone: "",
+		},
 	}
 
 	if err := json.NewDecoder(strings.NewReader(content)).Decode(&repoInfo); err != nil {

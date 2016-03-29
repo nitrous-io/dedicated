@@ -151,6 +151,10 @@ var _ = Describe("controllers/quickstart", func() {
 					RepoName    string  `json:"repo_name"`
 					Template    string  `json:"template"`
 					Ports       []int64 `json:"ports"`
+					Scripts     struct {
+						Preclone  string `json:"preclone"`
+						Postclone string `json:"postclone"`
+					} `json:"scripts"`
 				} `json:"quickstart"`
 			}
 			err = json.NewDecoder(res.Body).Decode(&j)
@@ -160,6 +164,8 @@ var _ = Describe("controllers/quickstart", func() {
 			Expect(j.Quickstart.Owner).To(Equal("owner"))
 			Expect(j.Quickstart.OwnerAvatar).To(Equal("https://example.com/rails.png"))
 			Expect(j.Quickstart.RepoName).To(Equal("repo-name"))
+			Expect(j.Quickstart.Scripts.Preclone).To(Equal("echo \"preclone\""))
+			Expect(j.Quickstart.Scripts.Postclone).To(Equal("echo \"postclone\""))
 		})
 
 		It("confirms user automatically if they have not yet confirmed their email", func() {
