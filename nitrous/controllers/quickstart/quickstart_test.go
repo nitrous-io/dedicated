@@ -141,31 +141,41 @@ var _ = Describe("controllers/quickstart", func() {
 				WHERE id = $1;`, hs.U.ID)
 			Expect(err).To(BeNil())
 
+			quickstart.GithubRepoClient = &test.FakeRepoClient{
+				Content: `{
+					"template": "rails",
+					"ports": [8000, 9000],
+					"scripts": {
+						"start": "rails s",
+						"run-tests": "rake test"
+					}
+				}`,
+			}
+
 			res := doRequest("https://github.com/yeouchien/hack.git")
 			Expect(res.Code).To(Equal(http.StatusOK))
 
 			var j struct {
 				Quickstart struct {
-					Owner       string  `json:"owner"`
-					OwnerAvatar string  `json:"owner_avatar"`
-					RepoName    string  `json:"repo_name"`
-					Template    string  `json:"template"`
-					Ports       []int64 `json:"ports"`
-					Scripts     struct {
-						Preclone  string `json:"preclone"`
-						Postclone string `json:"postclone"`
-					} `json:"scripts"`
+					Owner       string            `json:"owner"`
+					OwnerAvatar string            `json:"owner_avatar"`
+					RepoName    string            `json:"repo_name"`
+					Template    string            `json:"template"`
+					Ports       []int64           `json:"ports"`
+					Scripts     map[string]string `json:"scripts"`
 				} `json:"quickstart"`
 			}
 			err = json.NewDecoder(res.Body).Decode(&j)
 			Expect(err).To(BeNil())
 
-			Expect(j.Quickstart.Template).To(Equal("rails"))
 			Expect(j.Quickstart.Owner).To(Equal("owner"))
 			Expect(j.Quickstart.OwnerAvatar).To(Equal("https://example.com/rails.png"))
 			Expect(j.Quickstart.RepoName).To(Equal("repo-name"))
-			Expect(j.Quickstart.Scripts.Preclone).To(Equal("echo \"preclone\""))
-			Expect(j.Quickstart.Scripts.Postclone).To(Equal("echo \"postclone\""))
+			Expect(j.Quickstart.Template).To(Equal("rails"))
+			Expect(j.Quickstart.Ports).To(ConsistOf([]int64{8000, 9000}))
+			Expect(j.Quickstart.Scripts).To(HaveLen(2))
+			Expect(j.Quickstart.Scripts["start"]).To(Equal("rails s"))
+			Expect(j.Quickstart.Scripts["run-tests"]).To(Equal("rake test"))
 		})
 
 		It("confirms user automatically if they have not yet confirmed their email", func() {
