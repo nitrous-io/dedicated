@@ -270,9 +270,6 @@ func FindAllIdleForAutoShutdown(db *db.Database) ([]*Host, error) {
 				OR
 				last_pinged_at IS NULL
 			)
-			-- if host has been running for less than 2700 seconds = 45 minutes within the hour; not idle
-			AND
-			  (last_running_at IS NULL OR MOD(CAST(EXTRACT(EPOCH FROM now() - last_running_at) as numeric), 3600) > 2700)
 			AND terminated_at IS NULL
 		ORDER BY last_pinged_at ASC
 	`, true, StateRunning)
@@ -628,9 +625,6 @@ func (h *Host) IsIdle(db *db.Database) (bool, error) {
 				OR
 				last_pinged_at IS NULL
 			)
-			-- if host has been running for less than 2700 seconds = 45 minutes within the hour; not idle
-			AND
-			  (last_running_at IS NULL OR MOD(CAST(EXTRACT(EPOCH FROM now() - last_running_at) as numeric), 3600) > 2700)
 			AND terminated_at IS NULL
 		`, h.ID, true, StateRunning).Scan(&count)
 	if err != nil {
