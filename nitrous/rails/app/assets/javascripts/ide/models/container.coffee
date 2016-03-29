@@ -88,6 +88,29 @@ App.Container = klass = Em.Object.extend
     publicPorts.sortBy('containerPort')
   ).property 'config', 'config.port.@each'
 
+  scripts: (->
+    scripts = @get('config.scripts')
+    return scripts if !scripts
+
+    newScripts = {}
+
+    # Convert known keys to English.
+    keys = Object.keys(scripts)
+    keys = keys.sort()
+    keys.forEach (k) ->
+      switch k
+        when 'start'
+          newScripts['Start Server'] = scripts[k]
+        when 'stop'
+          newScripts['Stop Server'] = scripts[k]
+        when 'run-tests'
+          newScripts['Run Tests'] = scripts[k]
+        else
+          newScripts[k] = scripts[k]
+
+    newScripts
+  ).property 'config', 'config.scripts'
+
   validPreviewPort: (port) ->
     port == 80 || port >= 1024
 
