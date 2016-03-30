@@ -61,7 +61,8 @@ type Provider interface {
 	ListContainerKeys(id string) (containerKeys []string, err error)
 
 	Reconfig(id, config string) (info *ContainerInfo, err error)
-	RunCommand(id, command string, timeout time.Duration, outputStream io.Writer) (err error)
+	// exitCode here only means anything when there's no error is returned
+	RunCommand(id, command string, timeout time.Duration, outputStream io.Writer) (exitCode int, err error)
 
 	//ForwardPort(id string, hostPort uint16, containerPort uint16) (err error)
 	//TakeSnapshot(id string, tag name, description string) (info *SnapshotInfo, err error)
