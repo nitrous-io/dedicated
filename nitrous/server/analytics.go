@@ -32,6 +32,8 @@ const (
 	EventUserUpdatedBillingProfile = "User Updated Billing Profile"
 	EventUserUpdatedProfile        = "User Updated Profile"
 
+	EventUserSignup = "User Signed Up"
+
 	EventVolumeCreated = "Volume Created"
 	EventVolumeRemoved = "Volume Removed"
 

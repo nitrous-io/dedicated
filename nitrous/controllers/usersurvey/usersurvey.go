@@ -16,7 +16,7 @@ var (
 	errBonusAlreadyEarned     = httperror.New(http.StatusForbidden, "forbidden", "you have already earned this bonus")
 	errUserIneligibleForBonus = httperror.New(http.StatusForbidden, "ineligible_for_bonus", "you are not eligible for bonus")
 	errInvalidHandshakeKey    = httperror.New(http.StatusForbidden, "forbidden", "invalid handshake key")
-	errUsernameNotFound       = httperror.New(http.StatusNotFound, "username_not_found", "username not found")
+	errEmailNotFound          = httperror.New(http.StatusNotFound, "email_not_found", "email not found")
 )
 
 // /api/v0/usersurvey/webhook_cb is the webhook URL that we store in the Wufoo form
@@ -29,12 +29,13 @@ func WebhookCallback(env *middleware.Env, w http.ResponseWriter, r *http.Request
 	}
 
 	// Field113 is the field in the survey form that we prefill for user, which contains
-	// the user's nitrous username that enables us to track the user in this callback
+	// the user's nitrous email that enables us to track the user in this callback
 	// http://help.wufoo.com/articles/en_US/SurveyMonkeyArticleType/URL-Modifications
-	username := r.FormValue("Field113")
-	u, err := user.FindByUsername(env.DB, username)
+	// This field is hidden from user: http://www.wufoo.com/guides/using-hidden-fields-forms/
+	email := r.FormValue("Field113")
+	u, err := user.FindByEmail(env.DB, email)
 	if err != nil {
-		return errUsernameNotFound
+		return errEmailNotFound
 	}
 
 	bn, err := bonus.FindBySlug(env.DB, "complete-survey")

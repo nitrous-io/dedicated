@@ -469,11 +469,11 @@ func (p *MockProvider) Activity(threshold int) (bool, error) {
 	return p.ActivityActive, p.ActivityError
 }
 
-func (p *MockProvider) RunCommand(id, command string, timeout time.Duration, outputStream io.Writer) error {
+func (p *MockProvider) RunCommand(id, command string, timeout time.Duration, outputStream io.Writer) (int, error) {
 	p.ReceivedID = id
 	p.ReceivedCommand = command
 	p.ReceivedTimeout = timeout
 	p.RunCommandCalled = true
 	outputStream.Write([]byte(p.RunCommandOutput))
-	return p.RunCommandError
+	return 0, p.RunCommandError
 }

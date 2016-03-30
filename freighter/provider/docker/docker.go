@@ -702,11 +702,11 @@ func (p *DockerProvider) Reconfig(id, configJSON string) (ret *provider.Containe
 	return p.GetInfo(id)
 }
 
-func (p *DockerProvider) RunCommand(id, command string, timeout time.Duration, outputStream io.Writer) error {
+func (p *DockerProvider) RunCommand(id, command string, timeout time.Duration, outputStream io.Writer) (int, error) {
 	container, err := p.inspectContainer(id)
 	if err != nil {
 		logrus.Errorf("RunCommand inspectContainer failed, err: %v, id: %s", err, id)
-		return err
+		return 0, err
 	}
 	usr, ok := p.appUser(container)
 	if !ok {
@@ -726,7 +726,7 @@ func (p *DockerProvider) RunCommand(id, command string, timeout time.Duration, o
 	ex, err := p.client.CreateExec(createOpts)
 	if err != nil {
 		logrus.Errorf("RunCommand CreateExec failed, err: %v, createOpts: %v", err, createOpts)
-		return err
+		return 0, err
 	}
 
 	errCh := make(chan error)
@@ -747,15 +747,21 @@ func (p *DockerProvider) RunCommand(id, command string, timeout time.Duration, o
 		if err := p.client.StopExec(ex.ID); err != nil {
 			logrus.Errorf("RunCommand StopExec failed, err: %v, exec id: %v", err, ex.ID)
 		}
-		return provider.ErrRunCommandTimedOut
+		return 0, provider.ErrRunCommandTimedOut
 	case err := <-errCh:
 		if err != nil {
-			logrus.Errorf("RunCommand StartExec failed, err: %v")
-			return err
+			logrus.Errorf("RunCommand StartExec failed, err: %v", err)
+			return 0, err
 		}
+		execInspect, err := p.client.InspectExec(ex.ID)
+		if err != nil {
+			logrus.Errorf("RunCommand InspectExec failed, err: %v", err)
+			return 0, err
+		}
+		return execInspect.ExitCode, nil
 	}
 
-	return nil
+	return 0, nil
 }
 
 // Logs gets stdout and stderr logs from a container. If successful, the logs

@@ -124,7 +124,7 @@ func (s *Server) drawRoutes() {
 			"POST": {
 				"/oauth/token":                   r("oauth.IssueToken", oauth.IssueToken),
 				"/users/email_signup":            r("users.EmailCapture", users.EmailCapture),
-				"/users":                         r("users.Create", users.Create),
+				"/users":                         r("users.Create", users.Create, EventUserSignup),
 				"/user/confirm":                  r("users.Confirm", users.Confirm),
 				"/user/resend_confirm":           r("users.ResendConfirmation", users.ResendConfirmation),
 				"/send_reset_password_token":     r("passwords.SendResetPasswordToken", passwords.SendResetPasswordToken),
