@@ -683,8 +683,9 @@ var _ = Describe("provider/docker", func() {
 					timeout := 1 * time.Second
 					outputStream := bytes.NewBuffer(nil)
 
-					err := prov.RunCommand(info.ID, cmd, timeout, outputStream)
+					exitCode, err := prov.RunCommand(info.ID, cmd, timeout, outputStream)
 					Expect(err).To(BeNil())
+					Expect(exitCode).To(Equal(0))
 
 					Expect(outputStream.String()).To(Equal("nitrous"))
 				})
@@ -703,8 +704,9 @@ var _ = Describe("provider/docker", func() {
 					timeout := 1 * time.Second
 					outputStream := bytes.NewBuffer(nil)
 
-					err = prov.RunCommand(info.ID, cmd, timeout, outputStream)
+					exitCode, err := prov.RunCommand(info.ID, cmd, timeout, outputStream)
 					Expect(err).To(BeNil())
+					Expect(exitCode).To(Equal(0))
 
 					Expect(outputStream.String()).To(Equal("root"))
 				})
@@ -716,8 +718,9 @@ var _ = Describe("provider/docker", func() {
 					timeout := 1 * time.Second
 					outputStream := bytes.NewBuffer(nil)
 
-					err := prov.RunCommand(info.ID, cmd, timeout, outputStream)
+					exitCode, err := prov.RunCommand(info.ID, cmd, timeout, outputStream)
 					Expect(err).To(BeNil())
+					Expect(exitCode).To(Equal(0))
 
 					Expect(outputStream.String()).To(Equal("nitrous"))
 				})
@@ -729,8 +732,9 @@ var _ = Describe("provider/docker", func() {
 					timeout := 1 * time.Second
 					outputStream := bytes.NewBuffer(nil)
 
-					err := prov.RunCommand(info.ID, cmd, timeout, outputStream)
+					exitCode, err := prov.RunCommand(info.ID, cmd, timeout, outputStream)
 					Expect(err).To(BeNil())
+					Expect(exitCode).To(Equal(0))
 
 					Expect(outputStream.String()).To(ContainSubstring("some value"))
 				})
@@ -740,9 +744,20 @@ var _ = Describe("provider/docker", func() {
 					timeout := 100 * time.Millisecond
 					outputStream := bytes.NewBuffer(nil)
 
-					err := prov.RunCommand(info.ID, cmd, timeout, outputStream)
+					exitCode, err := prov.RunCommand(info.ID, cmd, timeout, outputStream)
 					Expect(err).To(Equal(provider.ErrRunCommandTimedOut))
+					Expect(exitCode).To(Equal(0))
 					Expect(outputStream.String()).To(BeEmpty())
+				})
+
+				It("returns exit code", func() {
+					cmd := "rm stupid-non-exist-file.exe"
+					timeout := 1 * time.Second
+					outputStream := bytes.NewBuffer(nil)
+
+					exitCode, err := prov.RunCommand(info.ID, cmd, timeout, outputStream)
+					Expect(err).To(BeNil())
+					Expect(exitCode).To(Equal(1))
 				})
 			})
 

@@ -995,11 +995,12 @@ func (s *Server) wsRunCommand(w http.ResponseWriter, r *http.Request) error {
 	defer stream.Close()
 
 	outputStream := shell.NewShellWriter(stream)
-	err = s.provider.RunCommand(id, r.FormValue("command"), time.Duration(timeout)*time.Second, outputStream)
+	exitCode, err := s.provider.RunCommand(id, r.FormValue("command"), time.Duration(timeout)*time.Second, outputStream)
 	if err != nil {
 		logrus.Errorf("runCommand handler failed, err: %v, command: %s, timeout: %s", err, r.FormValue("command"), r.FormValue("timeout"))
 		return err
 	}
+	outputStream.Write([]byte(fmt.Sprintf("exit code: %d", exitCode)))
 	return nil
 }
 
