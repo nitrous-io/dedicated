@@ -1,8 +1,10 @@
 package docker
 
 import (
+	"archive/tar"
 	"bytes"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -122,16 +124,16 @@ func (p *DockerProvider) parseScripts(container *dockerclient.Container) map[str
 		return nil
 	}
 
-	cnScriptsPath := filepath.Join("home", usr, ".nitrous-scripts.json")
+	containerScriptsPath := filepath.Join("/", "home", usr, ".nitrous-scripts.json")
 	containerScripts := map[string]string{}
 	buf := bytes.NewBuffer(nil)
-	if err := cops.ReadFromContainer(container.ID, cnScriptsPath, buf); err == nil {
+	if err := cops.ReadFromContainer(container.ID, containerScriptsPath, buf); err == nil {
 		if err := json.NewDecoder(buf).Decode(&containerScripts); err != nil {
-			logrus.Warnf("failed to unmarshal JSON file %q, err: %v", cnScriptsPath, err)
+			logrus.Warnf("failed to unmarshal JSON file %q, err: %v", containerScriptsPath, err)
 		}
 	}
 
-	userScriptsPath := filepath.Join("home", usr, "nitrous.json")
+	userScriptsPath := filepath.Join("/", "home", usr, "nitrous.json")
 	userScripts := struct {
 		// Scripts in nitrous.json are contained in a "scripts" envelope.
 		Scripts map[string]string `json:"scripts"`
@@ -152,6 +154,69 @@ func (p *DockerProvider) parseScripts(container *dockerclient.Container) map[str
 	}
 
 	return combinedScripts
+}
+
+func (p *DockerProvider) writeConfiguredScripts(containerID string, scripts map[string]string) error {
+	cn, err := p.inspectContainer(containerID)
+	if err != nil {
+		return err
+	}
+
+	usr, ok := p.appUser(cn)
+	if !ok {
+		// If we can't determine the user, we don't do anything.
+		return errors.New("cannot determine user")
+	}
+
+	// Try to read any existing /home/$NITROUS_USERNAME/.nitrous-scripts.json
+	// from the container - we will override/append the configured scripts into
+	// the same file.
+	containerScripts := map[string]string{}
+	containerScriptsPath := filepath.Join("/", "home", usr, ".nitrous-scripts.json")
+	buf := bytes.NewBuffer(nil)
+	if err := cops.ReadFromContainer(cn.ID, containerScriptsPath, buf); err == nil {
+		if err := json.NewDecoder(buf).Decode(&containerScripts); err != nil {
+			logrus.Warnf("failed to unmarshal JSON file %q, err: %v", containerScriptsPath, err)
+		}
+	}
+
+	// Merge configured scripts with existing scripts. Configured scripts will
+	// override any existing scripts when the same keys are used.
+	combinedScripts := map[string]string{}
+	for k, v := range containerScripts {
+		combinedScripts[k] = v
+	}
+	for k, v := range scripts {
+		combinedScripts[k] = v
+	}
+
+	jsonSrc, err := json.MarshalIndent(combinedScripts, "", "  ")
+	if err != nil {
+		return fmt.Errorf("failed to JSON encode scripts, err: %v", err)
+	}
+
+	// Write the scripts as a JSON file back into the container.
+	tarStream := bytes.NewBuffer(nil)
+	tarWriter := tar.NewWriter(tarStream)
+	if err := tarWriter.WriteHeader(&tar.Header{
+		Name: ".nitrous-scripts.json", Size: int64(len(jsonSrc))}); err != nil {
+		return err
+	}
+	if _, err := tarWriter.Write(jsonSrc); err != nil {
+		return err
+	}
+	if err := tarWriter.Close(); err != nil {
+		return err
+	}
+	opts := dockerclient.UploadToContainerOptions{
+		InputStream: tarStream,
+		Path:        filepath.Dir(containerScriptsPath),
+	}
+	if err := p.client.UploadToContainer(cn.ID, opts); err != nil {
+		return fmt.Errorf("failed to upload scripts into container, err: %v", err)
+	}
+
+	return nil
 }
 
 func (p *DockerProvider) mkContainerConfig(cfg *provider.ContainerConfig, isTrustedImage bool) (*dockerclient.Config, error) {

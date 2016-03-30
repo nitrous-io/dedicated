@@ -208,6 +208,7 @@ var _ = Describe("provider/docker", func() {
 			info, err := prov.CreateStart(name, "nitrousio/ubuntu-test:latest", secret, "")
 			Expect(err).To(BeNil())
 			defer CleanUpContainer(name)
+
 			id := inspectID(name)
 			gateway := inspectGateway(id)
 

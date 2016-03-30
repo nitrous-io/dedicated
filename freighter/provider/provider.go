@@ -157,7 +157,7 @@ type ContainerConfig struct {
 	//   "run-tests": "bundle exec rake test",
 	//   "Empty Trash": "rm -r /tmp/*"
 	// }
-	Scripts map[string]string `json:"scripts,omitempty"`
+	Scripts map[string]string `json:"Scripts,omitempty"`
 }
 
 // DockerConfig is fields we care about from the container's Config on Docker;

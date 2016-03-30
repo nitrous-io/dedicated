@@ -1,6 +1,9 @@
 package integration
 
 import (
+	"archive/tar"
+	"bytes"
+	"encoding/json"
 	"fmt"
 	"io/ioutil"
 	"os"
@@ -16,7 +19,7 @@ import (
 )
 
 var _ = Describe("CreateStart", func() {
-	It("creates the container with specified options", func() {
+	It("creates the container with the specified config", func() {
 		var err error
 		datadir := os.Getenv("FREIGHTERD_BASE")
 		if datadir == "" {
@@ -85,21 +88,181 @@ var _ = Describe("CreateStart", func() {
 		Expect(err).To(MatchError(provider.ErrImageNotFound))
 	})
 
-	Context("when image has no CMD or ENTRYPOINT", func() {
-		It("creates and starts if CMD is given to container config", func() {
-			datadir, err := test.TempDir()
-			Expect(err).To(BeNil())
-			defer os.RemoveAll(datadir)
-			prov, _ := docker.NewDockerProvider(datadir)
+	It("creates and starts if a CMD is specified in the container config", func() {
+		datadir, err := test.TempDir()
+		Expect(err).To(BeNil())
+		defer os.RemoveAll(datadir)
+		prov, _ := docker.NewDockerProvider(datadir)
 
-			name := test.RandomName("freighterd-test")
-			configJSON := `{ "Cmd": ["yes"] }`
-			cnr, err := prov.CreateStart(name, "busybox:latest", "secret", configJSON)
-			defer test.CleanUpContainer(name)
+		name := test.RandomName("freighterd-test")
+		configJSON := `{ "Cmd": ["yes"] }`
+		cnr, err := prov.CreateStart(name, "busybox:latest", "secret", configJSON)
+		defer test.CleanUpContainer(name)
 
-			Expect(err).To(BeNil())
-			Expect(cnr.Cmd).To(Equal([]string{"yes"}))
+		Expect(err).To(BeNil())
+		Expect(cnr.Cmd).To(Equal([]string{"yes"}))
+	})
+
+	It("writes configured scripts into a .nitrous-scripts.json file", func() {
+		// Build a Docker image with an existing .nitrous-scripts.json, so that
+		// we can test that its contents are overridden.
+		dockerfile := `
+			FROM busybox:latest
+			ENV NITROUS_USERNAME nitrous
+			RUN adduser nitrous -D
+			COPY .nitrous-scripts.json /home/nitrous/.nitrous-scripts.json
+			ENTRYPOINT top`
+
+		buf := new(bytes.Buffer)
+		tw := tar.NewWriter(buf)
+
+		err := tw.WriteHeader(&tar.Header{
+			Name: "Dockerfile",
+			Size: int64(len(dockerfile)),
 		})
+		Expect(err).To(BeNil())
+		_, err = tw.Write([]byte(dockerfile))
+		Expect(err).To(BeNil())
+
+		containerScripts := `{ "start": "rails s", "run-tests": "rake test" }`
+		err = tw.WriteHeader(&tar.Header{
+			Name: ".nitrous-scripts.json",
+			Size: int64(len(containerScripts)),
+		})
+		Expect(err).To(BeNil())
+		_, err = tw.Write([]byte(containerScripts))
+		Expect(err).To(BeNil())
+
+		err = tw.Close()
+		Expect(err).To(BeNil())
+
+		datadir, err := test.TempDir()
+		Expect(err).To(BeNil())
+		defer os.RemoveAll(datadir)
+		prov, err := docker.NewDockerProvider(datadir)
+		Expect(err).To(BeNil())
+
+		// Build the image.
+		err = prov.BuildImage(provider.BuildImageOptions{
+			Name:         "create-start-test",
+			InputStream:  buf,
+			OutputStream: ioutil.Discard,
+		})
+		defer exec.Command("docker", "rmi", "create-start-test:latest").Run()
+		Expect(err).To(BeNil())
+
+		// Specify some scripts to test that .nitrous-scripts.json gets
+		// overriden.
+		configJSON := `{
+			"Scripts": {
+				"start": "rails s -b 0.0.0.0",
+				"List files": "ls -alh"
+			}
+		}`
+		containerName := test.RandomName("freighterd-test")
+		info, err := prov.CreateStart(containerName, "create-start-test:latest", "secret", configJSON)
+		defer test.CleanUpContainer(containerName)
+		Expect(err).To(BeNil())
+
+		tmpOutputDir, err := test.TempDir()
+		Expect(err).To(BeNil())
+		defer os.RemoveAll(tmpOutputDir)
+
+		out, err := exec.Command("docker", "cp",
+			fmt.Sprintf("%s:/home/nitrous/.nitrous-scripts.json", info.ID),
+			tmpOutputDir).CombinedOutput()
+		Expect(err).To(BeNil(), "failed to copy .nitrous-scripts.json from container, err: %s", out)
+
+		copiedFile, err := os.Open(filepath.Join(tmpOutputDir, ".nitrous-scripts.json"))
+		Expect(err).To(BeNil())
+		defer copiedFile.Close()
+
+		scripts := map[string]string{}
+		err = json.NewDecoder(copiedFile).Decode(&scripts)
+		Expect(err).To(BeNil())
+
+		Expect(scripts).To(HaveLen(3))
+		Expect(scripts["start"]).To(Equal("rails s -b 0.0.0.0"))
+		Expect(scripts["run-tests"]).To(Equal("rake test"))
+		Expect(scripts["List files"]).To(Equal("ls -alh"))
+	})
+
+	It("does not change .nitrous-scripts.json file if there are no configured scripts", func() {
+		// Build a Docker image with an existing .nitrous-scripts.json, so that
+		// we can test that its contents are preserved.
+		dockerfile := `
+			FROM busybox:latest
+			ENV NITROUS_USERNAME nitrous
+			RUN adduser nitrous -D
+			COPY .nitrous-scripts.json /home/nitrous/.nitrous-scripts.json
+			ENTRYPOINT top`
+
+		buf := new(bytes.Buffer)
+		tw := tar.NewWriter(buf)
+
+		err := tw.WriteHeader(&tar.Header{
+			Name: "Dockerfile",
+			Size: int64(len(dockerfile)),
+		})
+		Expect(err).To(BeNil())
+		_, err = tw.Write([]byte(dockerfile))
+		Expect(err).To(BeNil())
+
+		containerScripts := `{ "start": "rails s", "run-tests": "rake test" }`
+		err = tw.WriteHeader(&tar.Header{
+			Name: ".nitrous-scripts.json",
+			Size: int64(len(containerScripts)),
+		})
+		Expect(err).To(BeNil())
+		_, err = tw.Write([]byte(containerScripts))
+		Expect(err).To(BeNil())
+
+		err = tw.Close()
+		Expect(err).To(BeNil())
+
+		datadir, err := test.TempDir()
+		Expect(err).To(BeNil())
+		defer os.RemoveAll(datadir)
+		prov, err := docker.NewDockerProvider(datadir)
+		Expect(err).To(BeNil())
+
+		// Build the image.
+		err = prov.BuildImage(provider.BuildImageOptions{
+			Name:         "create-start-test",
+			InputStream:  buf,
+			OutputStream: ioutil.Discard,
+		})
+		defer exec.Command("docker", "rmi", "create-start-test:latest").Run()
+		Expect(err).To(BeNil())
+
+		// Create a container with no scripts specified - .nitrous-scripts.json
+		// should be unchanged.
+		configJSON := `{}`
+		containerName := test.RandomName("freighterd-test")
+		info, err := prov.CreateStart(containerName, "create-start-test:latest", "secret", configJSON)
+		defer test.CleanUpContainer(containerName)
+		Expect(err).To(BeNil())
+
+		tmpOutputDir, err := test.TempDir()
+		Expect(err).To(BeNil())
+		defer os.RemoveAll(tmpOutputDir)
+
+		out, err := exec.Command("docker", "cp",
+			fmt.Sprintf("%s:/home/nitrous/.nitrous-scripts.json", info.ID),
+			tmpOutputDir).CombinedOutput()
+		Expect(err).To(BeNil(), "failed to copy .nitrous-scripts.json from container, err: %s", out)
+
+		copiedFile, err := os.Open(filepath.Join(tmpOutputDir, ".nitrous-scripts.json"))
+		Expect(err).To(BeNil())
+		defer copiedFile.Close()
+
+		scripts := map[string]string{}
+		err = json.NewDecoder(copiedFile).Decode(&scripts)
+		Expect(err).To(BeNil())
+
+		Expect(scripts).To(HaveLen(2))
+		Expect(scripts["start"]).To(Equal("rails s"))
+		Expect(scripts["run-tests"]).To(Equal("rake test"))
 	})
 
 	Context("when container is created but cannot be started", func() {
