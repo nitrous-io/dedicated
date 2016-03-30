@@ -106,8 +106,8 @@ func (p *DockerProvider) configFromContainer(container *dockerclient.Container) 
 	}
 }
 
-// parseScripts returns the pre-defined scripts stored in, in order of
-// precedence:
+// parseScripts returns the pre-defined scripts stored in the container, in
+// order of precedence:
 //   1. /home/$NITROUS_USERNAME/nitrous.json
 //   2. /home/$NITROUS_USERNAME/.nitrous-scripts.json.
 // i.e. scripts defined in nitrous.json will override those in
