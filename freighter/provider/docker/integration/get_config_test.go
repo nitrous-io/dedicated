@@ -57,15 +57,14 @@ var _ = Describe("GetConfig", func() {
 		}))
 	})
 
-	It("returns scripts from within the container's filesystem", func() {
-		// Build a Docker image with both .nitrous-scripts.json and
-		// nitrous.json, so that we can test that their contents are returned.
+	It("returns scripts from .nitrous-scripts.json in the container's filesystem", func() {
+		// Build a Docker image with a .nitrous-scripts.json so that we can test
+		// that its contents are returned.
 		dockerfile := `
 			FROM busybox:latest
 			ENV NITROUS_USERNAME nitrous
 			RUN adduser nitrous -D
 			COPY .nitrous-scripts.json /home/nitrous/.nitrous-scripts.json
-			COPY nitrous.json /home/nitrous/nitrous.json
 			ENTRYPOINT top`
 
 		buf := new(bytes.Buffer)
@@ -86,18 +85,6 @@ var _ = Describe("GetConfig", func() {
 		})
 		Expect(err).To(BeNil())
 		_, err = tw.Write([]byte(containerScripts))
-		Expect(err).To(BeNil())
-
-		nitrousJSON := `{
-			"template": "rails",
-			"scripts": { "start": "rails s -b 0.0.0.0", "push to github": "git push" }
-		}`
-		err = tw.WriteHeader(&tar.Header{
-			Name: "nitrous.json",
-			Size: int64(len(nitrousJSON)),
-		})
-		Expect(err).To(BeNil())
-		_, err = tw.Write([]byte(nitrousJSON))
 		Expect(err).To(BeNil())
 
 		err = tw.Close()
@@ -125,10 +112,9 @@ var _ = Describe("GetConfig", func() {
 		config, err := prov.GetConfig(info.ID)
 		Expect(err).To(BeNil())
 
-		Expect(config.Scripts).To(HaveLen(3))
-		Expect(config.Scripts["start"]).To(Equal("rails s -b 0.0.0.0")) // "start" script is overridden in nitrous.json
+		Expect(config.Scripts).To(HaveLen(2))
+		Expect(config.Scripts["start"]).To(Equal("rails s"))
 		Expect(config.Scripts["run-tests"]).To(Equal("rake test"))
-		Expect(config.Scripts["push to github"]).To(Equal("git push"))
 
 		// Check that no scripts are returned if container is not running.
 		info, err = prov.Stop(containerName)
@@ -137,5 +123,22 @@ var _ = Describe("GetConfig", func() {
 		config, err = prov.GetConfig(info.ID)
 		Expect(err).To(BeNil())
 		Expect(config.Scripts).To(BeNil())
+	})
+
+	It("returns no scripts if the container does not contain a .nitrous-scripts.json", func() {
+		datadir, err := ioutil.TempDir("", "freightertest")
+		Expect(err).To(BeNil())
+		prov, err := docker.NewDockerProvider(datadir)
+		Expect(err).To(BeNil())
+
+		containerName := test.RandomName("freightertest")
+		info, err := prov.CreateStart(containerName, "busybox:latest", "secret", "")
+		defer test.CleanUpContainer(containerName)
+		Expect(err).To(BeNil())
+
+		config, err := prov.GetConfig(info.ID)
+		Expect(err).To(BeNil())
+
+		Expect(config.Scripts).To(HaveLen(0))
 	})
 })

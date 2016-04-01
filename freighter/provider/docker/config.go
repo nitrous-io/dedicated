@@ -108,12 +108,8 @@ func (p *DockerProvider) configFromContainer(container *dockerclient.Container) 
 	}
 }
 
-// parseScripts returns the pre-defined scripts stored in the container, in
-// order of precedence:
-//   1. /home/$NITROUS_USERNAME/nitrous.json
-//   2. /home/$NITROUS_USERNAME/.nitrous-scripts.json.
-// i.e. scripts defined in nitrous.json will override those in
-// .nitrous-scripts.json.
+// parseScripts returns the pre-defined scripts stored in the container at
+// /home/$NITROUS_USERNAME/.nitrous-scripts.json.
 func (p *DockerProvider) parseScripts(container *dockerclient.Container) map[string]string {
 	if !container.State.Running {
 		return nil
@@ -133,27 +129,7 @@ func (p *DockerProvider) parseScripts(container *dockerclient.Container) map[str
 		}
 	}
 
-	userScriptsPath := filepath.Join("/", "home", usr, "nitrous.json")
-	userScripts := struct {
-		// Scripts in nitrous.json are contained in a "scripts" envelope.
-		Scripts map[string]string `json:"scripts"`
-	}{}
-	buf = bytes.NewBuffer(nil)
-	if err := cops.ReadFromContainer(container.ID, userScriptsPath, buf); err == nil {
-		if err := json.NewDecoder(buf).Decode(&userScripts); err != nil {
-			logrus.Warnf("failed to unmarshal JSON file %q, err: %v", userScriptsPath, err)
-		}
-	}
-
-	combinedScripts := map[string]string{}
-	for k, v := range containerScripts {
-		combinedScripts[k] = v
-	}
-	for k, v := range userScripts.Scripts {
-		combinedScripts[k] = v
-	}
-
-	return combinedScripts
+	return containerScripts
 }
 
 func (p *DockerProvider) writeConfiguredScripts(containerID string, scripts map[string]string) error {
