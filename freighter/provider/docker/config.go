@@ -1,7 +1,6 @@
 package docker
 
 import (
-	"archive/tar"
 	"bytes"
 	"encoding/json"
 	"errors"
@@ -172,24 +171,8 @@ func (p *DockerProvider) writeConfiguredScripts(containerID string, scripts map[
 	}
 
 	// Write the scripts as a JSON file back into the container.
-	tarStream := bytes.NewBuffer(nil)
-	tarWriter := tar.NewWriter(tarStream)
-	if err := tarWriter.WriteHeader(&tar.Header{
-		Name: ".nitrous-scripts.json", Size: int64(len(jsonSrc))}); err != nil {
-		return err
-	}
-	if _, err := tarWriter.Write(jsonSrc); err != nil {
-		return err
-	}
-	if err := tarWriter.Close(); err != nil {
-		return err
-	}
-	opts := dockerclient.UploadToContainerOptions{
-		InputStream: tarStream,
-		Path:        filepath.Dir(containerScriptsPath),
-	}
-	if err := p.client.UploadToContainer(cn.ID, opts); err != nil {
-		return fmt.Errorf("failed to upload scripts into container, err: %v", err)
+	if err := cops.CopyToContainer(cn.ID, cn.Config.Env, containerScriptsPath, bytes.NewReader(jsonSrc)); err != nil {
+		return fmt.Errorf("failed to write scripts into container, err: %v", err)
 	}
 
 	return nil

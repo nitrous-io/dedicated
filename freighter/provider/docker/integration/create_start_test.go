@@ -171,7 +171,7 @@ var _ = Describe("CreateStart", func() {
 		out, err := exec.Command("docker", "cp",
 			fmt.Sprintf("%s:/home/nitrous/.nitrous-scripts.json", info.ID),
 			tmpOutputDir).CombinedOutput()
-		Expect(err).To(BeNil(), "failed to copy .nitrous-scripts.json from container, err: %s", out)
+		Expect(err).To(BeNil(), "failed to copy .nitrous-scripts.json from container, output: %s, err: %v", out, err)
 
 		copiedFile, err := os.Open(filepath.Join(tmpOutputDir, ".nitrous-scripts.json"))
 		Expect(err).To(BeNil())
@@ -185,6 +185,18 @@ var _ = Describe("CreateStart", func() {
 		Expect(scripts["start"]).To(Equal("rails s -b 0.0.0.0"))
 		Expect(scripts["run-tests"]).To(Equal("rake test"))
 		Expect(scripts["List files"]).To(Equal("ls -alh"))
+
+		// Check file owner and group.
+		out, err = exec.Command("docker", "exec", info.ID,
+			"/bin/stat", "--format", "'%U %G'", "/home/nitrous/.nitrous-scripts.json").CombinedOutput()
+		Expect(err).To(BeNil(), "failed to copy stat .nitrous-scripts.json, output: %s, err: %v", out, err)
+		Expect(string(out)).To(Equal("nitrous nitrous"))
+
+		// Check file permissions.
+		out, err = exec.Command("docker", "exec", info.ID,
+			"/bin/stat", "--format", "%A", "/home/nitrous/.nitrous-scripts.json").CombinedOutput()
+		Expect(err).To(BeNil(), "failed to copy stat .nitrous-scripts.json, output: %s, err: %v", out, err)
+		Expect(string(out)).To(Equal("-rw-r--r--"))
 	})
 
 	It("does not change .nitrous-scripts.json file if there are no configured scripts", func() {
@@ -250,7 +262,7 @@ var _ = Describe("CreateStart", func() {
 		out, err := exec.Command("docker", "cp",
 			fmt.Sprintf("%s:/home/nitrous/.nitrous-scripts.json", info.ID),
 			tmpOutputDir).CombinedOutput()
-		Expect(err).To(BeNil(), "failed to copy .nitrous-scripts.json from container, err: %s", out)
+		Expect(err).To(BeNil(), "failed to copy .nitrous-scripts.json from container, output: %s, err: %v", out, err)
 
 		copiedFile, err := os.Open(filepath.Join(tmpOutputDir, ".nitrous-scripts.json"))
 		Expect(err).To(BeNil())
