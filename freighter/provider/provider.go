@@ -150,6 +150,14 @@ type ContainerConfig struct {
 	ConfigPortBindings []string `json:"ConfigPortBindings,omitempty"`
 	PublishAll         *bool    `json:"PublishAll,omitempty"`
 	Gateway            string   `json:"-"`
+
+	// Scripts contains a predefined map of "task name" -> "shell command(s)".
+	// E.g. {
+	//   "start": "rails s -b 0.0.0.0",
+	//   "run-tests": "bundle exec rake test",
+	//   "Empty Trash": "rm -r /tmp/*"
+	// }
+	Scripts map[string]string `json:"Scripts,omitempty"`
 }
 
 // DockerConfig is fields we care about from the container's Config on Docker;

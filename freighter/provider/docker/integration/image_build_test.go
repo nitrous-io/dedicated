@@ -4,7 +4,6 @@ import (
 	"archive/tar"
 	"bytes"
 	"compress/gzip"
-	"io"
 	"io/ioutil"
 	"net/http"
 	"os/exec"
@@ -18,44 +17,6 @@ import (
 )
 
 var _ = Describe("BuildImage", func() {
-	createImageTarball := func() io.Reader {
-		buf := new(bytes.Buffer)
-		gzipWriter := gzip.NewWriter(buf)
-		tarWriter := tar.NewWriter(gzipWriter)
-
-		dockerSource := `
-			FROM busybox:latest
-			MAINTAINER Nitrous.IO <hello@nitrous.io>
-			ADD some_file.txt /some/file.txt
-			CMD cat /some/file.txt
-		`
-
-		err := tarWriter.WriteHeader(&tar.Header{
-			Name: "Dockerfile",
-			Size: int64(len(dockerSource)),
-		})
-		Expect(err).To(BeNil())
-		_, err = tarWriter.Write([]byte(dockerSource))
-		Expect(err).To(BeNil())
-
-		someFile := "Hello from Docker!"
-		someFileHeader := &tar.Header{
-			Name: "some_file.txt",
-			Size: int64(len(someFile)),
-		}
-		err = tarWriter.WriteHeader(someFileHeader)
-		Expect(err).To(BeNil())
-		_, err = tarWriter.Write([]byte(someFile))
-		Expect(err).To(BeNil())
-
-		err = tarWriter.Close()
-		Expect(err).To(BeNil())
-		err = gzipWriter.Close()
-		Expect(err).To(BeNil())
-
-		return buf
-	}
-
 	getMatchingImage := func(prov *docker.DockerProvider) *provider.ImageInfo {
 		allImages, err := prov.ListImages()
 		Expect(err).To(BeNil())
@@ -84,15 +45,48 @@ var _ = Describe("BuildImage", func() {
 
 	Context("when build context is provided as a tarball", func() {
 		It("creates an Image successfully and correctly stores the additional data", func() {
-			in := createImageTarball()
+			buf := new(bytes.Buffer)
+			gzipWriter := gzip.NewWriter(buf)
+			tarWriter := tar.NewWriter(gzipWriter)
+
+			dockerSource := `
+				FROM busybox:latest
+				MAINTAINER Nitrous.IO <hello@nitrous.io>
+				ADD some_file.txt /some/file.txt
+				CMD cat /some/file.txt
+			`
+
+			err := tarWriter.WriteHeader(&tar.Header{
+				Name: "Dockerfile",
+				Size: int64(len(dockerSource)),
+			})
+			Expect(err).To(BeNil())
+			_, err = tarWriter.Write([]byte(dockerSource))
+			Expect(err).To(BeNil())
+
+			someFile := "Hello from Docker!"
+			someFileHeader := &tar.Header{
+				Name: "some_file.txt",
+				Size: int64(len(someFile)),
+			}
+			err = tarWriter.WriteHeader(someFileHeader)
+			Expect(err).To(BeNil())
+			_, err = tarWriter.Write([]byte(someFile))
+			Expect(err).To(BeNil())
+
+			err = tarWriter.Close()
+			Expect(err).To(BeNil())
+			err = gzipWriter.Close()
+			Expect(err).To(BeNil())
+
 			out := bytes.NewBuffer(nil)
 			opts := provider.BuildImageOptions{
 				Name:          "myimage",
-				InputStream:   in,
+				InputStream:   buf,
 				OutputStream:  out,
 				RawJSONStream: false,
 			}
-			err := prov.BuildImage(opts)
+			err = prov.BuildImage(opts)
 			defer exec.Command("docker", "rmi", "myimage:latest").Run()
 			Expect(err).To(BeNil())
 

@@ -167,7 +167,12 @@ func (p *DockerProvider) CreateStart(name, imageName, secret, configJSON string)
 		err        error
 	)
 
-	createdCnr, err = p.create(name, imageName, secret, configJSON)
+	cfg, err := containerConfigFromJSON(configJSON)
+	if err != nil {
+		return nil, err
+	}
+
+	createdCnr, err = p.create(name, imageName, secret, cfg)
 	if err != nil {
 		logrus.Errorf("DockerProvider: failed to create container %s: %v", name, err)
 
@@ -180,7 +185,7 @@ func (p *DockerProvider) CreateStart(name, imageName, secret, configJSON string)
 				return nil, err
 			}
 
-			createdCnr, err = p.create(name, imageName, secret, configJSON)
+			createdCnr, err = p.create(name, imageName, secret, cfg)
 			if err != nil {
 				logrus.Errorf("DockerProvider: failed to create container %s on second try: %v", name, err)
 				return nil, err
@@ -199,10 +204,18 @@ func (p *DockerProvider) CreateStart(name, imageName, secret, configJSON string)
 		return info, &provider.StartFailedError{Err: err}
 	}
 
+	// Write any configured pre-defined scripts into container.
+	if len(cfg.Scripts) != 0 {
+		if err := p.writeConfiguredScripts(startedCnr.ID, cfg.Scripts); err != nil {
+			logrus.Errorf("DockerProvider: failed to write configured scripts into container %s, err: %v",
+				startedCnr.ID, err)
+		}
+	}
+
 	return startedCnr, nil
 }
 
-func (p *DockerProvider) create(name, imageName, secret, configJSON string) (*provider.ContainerInfo, error) {
+func (p *DockerProvider) create(name, imageName, secret string, cfg *provider.ContainerConfig) (*provider.ContainerInfo, error) {
 	if err := p.storeSharedSecret(name, secret); err != nil {
 		return nil, err
 	}
@@ -213,11 +226,6 @@ func (p *DockerProvider) create(name, imageName, secret, configJSON string) (*pr
 
 	ak := p.containerAuthorizedKeys(name)
 	if err := ak.Write([]string{}); err != nil {
-		return nil, err
-	}
-
-	cfg, err := containerConfigFromJSON(configJSON)
-	if err != nil {
 		return nil, err
 	}
 

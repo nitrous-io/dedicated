@@ -3,3 +3,4 @@ App.ConsoleSession = Em.Object.extend
   focused: false
   title: null
   initCommand: null
+  terminal: null

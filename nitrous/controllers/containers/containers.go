@@ -53,6 +53,8 @@ const (
 var (
 	ignoredImageNames = regexp.MustCompile(`-reconfig-\d{19}\z`) // reconfig names include Unix epoch (nano) stamp
 	bindForMessage    = regexp.MustCompile(`Bind\s+for\s+0.0.0.0:(\d+)`)
+	// For parsing "scripts" params, e.g. "scripts[start]" = "rails s".
+	scriptsParamsRe = regexp.MustCompile(`scripts\[([^\]]+)\]`)
 )
 
 var (
@@ -857,6 +859,8 @@ func PublishContainerEventToUsers(events *pubsub.Pubsub, name controllers.EventN
 // prepareConfig accepts a ContainerConfig and modifies it with user-specified settings
 func prepareConfig(c *freighterclient.ContainerConfig, form url.Values, hv map[string]*volume.Volume) error {
 	c.Env = append(c.Env, readParam(form, "env[]")...)
+	c.PortBindings = append(c.PortBindings, readParam(form, "port[]")...)
+
 	volParams := readParam(form, "volume[]")
 	var vols []string
 	if len(volParams) > 0 {
@@ -878,7 +882,7 @@ func prepareConfig(c *freighterclient.ContainerConfig, form url.Values, hv map[s
 		}
 	}
 	c.Mounts = vols
-	c.PortBindings = append(c.PortBindings, readParam(form, "port[]")...)
+
 	if cmd := form.Get("cmd"); cmd != "" {
 		args, err := shellwords.Parse(cmd)
 		if err != nil {
@@ -886,12 +890,25 @@ func prepareConfig(c *freighterclient.ContainerConfig, form url.Values, hv map[s
 		}
 		c.Cmd = args
 	}
+
 	if priv, err := strconv.ParseBool(form.Get("privileged")); err == nil {
 		c.Privileged = &priv
 	}
+
 	if pub, err := strconv.ParseBool(form.Get("publish_all")); err == nil {
 		c.PublishAll = &pub
 	}
+
+	scripts := map[string]string{}
+	for k, _ := range form {
+		match := scriptsParamsRe.FindStringSubmatch(k)
+		if len(match) == 2 {
+			scriptKey := match[1]
+			scripts[scriptKey] = form.Get(k)
+		}
+	}
+	c.Scripts = scripts
+
 	return nil
 }
 

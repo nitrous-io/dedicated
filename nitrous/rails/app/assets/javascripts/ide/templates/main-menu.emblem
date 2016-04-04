@@ -48,7 +48,7 @@
     .card-body
       .logo Nitrous
       p
-        | TM and &copy; 2012-
+        | &trade; and &copy; 2012-
         = view.currentYear
         '
         | Nitrous, Inc.

@@ -102,7 +102,8 @@ var _ = Describe("container serializer", func() {
 					"cmd": ["/bin/yes"],
 					"volume": ["db"],
 					"privileged": true,
-					"publish_all": true
+					"publish_all": true,
+					"scripts": null
 				}
 			}`, model.ResolvedState(), model.PreviewHostname())))
 		})
@@ -158,7 +159,8 @@ var _ = Describe("container serializer", func() {
 					"cmd": ["/bin/yes"],
 					"volume": ["db"],
 					"privileged": true,
-					"publish_all": true
+					"publish_all": true,
+					"scripts": null
 				}
 			}`, model.ResolvedState(), model.PreviewHostname())))
 			})
@@ -177,6 +179,7 @@ var _ = Describe("container config serializer", func() {
 			Mounts:             []string{"db"},
 			Privileged:         &priv,
 			PublishAll:         &pub,
+			Scripts:            map[string]string{"start": "rails s"},
 		}
 		c := serializers.SerializeContainerConfig(fconfig)
 		j, err := json.Marshal(c)
@@ -188,7 +191,8 @@ var _ = Describe("container config serializer", func() {
 			"cmd": ["/bin/yes"],
 			"volume": ["db"],
 			"privileged": true,
-			"publish_all": true
+			"publish_all": true,
+			"scripts": { "start": "rails s" }
 		}`)))
 	})
 
@@ -207,6 +211,7 @@ var _ = Describe("container config serializer", func() {
 			},
 			Privileged: &priv,
 			PublishAll: &pub,
+			Scripts:    map[string]string{"start": "rails s"},
 		}
 		c := serializers.SerializeContainerConfig(fconfig)
 		j, err := json.Marshal(c)
@@ -218,7 +223,8 @@ var _ = Describe("container config serializer", func() {
 			"cmd": ["/bin/yes"],
 			"volume": ["db", "/nitrous-oxide"],
 			"privileged": true,
-			"publish_all": true
+			"publish_all": true,
+			"scripts": { "start": "rails s" }
 		}`)))
 	})
 })

@@ -42,7 +42,15 @@ App.IdeConsoleController = Em.ArrayController.extend App.IdeTabControllerMixin, 
           @runCommand(terminal, command)
         , 1000)
 
-  addTab: ->
+  runInActiveTab: (command) ->
+    if activeTab = @get('activeTab')
+      terminal = activeTab.get('terminal')
+      @runCommand(terminal, command)
+    else
+      tab = App.ConsoleSession.create(initCommand: command)
+      @addTab(tab, active: true)
+
+  addTab: (tab, settings = {}) ->
     empty = @get('content.length') == 0
     @_super.apply this, arguments
     Mp.track Mp.EventIDEUserOpenedConsole
