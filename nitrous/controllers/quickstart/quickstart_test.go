@@ -145,6 +145,9 @@ var _ = Describe("controllers/quickstart", func() {
 				Content: `{
 					"template": "rails",
 					"ports": [8000, 9000],
+					"no_clone": true,
+					"logo": "http://i.imgur.com/DD6AioH.png",
+					"description": "A platform for community discussion. Free, open, simple.",
 					"scripts": {
 						"start": "rails s",
 						"run-tests": "rake test"
@@ -162,6 +165,9 @@ var _ = Describe("controllers/quickstart", func() {
 					RepoName    string            `json:"repo_name"`
 					Template    string            `json:"template"`
 					Ports       []int64           `json:"ports"`
+					NoClone     bool              `json:"no_clone"`
+					Description string            `json:"description"`
+					Logo        string            `json:"logo"`
 					Scripts     map[string]string `json:"scripts"`
 				} `json:"quickstart"`
 			}
@@ -173,6 +179,9 @@ var _ = Describe("controllers/quickstart", func() {
 			Expect(j.Quickstart.RepoName).To(Equal("repo-name"))
 			Expect(j.Quickstart.Template).To(Equal("rails"))
 			Expect(j.Quickstart.Ports).To(ConsistOf([]int64{8000, 9000}))
+			Expect(j.Quickstart.NoClone).To(BeTrue())
+			Expect(j.Quickstart.Description).To(Equal("A platform for community discussion. Free, open, simple."))
+			Expect(j.Quickstart.Logo).To(Equal("http://i.imgur.com/DD6AioH.png"))
 			Expect(j.Quickstart.Scripts).To(HaveLen(2))
 			Expect(j.Quickstart.Scripts["start"]).To(Equal("rails s"))
 			Expect(j.Quickstart.Scripts["run-tests"]).To(Equal("rake test"))

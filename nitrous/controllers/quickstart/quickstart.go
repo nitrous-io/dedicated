@@ -33,6 +33,9 @@ type repository struct {
 	RepoName    string  `json:"repo_name"`
 	Template    string  `json:"template"`
 	Ports       []int64 `json:"ports"`
+	NoClone     bool    `json:"no_clone"`
+	Description string  `json:"description"`
+	Logo        string  `json:"logo"`
 	Scripts     scripts `json:"scripts"`
 }
 
