@@ -221,9 +221,9 @@ func UpgradeEstimate(env *middleware.Env, w http.ResponseWriter, r *http.Request
 		"subscription_prorate": []string{"true"},
 	}
 
-	c := &stripeinvoice.Client{stripe.GetBackend(), stripe.Key}
+	c := &stripeinvoice.Client{stripe.GetBackend(""), stripe.Key}
 	i := &stripe.Invoice{}
-	err = c.B.Call("GET", "/invoices/upcoming", c.Key, body, i)
+	err = c.B.Call("GET", "/invoices/upcoming", c.Key, body, nil, i)
 
 	if err != nil {
 		return err

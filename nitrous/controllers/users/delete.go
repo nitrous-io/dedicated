@@ -137,7 +137,7 @@ func Delete(env *middleware.Env, w http.ResponseWriter, r *http.Request) error {
 				break
 			}
 
-			if err := card.Del(c.ID, &stripe.CardParams{Customer: bp.StripeID.String}); err != nil {
+			if _, err := card.Del(c.ID, &stripe.CardParams{Customer: bp.StripeID.String}); err != nil {
 				return err
 			}
 		}

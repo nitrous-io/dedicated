@@ -11,6 +11,7 @@ import (
 const (
 	Card stripe.TokenType = "card"
 	Bank stripe.TokenType = "bank_account"
+	PII  stripe.TokenType = "pii"
 )
 
 // Client is used to invoke /tokens APIs.
@@ -37,8 +38,10 @@ func (c Client) New(params *stripe.TokenParams) (*stripe.Token, error) {
 		params.Card.AppendDetails(body, true)
 	} else if params.Bank != nil {
 		params.Bank.AppendDetails(body)
+	} else if params.PII != nil {
+		params.PII.AppendDetails(body)
 	} else if len(params.Customer) == 0 {
-		err := errors.New("Invalid Token params: either Card or Bank need to be set")
+		err := errors.New("Invalid Token params: either Card, Bank, or PII need to be set")
 		return nil, err
 	}
 
@@ -49,7 +52,7 @@ func (c Client) New(params *stripe.TokenParams) (*stripe.Token, error) {
 	params.AppendTo(body)
 
 	tok := &stripe.Token{}
-	err := c.B.Call("POST", "/tokens", token, body, tok)
+	err := c.B.Call("POST", "/tokens", token, body, &params.Params, tok)
 
 	return tok, err
 }
@@ -62,18 +65,20 @@ func Get(id string, params *stripe.TokenParams) (*stripe.Token, error) {
 
 func (c Client) Get(id string, params *stripe.TokenParams) (*stripe.Token, error) {
 	var body *url.Values
+	var commonParams *stripe.Params
 
 	if params != nil {
+		commonParams = &params.Params
 		body = &url.Values{}
 		params.AppendTo(body)
 	}
 
 	token := &stripe.Token{}
-	err := c.B.Call("GET", "/tokens/"+id, c.Key, body, token)
+	err := c.B.Call("GET", "/tokens/"+id, c.Key, body, commonParams, token)
 
 	return token, err
 }
 
 func getC() Client {
-	return Client{stripe.GetBackend(), stripe.Key}
+	return Client{stripe.GetBackend(stripe.APIBackend), stripe.Key}
 }

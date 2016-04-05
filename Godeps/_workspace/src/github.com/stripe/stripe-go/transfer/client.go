@@ -12,6 +12,7 @@ import (
 const (
 	Paid     stripe.TransferStatus = "paid"
 	Pending  stripe.TransferStatus = "pending"
+	Transit  stripe.TransferStatus = "in_transit"
 	Failed   stripe.TransferStatus = "failed"
 	Canceled stripe.TransferStatus = "canceled"
 
@@ -44,9 +45,12 @@ func New(params *stripe.TransferParams) (*stripe.Transfer, error) {
 
 func (c Client) New(params *stripe.TransferParams) (*stripe.Transfer, error) {
 	body := &url.Values{
-		"amount":    {strconv.FormatInt(params.Amount, 10)},
-		"currency":  {string(params.Currency)},
-		"recipient": {params.Recipient},
+		"amount":   {strconv.FormatInt(params.Amount, 10)},
+		"currency": {string(params.Currency)},
+	}
+
+	if len(params.Recipient) > 0 {
+		body.Add("recipient", params.Recipient)
 	}
 
 	if len(params.Bank) > 0 {
@@ -60,13 +64,24 @@ func (c Client) New(params *stripe.TransferParams) (*stripe.Transfer, error) {
 	}
 
 	if len(params.Statement) > 0 {
-		body.Add("statement_description", params.Statement)
+		body.Add("statement_descriptor", params.Statement)
 	}
 
+	if len(params.Dest) > 0 {
+		body.Add("destination", params.Dest)
+	}
+
+	if len(params.SourceTx) > 0 {
+		body.Add("source_transaction", params.SourceTx)
+	}
+
+	if params.Fee > 0 {
+		body.Add("application_fee", strconv.FormatUint(params.Fee, 10))
+	}
 	params.AppendTo(body)
 
 	transfer := &stripe.Transfer{}
-	err := c.B.Call("POST", "/transfers", c.Key, body, transfer)
+	err := c.B.Call("POST", "/transfers", c.Key, body, &params.Params, transfer)
 
 	return transfer, err
 }
@@ -79,14 +94,16 @@ func Get(id string, params *stripe.TransferParams) (*stripe.Transfer, error) {
 
 func (c Client) Get(id string, params *stripe.TransferParams) (*stripe.Transfer, error) {
 	var body *url.Values
+	var commonParams *stripe.Params
 
 	if params != nil {
+		commonParams = &params.Params
 		body = &url.Values{}
 		params.AppendTo(body)
 	}
 
 	transfer := &stripe.Transfer{}
-	err := c.B.Call("GET", "/transfers/"+id, c.Key, body, transfer)
+	err := c.B.Call("GET", "/transfers/"+id, c.Key, body, commonParams, transfer)
 
 	return transfer, err
 }
@@ -99,8 +116,11 @@ func Update(id string, params *stripe.TransferParams) (*stripe.Transfer, error) 
 
 func (c Client) Update(id string, params *stripe.TransferParams) (*stripe.Transfer, error) {
 	var body *url.Values
+	var commonParams *stripe.Params
 
 	if params != nil {
+		commonParams = &params.Params
+
 		body = &url.Values{}
 
 		if len(params.Desc) > 0 {
@@ -111,7 +131,7 @@ func (c Client) Update(id string, params *stripe.TransferParams) (*stripe.Transf
 	}
 
 	transfer := &stripe.Transfer{}
-	err := c.B.Call("POST", "/transfers/"+id, c.Key, body, transfer)
+	err := c.B.Call("POST", "/transfers/"+id, c.Key, body, commonParams, transfer)
 
 	return transfer, err
 }
@@ -124,14 +144,17 @@ func Cancel(id string, params *stripe.TransferParams) (*stripe.Transfer, error) 
 
 func (c Client) Cancel(id string, params *stripe.TransferParams) (*stripe.Transfer, error) {
 	var body *url.Values
+	var commonParams *stripe.Params
 
 	if params != nil {
+		commonParams = &params.Params
+
 		body = &url.Values{}
 		params.AppendTo(body)
 	}
 
 	transfer := &stripe.Transfer{}
-	err := c.B.Call("POST", fmt.Sprintf("/transfers/%v/cancel", id), c.Key, body, transfer)
+	err := c.B.Call("POST", fmt.Sprintf("/transfers/%v/cancel", id), c.Key, body, commonParams, transfer)
 
 	return transfer, err
 }
@@ -150,6 +173,7 @@ func (c Client) List(params *stripe.TransferListParams) *Iter {
 
 	var body *url.Values
 	var lp *stripe.ListParams
+	var p *stripe.Params
 
 	if params != nil {
 		body = &url.Values{}
@@ -172,11 +196,12 @@ func (c Client) List(params *stripe.TransferListParams) *Iter {
 
 		params.AppendTo(body)
 		lp = &params.ListParams
+		p = params.ToParams()
 	}
 
 	return &Iter{stripe.GetIter(lp, body, func(b url.Values) ([]interface{}, stripe.ListMeta, error) {
 		list := &transferList{}
-		err := c.B.Call("GET", "/transfers", c.Key, &b, list)
+		err := c.B.Call("GET", "/transfers", c.Key, &b, p, list)
 
 		ret := make([]interface{}, len(list.Values))
 		for i, v := range list.Values {
@@ -201,5 +226,5 @@ func (i *Iter) Transfer() *stripe.Transfer {
 }
 
 func getC() Client {
-	return Client{stripe.GetBackend(), stripe.Key}
+	return Client{stripe.GetBackend(stripe.APIBackend), stripe.Key}
 }

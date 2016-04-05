@@ -2,11 +2,14 @@ package invoice
 
 import (
 	"testing"
+	"time"
 
 	stripe "github.com/stripe/stripe-go"
 	"github.com/stripe/stripe-go/currency"
 	"github.com/stripe/stripe-go/customer"
 	"github.com/stripe/stripe-go/invoiceitem"
+	"github.com/stripe/stripe-go/plan"
+	"github.com/stripe/stripe-go/sub"
 	. "github.com/stripe/stripe-go/utils"
 )
 
@@ -19,10 +22,12 @@ func init() {
 // avoid unnecessary duplication
 func TestAllInvoicesScenarios(t *testing.T) {
 	customerParams := &stripe.CustomerParams{
-		Card: &stripe.CardParams{
-			Number: "378282246310005",
-			Month:  "06",
-			Year:   "20",
+		Source: &stripe.SourceParams{
+			Card: &stripe.CardParams{
+				Number: "378282246310005",
+				Month:  "06",
+				Year:   "20",
+			},
 		},
 	}
 
@@ -62,9 +67,10 @@ func TestAllInvoicesScenarios(t *testing.T) {
 	}
 
 	invoiceParams := &stripe.InvoiceParams{
-		Customer:  cust.ID,
-		Desc:      "Desc",
-		Statement: "Statement",
+		Customer:   cust.ID,
+		Desc:       "Desc",
+		Statement:  "Statement",
+		TaxPercent: 20.0,
 	}
 
 	targetInvoice, err := New(invoiceParams)
@@ -77,8 +83,16 @@ func TestAllInvoicesScenarios(t *testing.T) {
 		t.Errorf("Invoice customer %q does not match expected customer %q\n", targetInvoice.Customer.ID, invoiceParams.Customer)
 	}
 
-	if targetInvoice.Amount != targetItem.Amount {
-		t.Errorf("Invoice amount %v does not match expected amount %v\n", targetInvoice.Amount, targetItem.Amount)
+	if targetInvoice.TaxPercent != invoiceParams.TaxPercent {
+		t.Errorf("Invoice tax percent %f does not match expected tax percent %f\n", targetInvoice.TaxPercent, invoiceParams.TaxPercent)
+	}
+
+	if targetInvoice.Tax != 20 {
+		t.Errorf("Invoice tax  %v does not match expected tax 20\n", targetInvoice.Tax)
+	}
+
+	if targetInvoice.Amount != targetItem.Amount+targetInvoice.Tax {
+		t.Errorf("Invoice amount %v does not match expected amount %v + tax %v\n", targetInvoice.Amount, targetItem.Amount, targetInvoice.Tax)
 	}
 
 	if targetInvoice.Currency != targetItem.Currency {
@@ -97,7 +111,7 @@ func TestAllInvoicesScenarios(t *testing.T) {
 		t.Errorf("Invoice end is not set\n")
 	}
 
-	if targetInvoice.Total != targetInvoice.Amount || targetInvoice.Subtotal != targetInvoice.Amount {
+	if targetInvoice.Total != targetInvoice.Amount || targetInvoice.Subtotal != targetInvoice.Amount-targetInvoice.Tax {
 		t.Errorf("Invoice total %v and subtotal %v do not match expected amount %v\n", targetInvoice.Total, targetInvoice.Subtotal, targetInvoice.Amount)
 	}
 
@@ -150,8 +164,9 @@ func TestAllInvoicesScenarios(t *testing.T) {
 	}
 
 	updatedItem := &stripe.InvoiceItemParams{
-		Amount: 99,
-		Desc:   "Updated Desc",
+		Amount:       99,
+		Desc:         "Updated Desc",
+		Discountable: true,
 	}
 
 	targetItemUpdated, err := invoiceitem.Update(targetItem.ID, updatedItem)
@@ -166,6 +181,10 @@ func TestAllInvoicesScenarios(t *testing.T) {
 
 	if targetItemUpdated.Amount != updatedItem.Amount {
 		t.Errorf("Updated item amount %v does not match expected amount %v\n", targetItemUpdated.Amount, updatedItem.Amount)
+	}
+
+	if !targetItemUpdated.Discountable {
+		t.Errorf("Updated item is not discountable")
 	}
 
 	updatedInvoice := &stripe.InvoiceParams{
@@ -234,14 +253,71 @@ func TestAllInvoicesScenarios(t *testing.T) {
 		t.Error(err)
 	}
 
-	err = invoiceitem.Del(targetItem.ID)
+	iiDel, err := invoiceitem.Del(targetItem.ID)
 
 	if err != nil {
 		t.Error(err)
 	}
 
+	if !iiDel.Deleted {
+		t.Errorf("Invoice Item id %q expected to be marked as deleted on the returned resource\n", iiDel.ID)
+	}
+
 	_, err = Get(targetInvoice.ID, nil)
 
+	if err != nil {
+		t.Error(err)
+	}
+
+	planParams := &stripe.PlanParams{
+		ID:       "test",
+		Name:     "Test Plan",
+		Amount:   99,
+		Currency: currency.USD,
+		Interval: plan.Month,
+	}
+
+	_, err = plan.New(planParams)
+	if err != nil {
+		t.Error(err)
+	}
+
+	subParams := &stripe.SubParams{
+		Customer:    cust.ID,
+		Plan:        planParams.ID,
+		Quantity:    10,
+		TrialEndNow: true,
+	}
+
+	subscription, err := sub.New(subParams)
+	if err != nil {
+		t.Error(err)
+	}
+
+	nextParams := &stripe.InvoiceParams{
+		Customer:         cust.ID,
+		Sub:              subscription.ID,
+		SubPlan:          planParams.ID,
+		SubNoProrate:     false,
+		SubProrationDate: time.Now().AddDate(0, 0, 12).Unix(),
+		SubQuantity:      1,
+		SubTrialEnd:      time.Now().AddDate(0, 0, 12).Unix(),
+	}
+
+	nextInvoice, err := GetNext(nextParams)
+	if err != nil {
+		t.Error(err)
+	}
+
+	if nextInvoice.Customer.ID != cust.ID {
+		t.Errorf("Invoice customer %v does not match expected customer%v\n", nextInvoice.Customer.ID, cust.ID)
+	}
+
+	if nextInvoice.Sub != subscription.ID {
+		t.Errorf("Invoice subscription %v does not match expected subscription%v\n", nextInvoice.Sub, subscription.ID)
+	}
+
+	_, err = plan.Del(planParams.ID)
 	if err != nil {
 		t.Error(err)
 	}

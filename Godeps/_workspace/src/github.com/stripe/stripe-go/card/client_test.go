@@ -6,6 +6,7 @@ import (
 	stripe "github.com/stripe/stripe-go"
 	"github.com/stripe/stripe-go/customer"
 	"github.com/stripe/stripe-go/recipient"
+	"github.com/stripe/stripe-go/token"
 	. "github.com/stripe/stripe-go/utils"
 )
 
@@ -14,13 +15,12 @@ func init() {
 }
 
 func TestCardNew(t *testing.T) {
-	customerParams := &stripe.CustomerParams{
-		Card: &stripe.CardParams{
-			Number: "378282246310005",
-			Month:  "06",
-			Year:   "20",
-		},
-	}
+	customerParams := &stripe.CustomerParams{}
+	customerParams.SetSource(&stripe.CardParams{
+		Number: "378282246310005",
+		Month:  "06",
+		Year:   "20",
+	})
 
 	cust, _ := customer.New(customerParams)
 
@@ -42,6 +42,18 @@ func TestCardNew(t *testing.T) {
 		t.Errorf("Unexpected last four %q for card number %v\n", target.LastFour, cardParams.Number)
 	}
 
+	if target.Meta == nil || len(target.Meta) > 0 {
+		t.Errorf("Unexpected nil or non-empty metadata in card\n")
+	}
+
+	if target.Month != 10 {
+		t.Errorf("Unexpected expiration month %d for card where we set %q\n", target.Month, cardParams.Month)
+	}
+
+	if target.Year != 2020 {
+		t.Errorf("Unexpected expiration year %d for card where we set %q\n", target.Year, cardParams.Year)
+	}
+
 	if target.CVCCheck != Pass {
 		t.Errorf("CVC check %q does not match expected status\n", target.ZipCheck)
 	}
@@ -52,8 +64,34 @@ func TestCardNew(t *testing.T) {
 		t.Error(err)
 	}
 
-	if targetCust.Cards.Count != 2 {
-		t.Errorf("Unexpected number of cards %v\n", targetCust.Cards.Count)
+	if targetCust.Sources.Count != 2 {
+		t.Errorf("Unexpected number of sources %v\n", targetCust.Sources.Count)
+	}
+
+	targetToken, err := token.New(&stripe.TokenParams{
+		Card: &stripe.CardParams{
+			Number: "4000056655665556",
+			Month:  "09",
+			Year:   "2021",
+			CVC:    "123",
+		},
+	})
+
+	targetCard, err := New(&stripe.CardParams{
+		Customer: targetCust.ID,
+		Token:    targetToken.ID,
+	})
+
+	if targetCard.LastFour != "5556" {
+		t.Errorf("Unexpected last four %q for card number %v\n", targetCard.LastFour, cardParams.Number)
+	}
+
+	if targetCard.Month != 9 {
+		t.Errorf("Unexpected expiration month %d for card where we set %q\n", targetCard.Month, targetToken.Card.Month)
+	}
+
+	if targetCard.Year != 2021 {
+		t.Errorf("Unexpected expiration year %d for card where we set %q\n", targetCard.Year, targetToken.Card.Year)
 	}
 
 	customer.Del(cust.ID)
@@ -94,33 +132,35 @@ func TestCardGet(t *testing.T) {
 }
 
 func TestCardDel(t *testing.T) {
-	customerParams := &stripe.CustomerParams{
-		Card: &stripe.CardParams{
-			Number: "378282246310005",
-			Month:  "06",
-			Year:   "20",
-		},
-	}
+	customerParams := &stripe.CustomerParams{}
+	customerParams.SetSource(&stripe.CardParams{
+		Number: "378282246310005",
+		Month:  "06",
+		Year:   "20",
+	})
 
 	cust, _ := customer.New(customerParams)
 
-	err := Del(cust.DefaultCard.ID, &stripe.CardParams{Customer: cust.ID})
+	cardDel, err := Del(cust.DefaultSource.ID, &stripe.CardParams{Customer: cust.ID})
 	if err != nil {
 		t.Error(err)
+	}
+
+	if !cardDel.Deleted {
+		t.Errorf("Card id %q expected to be marked as deleted on the returned resource\n", cardDel.ID)
 	}
 
 	customer.Del(cust.ID)
 }
 
 func TestCardUpdate(t *testing.T) {
-	customerParams := &stripe.CustomerParams{
-		Card: &stripe.CardParams{
-			Number: "378282246310005",
-			Month:  "06",
-			Year:   "20",
-			Name:   "Original Name",
-		},
-	}
+	customerParams := &stripe.CustomerParams{}
+	customerParams.SetSource(&stripe.CardParams{
+		Number: "378282246310005",
+		Month:  "06",
+		Year:   "20",
+		Name:   "Original Name",
+	})
 
 	cust, err := customer.New(customerParams)
 
@@ -131,9 +171,11 @@ func TestCardUpdate(t *testing.T) {
 	cardParams := &stripe.CardParams{
 		Customer: cust.ID,
 		Name:     "Updated Name",
+		Month:    "10",
+		Year:     "21",
 	}
 
-	target, err := Update(cust.DefaultCard.ID, cardParams)
+	target, err := Update(cust.DefaultSource.ID, cardParams)
 
 	if err != nil {
 		t.Error(err)
@@ -143,17 +185,24 @@ func TestCardUpdate(t *testing.T) {
 		t.Errorf("Card name %q does not match expected name %q\n", target.Name, cardParams.Name)
 	}
 
+	if target.Month != 10 {
+		t.Errorf("Unexpected expiration month %d for card where we set %q\n", target.Month, cardParams.Month)
+	}
+
+	if target.Year != 2021 {
+		t.Errorf("Unexpected expiration year %d for card where we set %q\n", target.Year, cardParams.Year)
+	}
+
 	customer.Del(cust.ID)
 }
 
 func TestCardList(t *testing.T) {
-	customerParams := &stripe.CustomerParams{
-		Card: &stripe.CardParams{
-			Number: "378282246310005",
-			Month:  "06",
-			Year:   "20",
-		},
-	}
+	customerParams := &stripe.CustomerParams{}
+	customerParams.SetSource(&stripe.CardParams{
+		Number: "378282246310005",
+		Month:  "06",
+		Year:   "20",
+	})
 
 	cust, _ := customer.New(customerParams)
 

@@ -159,10 +159,12 @@ func (t *Target) SoftTerminate(db *ndb.Database) error {
 		return ErrLockNotObtained
 	}
 
-	return stripesub.Cancel(
+	_, err = stripesub.Cancel(
 		data.SubStripeID.String,
 		&stripe.SubParams{Customer: data.BPStripeID.String, EndCancel: false},
 	)
+
+	return err
 }
 
 func FirstWarningTargets(db *ndb.Database) ([]*Target, error) {

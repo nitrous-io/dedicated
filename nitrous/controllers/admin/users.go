@@ -159,7 +159,7 @@ func banUser(env *middleware.Env, w http.ResponseWriter, r *http.Request) (err e
 		return err
 	}
 	for _, sub := range subs {
-		err := stripesub.Cancel(
+		_, err := stripesub.Cancel(
 			sub.StripeID.String,
 			&stripe.SubParams{Customer: bp.StripeID.String},
 		)

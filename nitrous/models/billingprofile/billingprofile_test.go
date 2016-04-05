@@ -224,7 +224,7 @@ var _ = Describe("models/billingprofile", func() {
 			Expect(err).To(BeNil())
 
 			fakeStripe = &test.FakeStripe{}
-			stripe.SetBackend(fakeStripe)
+			stripe.SetBackend("api", fakeStripe)
 		})
 
 		Context("when called on a profile with an empty StripeID", func() {
@@ -474,14 +474,16 @@ var _ = Describe("models/billingprofile", func() {
 
 			cus := &stripe.Customer{
 				ID: "cus_12xx35z",
-				Cards: &stripe.CardList{
-					Values: []*stripe.Card{
-						&stripe.Card{
-							LastFour:    "1901",
-							Brand:       "AMEX",
-							Month:       8,
-							Year:        2019,
-							Fingerprint: "xcv22sx3",
+				Sources: &stripe.SourceList{
+					Values: []*stripe.PaymentSource{
+						&stripe.PaymentSource{
+							Card: &stripe.Card{
+								LastFour:    "1901",
+								Brand:       "AMEX",
+								Month:       8,
+								Year:        2019,
+								Fingerprint: "xcv22sx3",
+							},
 						},
 					},
 				},
@@ -523,7 +525,7 @@ var _ = Describe("models/billingprofile", func() {
 			Expect(err).To(BeNil())
 
 			fakeStripe = &test.FakeStripe{}
-			stripe.SetBackend(fakeStripe)
+			stripe.SetBackend("api", fakeStripe)
 		})
 
 		Context("when called on a profile with an empty StripeID", func() {

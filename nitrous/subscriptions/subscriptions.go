@@ -145,7 +145,7 @@ func (s *SubscriptionProvider) Subscribe(d *db.Database, opts *SubscribeOptions)
 		if o != nil {
 			err = o.ActivateBillingProfile(d, bp, "")
 		} else {
-			bp, err = u.ActivateBillingProfile(d, "")
+			bp, err = u.ActivateBillingProfile(d, "", "")
 		}
 		if err != nil {
 			return
@@ -300,13 +300,13 @@ func (s *SubscriptionProvider) Subscribe(d *db.Database, opts *SubscribeOptions)
 		sub = nil
 		if strItem != nil {
 			logrus.Errorf("Subscribe failed, deleting Stripe invoice item %s", strItem.ID)
-			if err := stripeinvoiceitem.Del(strItem.ID); err != nil {
+			if _, err := stripeinvoiceitem.Del(strItem.ID); err != nil {
 				logrus.Errorf("Unable to delete Stripe invoiceitem %s, err: %v", strItem.ID, err)
 			}
 		}
 		if strSub != nil {
 			logrus.Errorf("Subscribe failed, deleting Stripe subscription %s", strSub.ID)
-			if err := stripesub.Cancel(strSub.ID, &stripe.SubParams{Customer: bp.StripeID.String}); err != nil {
+			if _, err := stripesub.Cancel(strSub.ID, &stripe.SubParams{Customer: bp.StripeID.String}); err != nil {
 				logrus.Errorf("Unable to delete Stripe subscription %s, err: %v", strSub.ID, err)
 			}
 		}
@@ -348,10 +348,11 @@ func (s *SubscriptionProvider) Cancel(d *db.Database, sub *subscription.Subscrip
 	// subscription is terminated during free trial or is a free plan.
 	endCancel := !(pl.IsFree() || sub.WithinFreeTrial())
 
-	return stripesub.Cancel(
+	_, err = stripesub.Cancel(
 		sub.StripeID.String,
 		&stripe.SubParams{Customer: bp.StripeID.String, EndCancel: endCancel},
 	)
+	return err
 }
 
 func (s *SubscriptionProvider) Upgrade(d *db.Database, sub *subscription.Subscription, p *plan.Plan, u *user.User) error {

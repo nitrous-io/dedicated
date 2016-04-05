@@ -1914,7 +1914,7 @@ var _ = Describe("models/user", func() {
 			user.MailChimp = f
 
 			fakeStripe = &test.FakeStripe{}
-			stripe.SetBackend(fakeStripe)
+			stripe.SetBackend("api", fakeStripe)
 
 			envvars.MailChimpIDNewsletter = "newsletters"
 			envvars.MailChimpIDAnnouncements = "announcements"
@@ -2312,7 +2312,7 @@ var _ = Describe("models/user", func() {
 			Expect(err).To(BeNil())
 
 			fakeStripe = &test.FakeStripe{}
-			stripe.SetBackend(fakeStripe)
+			stripe.SetBackend("api", fakeStripe)
 		})
 
 		It("sends a request to Stripe to create a customer", func() {
@@ -2368,8 +2368,8 @@ var _ = Describe("models/user", func() {
 				resp := `{
 					"id": "sc_01",
 					"email": "user@example.com",
-					"cards": null,
-					"default_card": "card_14wQPX2CU2PklWtHi34KFonT"
+					"data": [],
+					"default_source": "card_14wQPX2CU2PklWtHi34KFonT"
 				}`
 				fakeStripe.Responses = []string{resp}
 
@@ -2387,7 +2387,6 @@ var _ = Describe("models/user", func() {
 				Expect(b.ExpYear.Int64).To(BeZero())
 				Expect(b.State).To(Equal("no_card"))
 				Expect(b.PendingActivation).To(BeFalse())
-
 			})
 
 			It("should not allow a banned card", func() {
@@ -2417,7 +2416,7 @@ var _ = Describe("models/user", func() {
 				fakeStripe.Responses = []string{test.StripeCustomerResponse}
 
 				_, err = u.ActivateBillingProfile(db, "token")
-				Expect(err).To(Equal(user.ErrCardBanned))
+				Expect(err).To(Equal(billingprofile.ErrCardBanned))
 
 				Expect(fakeStripe.ReceivedRequests).To(HaveLen(2))
 				delReq := fakeStripe.ReceivedRequests[1]

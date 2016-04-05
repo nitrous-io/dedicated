@@ -1,7 +1,9 @@
 package stripe
 
+import "encoding/json"
+
 // TransferStatus is the list of allowed values for the transfer's status.
-// Allowed values are "paid", "pending", "failed", "canceled".
+// Allowed values are "paid", "pending", "in_transit",  "failed", "canceled".
 type TransferStatus string
 
 // TransferType is the list of allowed values for the transfer's type.
@@ -18,10 +20,10 @@ type TransferFailCode string
 // For more details see https://stripe.com/docs/api#create_transfer and https://stripe.com/docs/api#update_transfer.
 type TransferParams struct {
 	Params
-	Amount                      int64
-	Currency                    Currency
-	Recipient                   string
-	Desc, Statement, Bank, Card string
+	Amount                                                 int64
+	Fee                                                    uint64
+	Currency                                               Currency
+	Recipient, Desc, Statement, Bank, Card, SourceTx, Dest string
 }
 
 // TransferListParams is the set of parameters that can be used when listing transfers.
@@ -52,5 +54,24 @@ type Transfer struct {
 	Bank      *BankAccount      `json:"bank_account"`
 	Card      *Card             `json:"card"`
 	Recipient *Recipient        `json:"recipient"`
-	Statement string            `json:"statement_description"`
+	Statement string            `json:"statement_descriptor"`
+	Reversals *ReversalList     `json:"reversals"`
+	SourceTx  *Transaction      `json:"source_transaction"`
+}
+
+// UnmarshalJSON handles deserialization of a Transfer.
+// This custom unmarshaling is needed because the resulting
+// property may be an id or the full struct if it was expanded.
+func (t *Transfer) UnmarshalJSON(data []byte) error {
+	type transfer Transfer
+	var tb transfer
+	err := json.Unmarshal(data, &tb)
+	if err == nil {
+		*t = Transfer(tb)
+	} else {
+		// the id is surrounded by "\" characters, so strip them
+		t.ID = string(data[1 : len(data)-1])
+	}
+
+	return nil
 }

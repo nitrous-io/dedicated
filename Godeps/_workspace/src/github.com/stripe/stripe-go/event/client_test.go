@@ -49,7 +49,7 @@ func TestEvent(t *testing.T) {
 			t.Errorf("Object is empty\n")
 		}
 
-		target, err := Get(e.ID)
+		target, err := Get(e.ID, nil)
 
 		if err != nil {
 			t.Error(err)
@@ -59,8 +59,16 @@ func TestEvent(t *testing.T) {
 			t.Errorf("ID %q does not match expected id %q\n", e.ID, target.ID)
 		}
 
-		targetVal := e.GetObjValue("card", "last4")
-		val := target.Data.Obj["card"].(map[string]interface{})["last4"]
+		var targetVal string
+		var val string
+
+		if e.GetObjValue("source", "object") == "card" {
+			targetVal = e.GetObjValue("source", "last4")
+			val = target.Data.Obj["source"].(map[string]interface{})["last4"].(string)
+		} else { // is bitcoin receiver
+			targetVal = e.GetObjValue("source", "currency")
+			val = target.Data.Obj["source"].(map[string]interface{})["currency"].(string)
+		}
 
 		if targetVal != val {
 			t.Errorf("Value %q does not match expected value %q\n", targetVal, val)

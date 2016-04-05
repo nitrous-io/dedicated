@@ -77,7 +77,7 @@ var _ = Describe("controllers/billingprofiles", func() {
 
 		stripe.Key = "sk_key"
 		fakeStripe = &test.FakeStripe{}
-		stripe.SetBackend(fakeStripe)
+		stripe.SetBackend("api", fakeStripe)
 	})
 
 	AfterEach(func() {

@@ -569,7 +569,7 @@ var _ = Describe("models/org", func() {
 			bp, err = billingprofile.FindForOrg(db, o1.ID)
 			Expect(err).To(BeNil())
 			fakeStripe = &test.FakeStripe{}
-			stripe.SetBackend(fakeStripe)
+			stripe.SetBackend("api", fakeStripe)
 		})
 
 		It("sends a request to Stripe to create a customer", func() {

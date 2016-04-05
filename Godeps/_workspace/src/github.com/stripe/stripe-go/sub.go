@@ -10,13 +10,16 @@ type SubStatus string
 // For more details see https://stripe.com/docs/api#create_subscription and https://stripe.com/docs/api#update_subscription.
 type SubParams struct {
 	Params
-	Customer, Plan                     string
-	Coupon, Token                      string
-	TrialEnd                           int64
-	Card                               *CardParams
-	Quantity                           uint64
-	FeePercent                         float64
-	NoProrate, EndCancel, QuantityZero bool
+	Customer, Plan                                  string
+	Coupon, Token                                   string
+	TrialEnd                                        int64
+	Card                                            *CardParams
+	Quantity                                        uint64
+	ProrationDate                                   int64
+	FeePercent, TaxPercent                          float64
+	NoProrate, EndCancel, QuantityZero, TrialEndNow bool
+	BillingCycleAnchor                              int64
+	BillingCycleAnchorNow                           bool
 }
 
 // SubListParams is the set of parameters that can be used when listing active subscriptions.
@@ -37,11 +40,13 @@ type Sub struct {
 	Status      SubStatus         `json:"status"`
 	FeePercent  float64           `json:"application_fee_percent"`
 	Canceled    int64             `json:"canceled_at"`
+	Start       int64             `json:"start"`
 	PeriodEnd   int64             `json:"current_period_end"`
 	PeriodStart int64             `json:"current_period_start"`
 	Discount    *Discount         `json:"discount"`
 	Ended       int64             `json:"ended_at"`
 	Meta        map[string]string `json:"metadata"`
+	TaxPercent  float64           `json:"tax_percent"`
 	TrialEnd    int64             `json:"trial_end"`
 	TrialStart  int64             `json:"trial_start"`
 }

@@ -45,13 +45,12 @@ func (c Client) New(params *stripe.PlanParams) (*stripe.Plan, error) {
 	}
 
 	if len(params.Statement) > 0 {
-		body.Add("statement_description", params.Statement)
+		body.Add("statement_descriptor", params.Statement)
 	}
-
 	params.AppendTo(body)
 
 	plan := &stripe.Plan{}
-	err := c.B.Call("POST", "/plans", c.Key, body, plan)
+	err := c.B.Call("POST", "/plans", c.Key, body, &params.Params, plan)
 
 	return plan, err
 }
@@ -64,14 +63,16 @@ func Get(id string, params *stripe.PlanParams) (*stripe.Plan, error) {
 
 func (c Client) Get(id string, params *stripe.PlanParams) (*stripe.Plan, error) {
 	var body *url.Values
+	var commonParams *stripe.Params
 
 	if params != nil {
+		commonParams = &params.Params
 		body = &url.Values{}
 		params.AppendTo(body)
 	}
 
 	plan := &stripe.Plan{}
-	err := c.B.Call("GET", "/plans/"+id, c.Key, body, plan)
+	err := c.B.Call("GET", "/plans/"+id, c.Key, body, commonParams, plan)
 
 	return plan, err
 }
@@ -84,8 +85,10 @@ func Update(id string, params *stripe.PlanParams) (*stripe.Plan, error) {
 
 func (c Client) Update(id string, params *stripe.PlanParams) (*stripe.Plan, error) {
 	var body *url.Values
+	var commonParams *stripe.Params
 
 	if params != nil {
+		commonParams = &params.Params
 		body = &url.Values{}
 
 		if len(params.Name) > 0 {
@@ -93,26 +96,29 @@ func (c Client) Update(id string, params *stripe.PlanParams) (*stripe.Plan, erro
 		}
 
 		if len(params.Statement) > 0 {
-			body.Add("statement_description", params.Statement)
+			body.Add("statement_descriptor", params.Statement)
 		}
 
 		params.AppendTo(body)
 	}
 
 	plan := &stripe.Plan{}
-	err := c.B.Call("POST", "/plans/"+id, c.Key, body, plan)
+	err := c.B.Call("POST", "/plans/"+id, c.Key, body, commonParams, plan)
 
 	return plan, err
 }
 
 // Del removes a plan.
 // For more details see https://stripe.com/docs/api#delete_plan.
-func Del(id string) error {
+func Del(id string) (*stripe.Plan, error) {
 	return getC().Del(id)
 }
 
-func (c Client) Del(id string) error {
-	return c.B.Call("DELETE", "/plans/"+id, c.Key, nil, nil)
+func (c Client) Del(id string) (*stripe.Plan, error) {
+	plan := &stripe.Plan{}
+	err := c.B.Call("DELETE", "/plans/"+id, c.Key, nil, nil, plan)
+
+	return plan, err
 }
 
 // List returns a list of plans.
@@ -129,17 +135,19 @@ func (c Client) List(params *stripe.PlanListParams) *Iter {
 
 	var body *url.Values
 	var lp *stripe.ListParams
+	var p *stripe.Params
 
 	if params != nil {
 		body = &url.Values{}
 
 		params.AppendTo(body)
 		lp = &params.ListParams
+		p = params.ToParams()
 	}
 
 	return &Iter{stripe.GetIter(lp, body, func(b url.Values) ([]interface{}, stripe.ListMeta, error) {
 		list := &planList{}
-		err := c.B.Call("GET", "/plans", c.Key, &b, list)
+		err := c.B.Call("GET", "/plans", c.Key, &b, p, list)
 
 		ret := make([]interface{}, len(list.Values))
 		for i, v := range list.Values {
@@ -164,5 +172,5 @@ func (i *Iter) Plan() *stripe.Plan {
 }
 
 func getC() Client {
-	return Client{stripe.GetBackend(), stripe.Key}
+	return Client{stripe.GetBackend(stripe.APIBackend), stripe.Key}
 }

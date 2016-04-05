@@ -44,7 +44,9 @@ func (c Client) New(params *stripe.SubParams) (*stripe.Sub, error) {
 		body.Add("coupon", params.Coupon)
 	}
 
-	if params.TrialEnd > 0 {
+	if params.TrialEndNow {
+		body.Add("trial_end", "now")
+	} else if params.TrialEnd > 0 {
 		body.Add("trial_end", strconv.FormatInt(params.TrialEnd, 10))
 	}
 
@@ -59,10 +61,20 @@ func (c Client) New(params *stripe.SubParams) (*stripe.Sub, error) {
 		body.Add("application_fee_percent", strconv.FormatFloat(params.FeePercent, 'f', 2, 64))
 	}
 
+	if params.TaxPercent > 0 {
+		body.Add("tax_percent", strconv.FormatFloat(params.TaxPercent, 'f', 2, 64))
+	}
+
+	if params.BillingCycleAnchorNow {
+		body.Add("billing_cycle_anchor", "now")
+	} else if params.BillingCycleAnchor > 0 {
+		body.Add("billing_cycle_anchor", strconv.FormatInt(params.BillingCycleAnchor, 10))
+	}
+
 	params.AppendTo(body)
 
 	sub := &stripe.Sub{}
-	err := c.B.Call("POST", fmt.Sprintf("/customers/%v/subscriptions", params.Customer), token, body, sub)
+	err := c.B.Call("POST", fmt.Sprintf("/customers/%v/subscriptions", params.Customer), token, body, &params.Params, sub)
 
 	return sub, err
 }
@@ -82,7 +94,7 @@ func (c Client) Get(id string, params *stripe.SubParams) (*stripe.Sub, error) {
 	params.AppendTo(body)
 
 	sub := &stripe.Sub{}
-	err := c.B.Call("GET", fmt.Sprintf("/customers/%v/subscriptions/%v", params.Customer, id), c.Key, body, sub)
+	err := c.B.Call("GET", fmt.Sprintf("/customers/%v/subscriptions/%v", params.Customer, id), c.Key, body, &params.Params, sub)
 
 	return sub, err
 }
@@ -118,7 +130,9 @@ func (c Client) Update(id string, params *stripe.SubParams) (*stripe.Sub, error)
 		body.Add("coupon", params.Coupon)
 	}
 
-	if params.TrialEnd > 0 {
+	if params.TrialEndNow {
+		body.Add("trial_end", "now")
+	} else if params.TrialEnd > 0 {
 		body.Add("trial_end", strconv.FormatInt(params.TrialEnd, 10))
 	}
 
@@ -131,21 +145,29 @@ func (c Client) Update(id string, params *stripe.SubParams) (*stripe.Sub, error)
 		body.Add("application_fee_percent", strconv.FormatFloat(params.FeePercent, 'f', 2, 64))
 	}
 
+	if params.TaxPercent > 0 {
+		body.Add("tax_percent", strconv.FormatFloat(params.TaxPercent, 'f', 2, 64))
+	}
+
+	if params.ProrationDate > 0 {
+		body.Add("proration_date", strconv.FormatInt(params.ProrationDate, 10))
+	}
+
 	params.AppendTo(body)
 
 	sub := &stripe.Sub{}
-	err := c.B.Call("POST", fmt.Sprintf("/customers/%v/subscriptions/%v", params.Customer, id), token, body, sub)
+	err := c.B.Call("POST", fmt.Sprintf("/customers/%v/subscriptions/%v", params.Customer, id), token, body, &params.Params, sub)
 
 	return sub, err
 }
 
 // Cancel removes a subscription.
 // For more details see https://stripe.com/docs/api#cancel_subscription.
-func Cancel(id string, params *stripe.SubParams) error {
+func Cancel(id string, params *stripe.SubParams) (*stripe.Sub, error) {
 	return getC().Cancel(id, params)
 }
 
-func (c Client) Cancel(id string, params *stripe.SubParams) error {
+func (c Client) Cancel(id string, params *stripe.SubParams) (*stripe.Sub, error) {
 	body := &url.Values{}
 
 	if params.EndCancel {
@@ -154,7 +176,10 @@ func (c Client) Cancel(id string, params *stripe.SubParams) error {
 
 	params.AppendTo(body)
 
-	return c.B.Call("DELETE", fmt.Sprintf("/customers/%v/subscriptions/%v", params.Customer, id), c.Key, body, nil)
+	sub := &stripe.Sub{}
+	err := c.B.Call("DELETE", fmt.Sprintf("/customers/%v/subscriptions/%v", params.Customer, id), c.Key, body, &params.Params, sub)
+
+	return sub, err
 }
 
 // List returns a list of subscriptions.
@@ -166,13 +191,15 @@ func List(params *stripe.SubListParams) *Iter {
 func (c Client) List(params *stripe.SubListParams) *Iter {
 	body := &url.Values{}
 	var lp *stripe.ListParams
+	var p *stripe.Params
 
 	params.AppendTo(body)
 	lp = &params.ListParams
+	p = params.ToParams()
 
 	return &Iter{stripe.GetIter(lp, body, func(b url.Values) ([]interface{}, stripe.ListMeta, error) {
 		list := &stripe.SubList{}
-		err := c.B.Call("GET", fmt.Sprintf("/customers/%v/subscriptions", params.Customer), c.Key, &b, list)
+		err := c.B.Call("GET", fmt.Sprintf("/customers/%v/subscriptions", params.Customer), c.Key, &b, p, list)
 
 		ret := make([]interface{}, len(list.Values))
 		for i, v := range list.Values {
@@ -197,5 +224,5 @@ func (i *Iter) Sub() *stripe.Sub {
 }
 
 func getC() Client {
-	return Client{stripe.GetBackend(), stripe.Key}
+	return Client{stripe.GetBackend(stripe.APIBackend), stripe.Key}
 }

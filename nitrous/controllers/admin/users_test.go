@@ -322,7 +322,7 @@ var _ = Describe("controllers/admin", func() {
 
 			BeforeEach(func() {
 				fakeStripe = &test.FakeStripe{}
-				stripe.SetBackend(fakeStripe)
+				stripe.SetBackend("api", fakeStripe)
 
 				pl := &plan.Plan{
 					Slug:          "plan",

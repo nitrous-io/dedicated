@@ -20,14 +20,6 @@ func TestBalanceGet(t *testing.T) {
 		t.Error(err)
 	}
 
-	if target.Available == nil || len(target.Available) != 1 {
-		t.Errorf("Available array is not set\n")
-	}
-
-	if target.Pending == nil || len(target.Pending) != 1 {
-		t.Errorf("Pending array is not set\n")
-	}
-
 	if len(target.Available[0].Currency) == 0 {
 		t.Errorf("Available currency is not set\n")
 	}
@@ -41,13 +33,13 @@ func TestBalanceGetTx(t *testing.T) {
 	chargeParams := &stripe.ChargeParams{
 		Amount:   1002,
 		Currency: currency.USD,
-		Card: &stripe.CardParams{
-			Number: "378282246310005",
-			Month:  "06",
-			Year:   "20",
-		},
-		Desc: "charge transaction",
+		Desc:     "charge transaction",
 	}
+	chargeParams.SetSource(&stripe.CardParams{
+		Number: "378282246310005",
+		Month:  "06",
+		Year:   "20",
+	})
 
 	res, _ := charge.New(chargeParams)
 

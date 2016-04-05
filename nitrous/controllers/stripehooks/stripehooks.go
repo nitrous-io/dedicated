@@ -51,14 +51,14 @@ func handleStripeWebhook(env *middleware.Env, evt IncomingStripeWebHook) error {
 
 	f, ok := evtHandlers[evt.Type]
 	if !ok {
-		e, err := event.Get(evt.EventID)
+		e, err := event.Get(evt.EventID, nil)
 		if err == nil {
 			logrus.Infof("uuid=%s unexpected events: %s, data: %+v", env.UUID, evt.Type, e)
 		}
 		return nil
 	}
 
-	e, err := event.Get(evt.EventID)
+	e, err := event.Get(evt.EventID, nil)
 	if err != nil {
 		return fmt.Errorf("Stripe hook event lookup failed, err: %v", err)
 	}

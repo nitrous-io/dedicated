@@ -484,7 +484,7 @@ func (s *SubscriptionProvider) HandleSubscriptionInvoiceCreated(d *db.Database, 
 				Credit:            sql.NullInt64{crItem.Amount * -1, true},
 			}
 			if err := item.Insert(tx); err != nil {
-				if err := stripeinvoiceitem.Del(crItem.ID); err != nil {
+				if _, err := stripeinvoiceitem.Del(crItem.ID); err != nil {
 					logrus.Errorf("Unable to delete Stripe invoiceitem %s, err: %v", crItem.ID, err)
 				}
 				return nil, err

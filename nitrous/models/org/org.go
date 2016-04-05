@@ -208,7 +208,7 @@ func (o *Org) ActivateBillingProfile(d *db.Database, bp *billingprofile.BillingP
 
 	defer func() {
 		if err != nil {
-			if err := customer.Del(c.ID); err != nil {
+			if _, err := customer.Del(c.ID); err != nil {
 				logrus.Errorf("Unable to delete customer %s, err: %v", c.ID, err)
 			}
 		}

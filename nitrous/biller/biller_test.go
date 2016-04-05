@@ -54,7 +54,7 @@ var _ = Describe("biller", func() {
 		Expect(err).To(BeNil())
 
 		fakeStripe = &FakeStripe{}
-		stripe.SetBackend(fakeStripe)
+		stripe.SetBackend("api", fakeStripe)
 
 		startTime = time.Date(2014, 1, 1, 0, 0, 0, 0, time.Local)
 		endTime = time.Date(2014, 1, 31, 24, 59, 59, 1000000000, time.Local)

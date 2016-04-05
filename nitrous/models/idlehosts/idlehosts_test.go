@@ -429,7 +429,7 @@ var _ = Describe("models/idlehosts", func() {
 			}
 
 			fakeStripe = &test.FakeStripe{}
-			stripe.SetBackend(fakeStripe)
+			stripe.SetBackend("api", fakeStripe)
 
 			envvars.WebHostname = "nitrous.example"
 
