@@ -3638,6 +3638,17 @@ var _ = Describe("controllers/containers", func() {
 				})
 			}
 		})
+
+		It("parses scripts from the form and populates the config's Scripts", func() {
+			form.Add("scripts[start]", "rails s")
+			form.Add("scripts[list all teh things]", "ls -al")
+
+			cfg := getConfs()
+
+			Expect(cfg.Scripts).To(HaveLen(2))
+			Expect(cfg.Scripts["start"]).To(Equal("rails s"))
+			Expect(cfg.Scripts["list all teh things"]).To(Equal("ls -al"))
+		})
 	})
 
 	Describe("POST /containers/{name}/reconfig", func() {

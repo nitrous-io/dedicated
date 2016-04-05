@@ -304,6 +304,14 @@ func createAtomic(h *host.Host, env *middleware.Env, w http.ResponseWriter, r *h
 			if err := q.Insert(env.DB); err != nil {
 				logrus.Errorf(`Quickstart: failed to persist quickstart "%v": %v`, q, err)
 			}
+
+			if !env.User.Admin {
+				trackEventData := map[string]interface{}{
+					"template_slug": tmpl.Slug,
+					"repo_url":      repo,
+				}
+				env.Tracker.TrackEvent("Quickstart Created", env.User, trackEventData)
+			}
 		}
 
 		PublishContainerEvent(env, controllers.EventContainerCreated, cn, map[string]interface{}{

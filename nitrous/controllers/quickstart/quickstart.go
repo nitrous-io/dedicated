@@ -25,10 +25,7 @@ var (
 	errFileContentNotFound = httperror.New(http.StatusForbidden, "invalid_request", "Failed to retrieve repository info")
 )
 
-type scripts struct {
-	Preclone  string `json:"preclone"`
-	Postclone string `json:"postclone"`
-}
+type scripts map[string]string
 
 type repository struct {
 	Owner       string  `json:"owner"`
@@ -36,6 +33,9 @@ type repository struct {
 	RepoName    string  `json:"repo_name"`
 	Template    string  `json:"template"`
 	Ports       []int64 `json:"ports"`
+	NoClone     bool    `json:"no_clone"`
+	Description string  `json:"description"`
+	Logo        string  `json:"logo"`
 	Scripts     scripts `json:"scripts"`
 }
 
@@ -118,12 +118,6 @@ func RepoInfo(env *mw.Env, w http.ResponseWriter, r *http.Request) error {
 		Owner:       owner,
 		OwnerAvatar: ownerAvatar,
 		RepoName:    repoName,
-		Template:    "",
-		Ports:       nil,
-		Scripts: scripts{
-			Preclone:  "",
-			Postclone: "",
-		},
 	}
 
 	if err := json.NewDecoder(strings.NewReader(content)).Decode(&repoInfo); err != nil {
@@ -150,8 +144,6 @@ func RepoInfo(env *mw.Env, w http.ResponseWriter, r *http.Request) error {
 }
 
 func validateRepoInfo(repoInfo *repository, env *mw.Env) error {
-	valid := false
-
 	tmpls, err := template.All(env.DB)
 	if err != nil {
 		return err
@@ -159,15 +151,11 @@ func validateRepoInfo(repoInfo *repository, env *mw.Env) error {
 
 	for _, tmpl := range tmpls {
 		if tmpl.Slug == repoInfo.Template {
-			valid = true
+			return nil
 		}
 	}
 
-	if valid {
-		return nil
-	} else {
-		return errRepoInfo
-	}
+	return errRepoInfo
 }
 
 func confirmEmail(env *mw.Env) error {

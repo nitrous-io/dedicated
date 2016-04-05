@@ -83,6 +83,14 @@ var _ = BeforeSuite(func() {
 	out, err = cmd.CombinedOutput()
 	Expect(err).To(BeNil(), "failed to build busybox-volumes, output: %s", string(out))
 	fmt.Printf(" took %s\n", time.Now().Sub(start))
+
+	// Load the stored ubuntu-bare image as nitrousio/ubuntu-bare so we don't,
+	// have to pull it from the Internet.
+	start = time.Now()
+	fmt.Print("building nitrousio/ubuntu-bare:latest...")
+	out, err = exec.Command("docker", "load", "-i", "/root/ubuntu-bare.tar.gz").CombinedOutput()
+	Expect(err).To(BeNil(), "failed to load nitrousio/ubuntu-bare, output: %s", string(out))
+	fmt.Printf(" took %s\n", time.Now().Sub(start))
 })
 
 // startContainer behaves similarly to startContainerWithData except that it

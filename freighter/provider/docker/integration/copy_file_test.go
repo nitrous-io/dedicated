@@ -26,7 +26,7 @@ var _ = Describe("CopyFile", func() {
 		Expect(err).To(BeNil(), "failed to initialize docker provider")
 		defer os.RemoveAll(dataPath)
 
-		input, err := createImageTarball(dockerfile)
+		input, err := createDockerfileTar(dockerfile)
 		Expect(err).To(BeNil(), "failed to create dockerfile tarball")
 
 		err = prov.BuildImage(provider.BuildImageOptions{
@@ -76,7 +76,7 @@ var _ = Describe("CopyFile", func() {
 		Expect(err).To(BeNil(), "failed to initialize docker provider")
 		defer os.RemoveAll(dataPath)
 
-		input, err := createImageTarball(dockerfile)
+		input, err := createDockerfileTar(dockerfile)
 		Expect(err).To(BeNil(), "failed to create dockerfile tarball")
 
 		err = prov.BuildImage(provider.BuildImageOptions{

@@ -63,7 +63,7 @@ App.IdeMainMenuView = Em.View.extend
   userBinding: Em.Binding.oneWay 'App.user'
 
   previewItems: (->
-    baseItems = []
+    items = []
     App.get('container.previewablePorts').map (port)->
       txt = "Port #{port.containerPort}"
       if port.preview
@@ -74,17 +74,17 @@ App.IdeMainMenuView = Em.View.extend
         track: Mp.EventIDEUserClickedPreviewLink
 
       if port.preview
-        baseItems.unshift(item)
+        items.unshift(item)
       else
-        baseItems.push(item)
+        items.push(item)
 
-    if baseItems.length == 0
-      baseItems.push(
+    if items.length == 0
+      items.push(
         menuItem 'No ports available',
           disabled: true
       )
 
-    baseItems.push(
+    items.push(
       separator,
       menuItem 'Configure Ports',
         url: "#{@get('dashboardURL')}/ports"
@@ -95,18 +95,28 @@ App.IdeMainMenuView = Em.View.extend
         url: 'http://docs.nitrous.io/v1.0/docs/preview'
         target: '_blank'
     )
-    baseItems
+    items
   ).property 'App.container', 'App.container.previewablePorts.@each'
 
+  nitrousScriptsItems: (->
+    scripts = App.get('container.scripts')
+    return scripts if !scripts
+
+    keys = Object.keys(scripts)
+    keys.map (k) ->
+      menuItem k, callback: (controller) ->
+        controller.nitrousScriptsRun(k, scripts[k])
+  ).property 'App.container', 'App.container.scripts'
+
   helpMenuItems: (->
-    baseItems = []
+    items = []
     if App.get('container.env.NITROUS_README_URL')
-      baseItems.push(
+      items.push(
         menuItem 'View README', callback: (controller) ->
           controller.helpNitrousReadme()
         separator
       )
-    baseItems.push(
+    items.push(
       menuItem 'Help Center',
         url: 'https://community.nitrous.io/docs'
         target: '_blank'
@@ -127,7 +137,7 @@ App.IdeMainMenuView = Em.View.extend
       menuItem 'Report an Issue...', callback: (controller) ->
         App.trigger 'open-feedback-dialog', 'Report an Issue', 'Your request has been submitted. Our support team will email you soon.'
     )
-    baseItems
+    items
   ).property 'App.container', 'App.container.env', 'App.container.env.NITROUS_README_URL'
 
   menu: (->
@@ -399,17 +409,23 @@ App.IdeMainMenuView = Em.View.extend
           callback: (controller) ->
             controller.gitCloneFromGitHub()
       ]
-      menu 'Collaborate', [
-        menuItem 'Invite Collaborators',
-          disabled: (->
-            !App.get('host.slug') || !App.get('container.slug') || !isOwner(App.get('container'))
-          ).property 'App.host.slug', 'App.container.slug', 'App.container'
-
-          url: "/app/#/dashboard/workstations/#{App.get('host.slug')}/projects/#{App.get('container.slug')}/collaborators"
-          target: '_blank'
-      ]
-      menu 'Help', @get('helpMenuItems')
     ]
+
+    scriptItems = @get('nitrousScriptsItems')
+    if scriptItems = @get('nitrousScriptsItems')
+      base.push(menu('Run', scriptItems))
+
+    base.push(menu 'Collaborate', [
+      menuItem 'Invite Collaborators',
+        disabled: (->
+          !App.get('host.slug') || !App.get('container.slug') || !isOwner(App.get('container'))
+        ).property 'App.host.slug', 'App.container.slug', 'App.container'
+
+        url: "/app/#/dashboard/workstations/#{App.get('host.slug')}/projects/#{App.get('container.slug')}/collaborators"
+        target: '_blank'
+    ])
+    base.push(menu 'Help', @get('helpMenuItems'))
+
     base
   ).property('previewItems', 'helpMenuItems')
 

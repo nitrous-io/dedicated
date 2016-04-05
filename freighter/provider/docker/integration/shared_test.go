@@ -10,7 +10,7 @@ import (
 	"github.com/nitrous-io/dedicated/freighter/provider/docker"
 )
 
-func createImageTarball(df string) (io.Reader, error) {
+func createDockerfileTar(df string) (io.Reader, error) {
 	buf := new(bytes.Buffer)
 	tarWriter := tar.NewWriter(buf)
 	if err := tarWriter.WriteHeader(&tar.Header{

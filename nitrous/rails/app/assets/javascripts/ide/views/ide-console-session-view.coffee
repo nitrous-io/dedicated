@@ -38,7 +38,7 @@ App.IdeConsoleSessionView = Em.View.extend App.InjectTerminalIframeMixin,
         iframeWindow.NitrousTerminal?.focus?()
   ).observes 'consoleSession.focused'
 
-  opsSocketDidGetDisconneted: (->
+  opsSocketDidGetDisconnected: (->
     terminal = @get 'terminal'
     if App.get('router.ideController.opsSocketNotReady') && !terminal.closed
       terminal.close(true) # close, but permit reconnection
@@ -65,6 +65,7 @@ App.IdeConsoleSessionView = Em.View.extend App.InjectTerminalIframeMixin,
       consoleSession = @get 'consoleSession'
 
       @injectTerminalIframe (terminal) =>
+        consoleSession.set 'terminal', terminal
         terminal.ide = true
         terminal.term.write 'Connecting...'
         terminal.willOpen = =>

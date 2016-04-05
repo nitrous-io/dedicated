@@ -47,6 +47,7 @@ var _ = Describe("CreateAtomic", func() {
 
 		u  *user.User
 		t  *token.Token
+		ft *test.FakeTracker
 		hs *test.HostStack
 
 		// Mock client that satisfies the freighterclient.Client interface.
@@ -58,7 +59,8 @@ var _ = Describe("CreateAtomic", func() {
 
 		db, err = test.TestDatabase("nitrous_test")
 		Expect(err).To(BeNil())
-		svr = test.NewTestServer("", db, nil)
+		ft = test.NewFakeTracker()
+		svr = test.NewTestServer("", db, ft)
 
 		u = &user.User{
 			Username: "foo",
@@ -964,6 +966,16 @@ var _ = Describe("CreateAtomic", func() {
 					Expect(q.TemplateID).To(Equal(tmpl.ID))
 					Expect(q.CreatedAt).NotTo(BeNil())
 					Expect(q.UpdatedAt).NotTo(BeNil())
+
+					t, ok := svr.Tracker.(*test.FakeTracker)
+					Expect(ok).To(BeTrue())
+					Expect(t.Events[u.ID]).To(Equal([]string{"Quickstart Created"}))
+					Expect(t.TrackEventProperties[u.ID]).To(Equal([]map[string]interface{}{
+						{
+							"template_slug": tmpl.Slug,
+							"repo_url":      "https://github.com/yeouchien/discourse",
+						},
+					}))
 				}
 			})
 		})

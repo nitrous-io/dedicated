@@ -1,4 +1,4 @@
-From nitrousio/nitrous-ubuntu-dind:14.04-1.7.0-nitrous1
+From nitrousio/nitrous-ubuntu-dind:14.04-1.9.1-nitrous1
 MAINTAINER Nitrous.IO <eng@nitrous.io>
 
 RUN apt-get update && apt-get install -y --no-install-recommends \
