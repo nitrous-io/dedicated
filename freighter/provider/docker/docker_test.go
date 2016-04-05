@@ -51,8 +51,8 @@ var _ = BeforeSuite(func() {
 		cmd   *exec.Cmd
 	)
 
-	// load the stored ubuntu-bare image so we dont have to pull it from the internet
-	// nitrousio/ubuntu-bare image from /root/ubuntu-bare.tar.gz
+	// Load the stored ubuntu-bare image as nitrousio/ubuntu-bare so we don't,
+	// have to pull it from the Internet.
 	start = time.Now()
 	fmt.Print("building nitrousio/ubuntu-bare:latest...")
 	out, err = exec.Command("docker", "load", "-i", "/root/ubuntu-bare.tar.gz").CombinedOutput()

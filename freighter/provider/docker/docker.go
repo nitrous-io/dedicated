@@ -204,14 +204,6 @@ func (p *DockerProvider) CreateStart(name, imageName, secret, configJSON string)
 		return info, &provider.StartFailedError{Err: err}
 	}
 
-	// Write any configured pre-defined scripts into container.
-	if len(cfg.Scripts) != 0 {
-		if err := p.writeConfiguredScripts(startedCnr.ID, cfg.Scripts); err != nil {
-			logrus.Errorf("DockerProvider: failed to write configured scripts into container %s, err: %v",
-				startedCnr.ID, err)
-		}
-	}
-
 	return startedCnr, nil
 }
 
@@ -349,6 +341,18 @@ func (p *DockerProvider) Start(id, configJSON string) (*provider.ContainerInfo, 
 			return nil, err
 		}
 		logrus.Infof("DockerProvider: started container %q in %v", id, time.Since(start))
+
+		// Write any configured pre-defined scripts into container.
+		if len(cfg.Scripts) != 0 {
+			if err := p.writeConfiguredScripts(id, cfg.Scripts); err != nil {
+				logrus.Errorf("DockerProvider: failed to write configured scripts into container %s, err: %v",
+					id, err)
+			}
+		}
+
+		if err := p.runLifecycleHook(id, hookPostStart); err != nil {
+			logrus.Error("DockerProvider: failed to run post-start lifecycle hook in container %q, err: %v", err, id)
+		}
 	}
 
 	return p.GetInfo(id)
