@@ -187,7 +187,7 @@ func (o *Org) UsedHostsCount(d *db.Database) (int, error) {
 	return len(orgs), err
 }
 
-func (o *Org) ActivateBillingProfile(d *db.Database, bp *billingprofile.BillingProfile, token string) (err error) {
+func (o *Org) ActivateBillingProfile(d *db.Database, bp *billingprofile.BillingProfile, token, ip string) error {
 	params := &stripe.CustomerParams{
 		Email: o.Email,
 		Desc:  fmt.Sprintf("Organization %q", o.Name),
@@ -199,11 +199,14 @@ func (o *Org) ActivateBillingProfile(d *db.Database, bp *billingprofile.BillingP
 	}
 	if token != "" {
 		params.Token = token
+
+		params.SetSource(&stripe.CardParams{
+			Token: token,
+		})
 	}
 	c, err := customer.New(params)
 	if err != nil {
-		err = billingprofile.HandleStripeError(err)
-		return
+		return billingprofile.HandleStripeError(err)
 	}
 
 	defer func() {
@@ -214,6 +217,11 @@ func (o *Org) ActivateBillingProfile(d *db.Database, bp *billingprofile.BillingP
 		}
 	}()
 
-	err = bp.Activate(d, c)
-	return
+	if c.Sources != nil && len(c.Sources.Values) != 0 {
+		if !billingprofile.CardCountryMatch(ip, c.Sources.Values[0].Card.CardCountry) {
+			return billingprofile.ErrCardCountryMismatch
+		}
+	}
+
+	return bp.Activate(d, c)
 }

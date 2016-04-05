@@ -2301,6 +2301,10 @@ var _ = Describe("models/user", func() {
 			fakeStripe *test.FakeStripe
 		)
 
+		var mockCardCountryMatch = func(string, string) bool {
+			return true
+		}
+
 		BeforeEach(func() {
 			u = &user.User{
 				Username: "qux",
@@ -2313,10 +2317,12 @@ var _ = Describe("models/user", func() {
 
 			fakeStripe = &test.FakeStripe{}
 			stripe.SetBackend("api", fakeStripe)
+
+			billingprofile.CardCountryMatch = mockCardCountryMatch
 		})
 
 		It("sends a request to Stripe to create a customer", func() {
-			u.ActivateBillingProfile(db, "token")
+			u.ActivateBillingProfile(db, "token", "")
 
 			Expect(fakeStripe.ReceivedRequests).To(HaveLen(1))
 			Expect(fakeStripe.ReceivedRequests[0]).To(Equal(map[string]string{
@@ -2331,7 +2337,7 @@ var _ = Describe("models/user", func() {
 		})
 
 		It("should send a request if a token is not provided", func() {
-			u.ActivateBillingProfile(db, "")
+			u.ActivateBillingProfile(db, "", "")
 
 			Expect(fakeStripe.ReceivedRequests).To(HaveLen(1))
 			Expect(fakeStripe.ReceivedRequests[0]).To(Equal(map[string]string{
@@ -2349,7 +2355,7 @@ var _ = Describe("models/user", func() {
 			It("updates and persists the record", func() {
 				fakeStripe.Responses = []string{test.StripeCustomerResponse}
 
-				b, err := u.ActivateBillingProfile(db, "token")
+				b, err := u.ActivateBillingProfile(db, "token", "")
 				Expect(err).To(BeNil())
 
 				Expect(fakeStripe.ReceivedRequests).To(HaveLen(1))
@@ -2373,7 +2379,7 @@ var _ = Describe("models/user", func() {
 				}`
 				fakeStripe.Responses = []string{resp}
 
-				b, err := u.ActivateBillingProfile(db, "token")
+				b, err := u.ActivateBillingProfile(db, "token", "")
 				Expect(err).To(BeNil())
 
 				Expect(fakeStripe.ReceivedRequests).To(HaveLen(1))
@@ -2387,6 +2393,24 @@ var _ = Describe("models/user", func() {
 				Expect(b.ExpYear.Int64).To(BeZero())
 				Expect(b.State).To(Equal("no_card"))
 				Expect(b.PendingActivation).To(BeFalse())
+			})
+
+			It("should return error if card country and ip country do not match", func() {
+				fakeStripe.Responses = []string{test.StripeCustomerResponse}
+
+				var mockCardCountryMatch = func(string, string) bool {
+					return false
+				}
+
+				origCardCountryMatch := billingprofile.CardCountryMatch
+				billingprofile.CardCountryMatch = mockCardCountryMatch
+
+				b, err := u.ActivateBillingProfile(db, "token", "")
+				Expect(err).To(Equal(billingprofile.ErrCardCountryMismatch))
+
+				Expect(b).To(BeNil())
+
+				billingprofile.CardCountryMatch = origCardCountryMatch
 			})
 
 			It("should not allow a banned card", func() {
@@ -2415,7 +2439,7 @@ var _ = Describe("models/user", func() {
 
 				fakeStripe.Responses = []string{test.StripeCustomerResponse}
 
-				_, err = u.ActivateBillingProfile(db, "token")
+				_, err = u.ActivateBillingProfile(db, "token", "")
 				Expect(err).To(Equal(billingprofile.ErrCardBanned))
 
 				Expect(fakeStripe.ReceivedRequests).To(HaveLen(2))
@@ -2429,7 +2453,7 @@ var _ = Describe("models/user", func() {
 			It("returns the error, without updating the record", func() {
 				fakeStripe.Errors = []*stripe.Error{test.StripeCardDeclined}
 
-				_, err := u.ActivateBillingProfile(db, "token")
+				_, err := u.ActivateBillingProfile(db, "token", "")
 				Expect(err).To(Equal(billingprofile.ErrCardDeclined))
 
 				b, err := billingprofile.Find(db, u.ID)
@@ -2448,7 +2472,7 @@ var _ = Describe("models/user", func() {
 					},
 				}
 
-				_, err := u.ActivateBillingProfile(db, "token")
+				_, err := u.ActivateBillingProfile(db, "token", "")
 				Expect(err).NotTo(BeNil())
 
 				b, err := billingprofile.Find(db, u.ID)

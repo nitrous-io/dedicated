@@ -143,7 +143,7 @@ func (s *SubscriptionProvider) Subscribe(d *db.Database, opts *SubscribeOptions)
 
 	if !bp.StripeID.Valid {
 		if o != nil {
-			err = o.ActivateBillingProfile(d, bp, "")
+			err = o.ActivateBillingProfile(d, bp, "", "")
 		} else {
 			bp, err = u.ActivateBillingProfile(d, "", "")
 		}
