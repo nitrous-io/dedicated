@@ -159,6 +159,18 @@ class Users < Thor
       puts "#{u.summary}: usage_quota_restored_at #{old_period} => #{new_period}"
     end
   end
+
+  desc "update_email IDENT email", "Update a customer's email address"
+  def update_email(ident, email)
+    halt "Email #{email} is not a valid email" if !(email =~ /@/)
+    u = User.find(ident) { |ds| ds.where(users__deleted_at: nil) }
+    old_email = u.email
+    DB.transaction do
+      r = DB[:users].where(id: u.uid).update(email: email)
+      rows_expected!(r, 1)
+    end
+    puts "#{u.summary}: email '#{old_email}' => #{email}"
+  end
 end
 
 # vim:ft=ruby
