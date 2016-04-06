@@ -20,7 +20,7 @@ pages.Pricing =
             $plan.find('.collaborators span').text('collaborator')
         else
           $plan.find('.collaborators strong').text('Unlimited')
-        $plan.find('.memory strong').text(plan.memory)
+        if plan.memory then $plan.find('.memory strong').text(plan.memory)
         $plan.find('.storage strong').text(plan.storage)
 
       $('.plan-list').css(opacity: 1)
