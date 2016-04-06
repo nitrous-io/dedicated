@@ -102,6 +102,9 @@ App.Container = klass = Em.Object.extend
         when 'start'
           # Ignore it. This is run whenever the container is started and should
           # not appear.
+        when 'post-create'
+          # Ignore it. This is run whenever the container is created by Quickstart
+          # and should not appear.
         else
           newScripts[k] = scripts[k]
 
