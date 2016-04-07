@@ -100,11 +100,11 @@ App.Container = klass = Em.Object.extend
     keys.forEach (k) ->
       switch k
         when 'start'
-          newScripts['Start Server'] = scripts[k]
-        when 'stop'
-          newScripts['Stop Server'] = scripts[k]
-        when 'run-tests'
-          newScripts['Run Tests'] = scripts[k]
+          # Ignore it. This is run whenever the container is started and should
+          # not appear.
+        when 'post-create'
+          # Ignore it. This is run whenever the container is created by Quickstart
+          # and should not appear.
         else
           newScripts[k] = scripts[k]
 

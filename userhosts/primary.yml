@@ -1,7 +1,7 @@
 ---
 - hosts: userhosts
   vars:
-    - freighterd_version: 1.8.1.1+1457608649-534-b407727
+    - freighterd_version: 1.8.1.1+1459843233-541-1c734b8
   gather_facts: no
   sudo: yes
   tasks:
