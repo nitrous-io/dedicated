@@ -1,5 +1,6 @@
 App.SignupRoute = Em.Route.extend
   beforeModel: ->
+    window.location.href = 'https://www.nitrous.io/app/#/signup'
     @_super.apply this, arguments
     if App.get('token')
       @transitionTo 'home'
