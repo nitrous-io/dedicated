@@ -366,9 +366,10 @@ func (p *DockerProvider) Stop(id string) (*provider.ContainerInfo, error) {
 
 	if container.State.Running {
 		logrus.Infof("DockerProvider: stopping container %q", id)
+		timeout := 3 // in seconds
 		start := time.Now()
 
-		err := p.client.StopContainer(id, 15)
+		err := p.client.StopContainer(id, uint(timeout))
 		if err != nil {
 			return nil, err
 		}
@@ -376,7 +377,7 @@ func (p *DockerProvider) Stop(id string) (*provider.ContainerInfo, error) {
 		ch := make(chan error, 1)
 
 		go func() {
-			timeout := time.After(15 * time.Second)
+			timeout := time.After(time.Duration(timeout) * time.Second)
 			for {
 				select {
 				case <-timeout:
