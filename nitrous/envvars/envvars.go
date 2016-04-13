@@ -39,11 +39,6 @@ var (
 	DockerRegistryHostname     = os.Getenv("DOCKER_REGISTRY_HOSTNAME")
 	DockerRegistryWebhookToken = os.Getenv("DOCKER_REGISTRY_WEBHOOK_TOKEN")
 
-	BetaDashboardLocation = os.Getenv("BETA_DASHBOARD_LOCATION")
-	BetaEarnBonusLocation = os.Getenv("BETA_EARN_BONUS_LOCATION")
-	BetaLoginLocation     = os.Getenv("BETA_LOGIN_LOCATION")
-	BetaSignupLocation    = os.Getenv("BETA_SIGNUP_LOCATION")
-
 	StopTimeout = os.Getenv("STOP_TIMEOUT")
 	KillTimeout = os.Getenv("KILL_TIMEOUT")
 
