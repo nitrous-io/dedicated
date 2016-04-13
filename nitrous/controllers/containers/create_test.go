@@ -375,6 +375,10 @@ var _ = Describe("CreateAtomic", func() {
 					requestID, ok := evtData["request_id"].(string)
 					Expect(ok).To(BeTrue())
 					Expect(requestID).To(Equal(res.Header().Get(constants.NitrousUUIDHeader)))
+
+					h, err := host.FindByIdentifier(db, strconv.FormatInt(hs.H.ID, 10))
+					Expect(err).To(BeNil())
+					Expect(time.Now().Sub(h.LastPingedAt.Time)).To(BeNumerically("<=", 1*time.Second))
 				}
 			})
 
@@ -443,6 +447,10 @@ var _ = Describe("CreateAtomic", func() {
 					cv2, err := cvolume.Find(db, cntrs[0], v2)
 					Expect(err).To(BeNil())
 					Expect(cv2.VolumeID).To(Equal(v2.ID))
+
+					h, err := host.FindByIdentifier(db, strconv.FormatInt(hs.H.ID, 10))
+					Expect(err).To(BeNil())
+					Expect(time.Now().Sub(h.LastPingedAt.Time)).To(BeNumerically("<=", 1*time.Second))
 				}
 			})
 
@@ -523,6 +531,10 @@ var _ = Describe("CreateAtomic", func() {
 					cvol, err := cvolume.Find(db, cntrs[0], vol)
 					Expect(err).To(BeNil())
 					Expect(cvol.VolumeID).To(Equal(vol.ID))
+
+					h, err := host.FindByIdentifier(db, strconv.FormatInt(hs.H.ID, 10))
+					Expect(err).To(BeNil())
+					Expect(time.Now().Sub(h.LastPingedAt.Time)).To(BeNumerically("<=", 1*time.Second))
 				}
 			})
 		})
@@ -598,6 +610,10 @@ var _ = Describe("CreateAtomic", func() {
 					Expect(mockClient.ReceivedConfig.Env).To(ConsistOf([]string{"SHELL=powershell"}))
 					Expect(*mockClient.ReceivedConfig.Privileged).To(BeTrue())
 					Expect(*mockClient.ReceivedConfig.PublishAll).To(BeFalse())
+
+					h, err := host.FindByIdentifier(db, strconv.FormatInt(hs.H.ID, 10))
+					Expect(err).To(BeNil())
+					Expect(time.Now().Sub(h.LastPingedAt.Time)).To(BeNumerically("<=", 1*time.Second))
 				}
 			})
 
@@ -653,6 +669,10 @@ var _ = Describe("CreateAtomic", func() {
 					Expect(mockClient.ReceivedConfig.PortBindings).To(ConsistOf([]string{"public::2341", "public::8931", "public::6060/tcp", "public::8888/tcp"}))
 					Expect(*mockClient.ReceivedConfig.Privileged).To(BeFalse())
 					Expect(*mockClient.ReceivedConfig.PublishAll).To(BeTrue())
+
+					h, err := host.FindByIdentifier(db, strconv.FormatInt(hs.H.ID, 10))
+					Expect(err).To(BeNil())
+					Expect(time.Now().Sub(h.LastPingedAt.Time)).To(BeNumerically("<=", 1*time.Second))
 				}
 			})
 		})
@@ -896,6 +916,10 @@ var _ = Describe("CreateAtomic", func() {
 
 						Expect(mockClient.CreateCalled).To(Equal(1))
 						Expect(mockClient.ReceivedImage).To(Equal(expectedImage))
+
+						h, err := host.FindByIdentifier(db, strconv.FormatInt(hs.H.ID, 10))
+						Expect(err).To(BeNil())
+						Expect(time.Now().Sub(h.LastPingedAt.Time)).To(BeNumerically("<=", 1*time.Second))
 					}
 				})
 			})
@@ -1132,6 +1156,10 @@ var _ = Describe("CreateAtomic", func() {
 						Expect(cntrs).To(HaveLen(1))
 
 						expectSerializedContainer(cn, cntrs[0])
+
+						h, err := host.FindByIdentifier(db, strconv.FormatInt(hs.H.ID, 10))
+						Expect(err).To(BeNil())
+						Expect(time.Now().Sub(h.LastPingedAt.Time)).To(BeNumerically("<=", 1*time.Second))
 					}
 				})
 			})
@@ -1216,6 +1244,10 @@ var _ = Describe("CreateAtomic", func() {
 
 					cn := cntrs[0]
 					Expect(cn.PublicKeyFingerprint.String).To(Equal(fp))
+
+					h, err := host.FindByIdentifier(db, strconv.FormatInt(hs.H.ID, 10))
+					Expect(err).To(BeNil())
+					Expect(time.Now().Sub(h.LastPingedAt.Time)).To(BeNumerically("<=", 1*time.Second))
 				}
 			})
 		})

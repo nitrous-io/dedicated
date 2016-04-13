@@ -314,6 +314,10 @@ func createAtomic(h *host.Host, env *middleware.Env, w http.ResponseWriter, r *h
 			}
 		}
 
+		if err := h.Touch(env.DB); err != nil {
+			return
+		}
+
 		PublishContainerEvent(env, controllers.EventContainerCreated, cn, map[string]interface{}{
 			"request_id": env.UUID,
 		})
