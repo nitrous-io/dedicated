@@ -1067,12 +1067,36 @@ func (s *Server) httpForward(w http.ResponseWriter, r *http.Request) error {
 		r.Header.Set("X-Forwarded-Proto", "https")
 	}
 
-	addr := fmt.Sprintf("%s:%s", "0.0.0.0", r.Header.Get(freighter.ForwardPortHeader))
+	forwardPort := r.Header.Get(freighter.ForwardPortHeader)
+	containerSlug := r.Header.Get(freighter.ContainerSlugHeader)
+	containerPort := r.Header.Get(freighter.ContainerPortHeader)
+	var addr string
+	if forwardPort != "" {
+		addr = fmt.Sprintf("%s:%s", "0.0.0.0", r.Header.Get(freighter.ForwardPortHeader))
+	} else if containerSlug != "" && containerPort != "" {
+		containerList, err := s.provider.List()
+		if err != nil {
+			s.handleError(w, err)
+			return err
+		}
+
+		var containerInfo *provider.ContainerInfo
+		for _, c := range containerList {
+			if c.Name == containerSlug {
+				containerInfo = c
+				break
+			}
+		}
+
+		addr = fmt.Sprintf("%s:%s", containerInfo.Host, containerPort)
+	}
+
 	if proxy.IsWebsocket(r) {
 		proxy.ProxyWebsocket(addr, nil)(w, r)
 	} else {
 		proxy.ProxyHTTP(addr, nil, proxyerror.ErrorHandler)(w, r)
 	}
+
 	return nil
 }
 
