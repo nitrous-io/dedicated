@@ -36,7 +36,7 @@ func (c Client) New(params *stripe.InvoiceParams) (*stripe.Invoice, error) {
 	}
 
 	if len(params.Statement) > 0 {
-		body.Add("statement_description", params.Statement)
+		body.Add("statement_descriptor", params.Statement)
 	}
 
 	if len(params.Sub) > 0 {
@@ -50,8 +50,12 @@ func (c Client) New(params *stripe.InvoiceParams) (*stripe.Invoice, error) {
 		body.Add("application_fee", strconv.FormatUint(params.Fee, 10))
 	}
 
+	if params.TaxPercent > 0 {
+		body.Add("tax_percent", strconv.FormatFloat(params.TaxPercent, 'f', 2, 64))
+	}
+
 	invoice := &stripe.Invoice{}
-	err := c.B.Call("POST", "/invoices", token, body, invoice)
+	err := c.B.Call("POST", "/invoices", token, body, &params.Params, invoice)
 
 	return invoice, err
 }
@@ -64,14 +68,16 @@ func Get(id string, params *stripe.InvoiceParams) (*stripe.Invoice, error) {
 
 func (c Client) Get(id string, params *stripe.InvoiceParams) (*stripe.Invoice, error) {
 	var body *url.Values
+	var commonParams *stripe.Params
 
 	if params != nil {
+		commonParams = &params.Params
 		body = &url.Values{}
 		params.AppendTo(body)
 	}
 
 	invoice := &stripe.Invoice{}
-	err := c.B.Call("GET", "/invoices/"+id, c.Key, body, invoice)
+	err := c.B.Call("GET", "/invoices/"+id, c.Key, body, commonParams, invoice)
 
 	return invoice, err
 }
@@ -84,14 +90,16 @@ func Pay(id string, params *stripe.InvoiceParams) (*stripe.Invoice, error) {
 
 func (c Client) Pay(id string, params *stripe.InvoiceParams) (*stripe.Invoice, error) {
 	var body *url.Values
+	var commonParams *stripe.Params
 
 	if params != nil {
+		commonParams = &params.Params
 		body = &url.Values{}
 		params.AppendTo(body)
 	}
 
 	invoice := &stripe.Invoice{}
-	err := c.B.Call("POST", fmt.Sprintf("/invoices/%v/pay", id), c.Key, body, invoice)
+	err := c.B.Call("POST", fmt.Sprintf("/invoices/%v/pay", id), c.Key, body, commonParams, invoice)
 
 	return invoice, err
 }
@@ -105,8 +113,10 @@ func Update(id string, params *stripe.InvoiceParams) (*stripe.Invoice, error) {
 func (c Client) Update(id string, params *stripe.InvoiceParams) (*stripe.Invoice, error) {
 	var body *url.Values
 	token := c.Key
+	var commonParams *stripe.Params
 
 	if params != nil {
+		commonParams = &params.Params
 		body = &url.Values{}
 
 		if len(params.Desc) > 0 {
@@ -114,7 +124,7 @@ func (c Client) Update(id string, params *stripe.InvoiceParams) (*stripe.Invoice
 		}
 
 		if len(params.Statement) > 0 {
-			body.Add("statement_description", params.Statement)
+			body.Add("statement_descriptor", params.Statement)
 		}
 
 		if len(params.Sub) > 0 {
@@ -133,11 +143,15 @@ func (c Client) Update(id string, params *stripe.InvoiceParams) (*stripe.Invoice
 			body.Add("application_fee", strconv.FormatUint(params.Fee, 10))
 		}
 
+		if params.TaxPercent > 0 {
+			body.Add("tax_percent", strconv.FormatFloat(params.TaxPercent, 'f', 2, 64))
+		}
+
 		params.AppendTo(body)
 	}
 
 	invoice := &stripe.Invoice{}
-	err := c.B.Call("POST", "/invoices/"+id, token, body, invoice)
+	err := c.B.Call("POST", "/invoices/"+id, token, body, commonParams, invoice)
 
 	return invoice, err
 }
@@ -157,10 +171,30 @@ func (c Client) GetNext(params *stripe.InvoiceParams) (*stripe.Invoice, error) {
 		body.Add("subscription", params.Sub)
 	}
 
+	if len(params.SubPlan) > 0 {
+		body.Add("subscription_plan", params.SubPlan)
+	}
+
+	if params.SubNoProrate {
+		body.Add("subscription_prorate", strconv.FormatBool(false))
+	}
+
+	if params.SubProrationDate > 0 {
+		body.Add("subscription_proration_date", strconv.FormatInt(params.SubProrationDate, 10))
+	}
+
+	if params.SubQuantity > 0 {
+		body.Add("subscription_quantity", strconv.FormatUint(params.SubQuantity, 10))
+	}
+
+	if params.SubTrialEnd > 0 {
+		body.Add("subscription_trial_end", strconv.FormatInt(params.SubTrialEnd, 10))
+	}
+
 	params.AppendTo(body)
 
 	invoice := &stripe.Invoice{}
-	err := c.B.Call("GET", "/invoices", c.Key, body, invoice)
+	err := c.B.Call("GET", "/invoices/upcoming", c.Key, body, &params.Params, invoice)
 
 	return invoice, err
 }
@@ -179,6 +213,7 @@ func (c Client) List(params *stripe.InvoiceListParams) *Iter {
 
 	var body *url.Values
 	var lp *stripe.ListParams
+	var p *stripe.Params
 
 	if params != nil {
 		body = &url.Values{}
@@ -193,11 +228,12 @@ func (c Client) List(params *stripe.InvoiceListParams) *Iter {
 
 		params.AppendTo(body)
 		lp = &params.ListParams
+		p = params.ToParams()
 	}
 
 	return &Iter{stripe.GetIter(lp, body, func(b url.Values) ([]interface{}, stripe.ListMeta, error) {
 		list := &invoiceList{}
-		err := c.B.Call("GET", "/invoices", c.Key, &b, list)
+		err := c.B.Call("GET", "/invoices", c.Key, &b, p, list)
 
 		ret := make([]interface{}, len(list.Values))
 		for i, v := range list.Values {
@@ -217,6 +253,7 @@ func ListLines(params *stripe.InvoiceLineListParams) *LineIter {
 func (c Client) ListLines(params *stripe.InvoiceLineListParams) *LineIter {
 	body := &url.Values{}
 	var lp *stripe.ListParams
+	var p *stripe.Params
 
 	if len(params.Customer) > 0 {
 		body.Add("customer", params.Customer)
@@ -228,10 +265,11 @@ func (c Client) ListLines(params *stripe.InvoiceLineListParams) *LineIter {
 
 	params.AppendTo(body)
 	lp = &params.ListParams
+	p = params.ToParams()
 
 	return &LineIter{stripe.GetIter(lp, body, func(b url.Values) ([]interface{}, stripe.ListMeta, error) {
 		list := &stripe.InvoiceLineList{}
-		err := c.B.Call("GET", fmt.Sprintf("/invoices/%v/lines", params.ID), c.Key, &b, list)
+		err := c.B.Call("GET", fmt.Sprintf("/invoices/%v/lines", params.ID), c.Key, &b, p, list)
 
 		ret := make([]interface{}, len(list.Values))
 		for i, v := range list.Values {
@@ -269,5 +307,5 @@ func (i *LineIter) InvoiceLine() *stripe.InvoiceLine {
 }
 
 func getC() Client {
-	return Client{stripe.GetBackend(), stripe.Key}
+	return Client{stripe.GetBackend(stripe.APIBackend), stripe.Key}
 }

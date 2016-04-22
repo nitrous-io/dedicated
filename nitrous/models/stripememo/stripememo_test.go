@@ -35,7 +35,7 @@ var _ = Describe("models/stripememo", func() {
 		Expect(err).To(BeNil())
 
 		fakeStripe = &test.FakeStripe{}
-		stripe.SetBackend(fakeStripe)
+		stripe.SetBackend("api", fakeStripe)
 	})
 
 	AfterEach(func() {

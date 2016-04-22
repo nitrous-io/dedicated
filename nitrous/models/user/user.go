@@ -905,7 +905,7 @@ func (u *User) SendPasswordResetEmail(d db.QueryReceiver) error {
 }
 
 // ActivateBillingProfile will create a new customer in Stripe and return the updated billing profile.
-func (u *User) ActivateBillingProfile(d *db.Database, token string) (bp *billingprofile.BillingProfile, err error) {
+func (u *User) ActivateBillingProfile(d *db.Database, token, ip string) (*billingprofile.BillingProfile, error) {
 	params := &stripe.CustomerParams{
 		Email: u.Email,
 		Desc:  fmt.Sprintf("Name: %s, Username: %s", u.Name, u.Username),
@@ -918,36 +918,39 @@ func (u *User) ActivateBillingProfile(d *db.Database, token string) (bp *billing
 	}
 	if token != "" {
 		params.Token = token
+
+		params.SetSource(&stripe.CardParams{
+			Token: token,
+		})
 	}
 	c, err := customer.New(params)
 	if err != nil {
-		err = billingprofile.HandleStripeError(err)
-		return
+		return nil, billingprofile.HandleStripeError(err)
 	}
 
 	// remove the Stripe profile to prevent junk in the Stripe dashboard
 	defer func() {
 		if err != nil {
-			if err := customer.Del(c.ID); err != nil {
+			if _, err := customer.Del(c.ID); err != nil {
 				logrus.Errorf("Unable to delete customer %s, err: %v", c.ID, err)
 			}
 		}
 	}()
 
-	bp, err = u.BillingProfile(d)
-	if err != nil {
-		return
-	}
-
-	if err = bp.Activate(d, c); err != nil {
-		if err == billingprofile.ErrCardBanned {
-			err = ErrCardBanned
+	// Check that the card country and ip address country match, to prevent fraud
+	if c.Sources != nil && len(c.Sources.Values) != 0 {
+		if !billingprofile.CardCountryMatch(ip, c.Sources.Values[0].Card.CardCountry) {
+			return nil, billingprofile.ErrCardCountryMismatch
 		}
-		return
 	}
 
-	err = nil
-	return
+	bp, err := u.BillingProfile(d)
+	if err != nil {
+		return nil, err
+	}
+
+	err = bp.Activate(d, c)
+	return bp, err
 }
 
 // populates Suspicious field if conditions are matched

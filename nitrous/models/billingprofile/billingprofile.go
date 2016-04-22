@@ -2,13 +2,16 @@ package billingprofile
 
 import (
 	"database/sql"
+	"encoding/json"
 	"errors"
 	"fmt"
+	"io/ioutil"
+	"net/http"
 	"time"
 
+	"github.com/Sirupsen/logrus"
 	"github.com/jmoiron/sqlx"
 	"github.com/lib/pq"
-
 	"github.com/nitrous-io/dedicated/nitrous/db"
 	"github.com/nitrous-io/dedicated/nitrous/models/orgmembership"
 	stripe "github.com/stripe/stripe-go"
@@ -26,6 +29,8 @@ var (
 
 	ErrNoCard     = errors.New("billingprofile: has not added credit card")
 	ErrDelinquent = errors.New("billingprofile: outstanding invoices")
+
+	ErrCardCountryMismatch = errors.New("card country does not match ip origin")
 
 	MaxFailedAttempts = 2
 )
@@ -108,6 +113,35 @@ func (bp *BillingProfile) CanCreateHosts() error {
 	return nil
 }
 
+var CardCountryMatch = func(ip, cardCountry string) bool {
+	url := "http://ipinfo.io/" + ip + "/json"
+
+	res, err := http.Get(url)
+	if err != nil {
+		logrus.Errorf("GET request error. URL: %s. Err: %v", url, err)
+		return false
+	}
+	defer res.Body.Close()
+
+	body, err := ioutil.ReadAll(res.Body)
+	if err != nil {
+		logrus.Errorf("Error reading response from %s. Err: %v", ip, err)
+		return false
+	}
+
+	type ipInfo struct {
+		Country string `json:"country"`
+	}
+	var ipinfo ipInfo
+
+	if err := json.Unmarshal(body, &ipinfo); err != nil {
+		logrus.Errorf("Error unmarshaling ipinfo. IP: %s. Err: %v", ip, err)
+		return false
+	}
+
+	return ipinfo.Country == cardCountry
+}
+
 func FindByID(d db.QueryReceiver, id int64) (*BillingProfile, error) {
 	b := &BillingProfile{}
 	err := d.Get(b, "SELECT * FROM billing_profiles WHERE id = $1 ORDER BY created_at DESC LIMIT 1;", id)
@@ -181,7 +215,7 @@ func (b *BillingProfile) Update(d db.QueryReceiver) error {
 	return nstmt.QueryRowx(b).StructScan(b)
 }
 
-func (b *BillingProfile) UpdateCard(d *db.Database, token string) error {
+func (b *BillingProfile) UpdateCard(d *db.Database, token, ip string) error {
 	if !b.StripeID.Valid {
 		return StripeProfileRequiredError
 	}
@@ -194,7 +228,11 @@ func (b *BillingProfile) UpdateCard(d *db.Database, token string) error {
 		return HandleStripeError(err)
 	}
 
-	crd := c.Cards.Values[0]
+	if !CardCountryMatch(ip, c.Sources.Values[0].Card.CardCountry) {
+		return ErrCardCountryMismatch
+	}
+
+	crd := c.Sources.Values[0].Card
 
 	if err := b.SetCard(d, crd); err != nil {
 		return err
@@ -245,8 +283,8 @@ func (b *BillingProfile) Activate(d *db.Database, cus *stripe.Customer) error {
 	b.StripeID = sql.NullString{cus.ID, true}
 	b.PendingActivation = false
 
-	if cus.Cards != nil && len(cus.Cards.Values) >= 1 {
-		if err := b.SetCard(d, cus.Cards.Values[0]); err != nil {
+	if cus.Sources != nil && len(cus.Sources.Values) >= 1 && cus.Sources.Values[0].Card != nil {
+		if err := b.SetCard(d, cus.Sources.Values[0].Card); err != nil {
 			return err
 		}
 	}

@@ -224,12 +224,12 @@ var _ = Describe("models/billingprofile", func() {
 			Expect(err).To(BeNil())
 
 			fakeStripe = &test.FakeStripe{}
-			stripe.SetBackend(fakeStripe)
+			stripe.SetBackend("api", fakeStripe)
 		})
 
 		Context("when called on a profile with an empty StripeID", func() {
 			It("returns StripeProfileRequiredError", func() {
-				err := bp.UpdateCard(db, "token")
+				err := bp.UpdateCard(db, "token", "")
 				Expect(err).To(Equal(billingprofile.StripeProfileRequiredError))
 			})
 		})
@@ -251,7 +251,7 @@ var _ = Describe("models/billingprofile", func() {
 			It("updates the record in database, if the Stripe call was successful", func() {
 				fakeStripe.Responses = []string{test.StripeCustomerResponse}
 
-				err := bp.UpdateCard(db, "token")
+				err := bp.UpdateCard(db, "token", "")
 				Expect(err).To(BeNil())
 
 				bp, err = billingprofile.FindByID(db, bp.ID)
@@ -262,7 +262,7 @@ var _ = Describe("models/billingprofile", func() {
 				Expect(bp.LastFour.String).To(Equal("4242"))
 				Expect(bp.CardType.String).To(Equal("Visa"))
 				Expect(bp.ExpMonth.Int64).To(Equal(int64(10)))
-				Expect(bp.ExpYear.Int64).To(Equal(int64(2018)))
+				Expect(bp.ExpYear.Int64).To(Equal(int64(2021)))
 				Expect(bp.PendingActivation).To(BeFalse())
 			})
 
@@ -270,7 +270,7 @@ var _ = Describe("models/billingprofile", func() {
 				fakeStripe.Responses = []string{test.StripeCustomerResponse}
 
 				bp.State = billingprofile.StateNoCard
-				err := bp.UpdateCard(db, "token")
+				err := bp.UpdateCard(db, "token", "")
 				Expect(err).To(BeNil())
 
 				bp, err = billingprofile.FindByID(db, bp.ID)
@@ -283,7 +283,7 @@ var _ = Describe("models/billingprofile", func() {
 				fakeStripe.Responses = []string{test.StripeCustomerResponse}
 
 				bp.State = billingprofile.StateFree
-				err := bp.UpdateCard(db, "token")
+				err := bp.UpdateCard(db, "token", "")
 				Expect(err).To(BeNil())
 
 				bp, err = billingprofile.FindByID(db, bp.ID)
@@ -294,25 +294,25 @@ var _ = Describe("models/billingprofile", func() {
 
 			It("returns CardDeclined error, if Stripe returns a card declined error", func() {
 				fakeStripe.Errors = []*stripe.Error{test.StripeCardDeclined}
-				err := bp.UpdateCard(db, "token")
+				err := bp.UpdateCard(db, "token", "")
 				Expect(err).To(Equal(billingprofile.ErrCardDeclined))
 			})
 
 			It("returns ErrCardExpired error, if Stripe returns a card expired error", func() {
 				fakeStripe.Errors = []*stripe.Error{test.StripeCardExpired}
-				err := bp.UpdateCard(db, "token")
+				err := bp.UpdateCard(db, "token", "")
 				Expect(err).To(Equal(billingprofile.ErrCardExpired))
 			})
 
 			It("returns ErrIncorrectCvc error, if Stripe returns a card expired error", func() {
 				fakeStripe.Errors = []*stripe.Error{test.StripeIncorrectCvc}
-				err := bp.UpdateCard(db, "token")
+				err := bp.UpdateCard(db, "token", "")
 				Expect(err).To(Equal(billingprofile.ErrIncorrectCvc))
 			})
 
 			It("returns ErrIncorrectZipErr error, if Stripe returns a card expired error", func() {
 				fakeStripe.Errors = []*stripe.Error{test.StripeIncorrectZip}
-				err := bp.UpdateCard(db, "token")
+				err := bp.UpdateCard(db, "token", "")
 				Expect(err).To(Equal(billingprofile.ErrIncorrectZipErr))
 			})
 
@@ -325,7 +325,7 @@ var _ = Describe("models/billingprofile", func() {
 					},
 				}
 
-				err := bp.UpdateCard(db, "token")
+				err := bp.UpdateCard(db, "token", "")
 				Expect(err).NotTo(BeNil())
 
 				bp, err = billingprofile.FindByID(db, bp.ID)
@@ -366,7 +366,7 @@ var _ = Describe("models/billingprofile", func() {
 
 				fakeStripe.Responses = []string{test.StripeCustomerResponse}
 
-				err = bp.UpdateCard(db, "token")
+				err = bp.UpdateCard(db, "token", "")
 				Expect(err).To(Equal(billingprofile.ErrCardBanned))
 			})
 		})
@@ -474,14 +474,16 @@ var _ = Describe("models/billingprofile", func() {
 
 			cus := &stripe.Customer{
 				ID: "cus_12xx35z",
-				Cards: &stripe.CardList{
-					Values: []*stripe.Card{
-						&stripe.Card{
-							LastFour:    "1901",
-							Brand:       "AMEX",
-							Month:       8,
-							Year:        2019,
-							Fingerprint: "xcv22sx3",
+				Sources: &stripe.SourceList{
+					Values: []*stripe.PaymentSource{
+						&stripe.PaymentSource{
+							Card: &stripe.Card{
+								LastFour:    "1901",
+								Brand:       "AMEX",
+								Month:       8,
+								Year:        2019,
+								Fingerprint: "xcv22sx3",
+							},
 						},
 					},
 				},
@@ -523,7 +525,7 @@ var _ = Describe("models/billingprofile", func() {
 			Expect(err).To(BeNil())
 
 			fakeStripe = &test.FakeStripe{}
-			stripe.SetBackend(fakeStripe)
+			stripe.SetBackend("api", fakeStripe)
 		})
 
 		Context("when called on a profile with an empty StripeID", func() {

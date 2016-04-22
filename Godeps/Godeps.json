@@ -6,8 +6,12 @@
 	],
 	"Deps": [
     {
+      "ImportPath": "github.com/stripe/stripe-go",
+      "Rev": "ed8862a1650bd7dd9041895d466afdfa852675fb"
+		},
+    {
       "ImportPath": "github.com/mrjones/oauth",
-       "Rev": "fdd43ab9ffd4adbedbecf59a0ec6a7e0d3ef3970"
+      "Rev": "fdd43ab9ffd4adbedbecf59a0ec6a7e0d3ef3970"
 		},
 		{
 			"ImportPath": "golang.org/x/text/encoding/japanese",

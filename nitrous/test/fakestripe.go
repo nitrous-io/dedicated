@@ -3,6 +3,7 @@ package test
 import (
 	"encoding/json"
 	"fmt"
+	"io"
 	"net/url"
 	"strings"
 
@@ -16,7 +17,8 @@ type FakeStripe struct {
 	Errors           []*stripe.Error
 }
 
-func (s *FakeStripe) Call(method, path, key string, body *url.Values, v interface{}) error {
+func (s *FakeStripe) Call(method, path, key string, body *url.Values, params *stripe.Params, v interface{}) error {
+	fmt.Println("hello", key)
 	m := map[string]string{
 		"method": method,
 		"path":   path,
@@ -69,42 +71,70 @@ func (s *FakeStripe) Call(method, path, key string, body *url.Values, v interfac
 	}
 }
 
+func (s *FakeStripe) CallMultipart(method, path, key, boundary string, body io.Reader, params *stripe.Params, v interface{}) error {
+	return nil
+}
+
+// From https://stripe.com/docs/api#customers
 var StripeCustomerResponse = `{
-		"id": "sc_01",
-		"email": "user@example.com",
-		"cards": {
-			"object": "list",
-			"total_count": 1,
-			"has_more": false,
-			"url": "/v1/customers/cus_56dgsyZAJujFFO/cards",
-			"data": [
-				{
-					"id": "card_14wQPX2CU2PklWtHi34KFonT",
-					"object": "card",
-					"last4": "4242",
-					"brand": "Visa",
-					"funding": "credit",
-					"exp_month": 10,
-					"exp_year": 2018,
-					"fingerprint": "H0SJieNrXmTdq3qs",
-					"country": "US",
-					"name": null,
-					"address_line1": null,
-					"address_line2": null,
-					"address_city": null,
-					"address_state": null,
-					"address_zip": null,
-					"address_country": null,
-					"cvc_check": "pass",
-					"address_line1_check": null,
-					"address_zip_check": null,
-					"dynamic_last4": null,
-					"customer": "cus_56dgsyZAJujFFO"
-				}
-			]
-		},
-		"default_card": "card_14wQPX2CU2PklWtHi34KFonT"
-	}`
+	"id": "sc_01",
+	"object": "customer",
+	"account_balance": 0,
+	"created": 1459540945,
+	"currency": "usd",
+	"default_source": "card_17vYTMK23cit468SqKvPooOo",
+	"delinquent": false,
+	"description": "Name: , Username: card17",
+	"discount": null,
+	"email": "card17@example.com",
+	"livemode": false,
+	"metadata": {
+		"username": "card17"
+	},
+	"shipping": null,
+	"sources": {
+		"object": "list",
+		"data": [
+			{
+				"id": "card_17vYTMK23cit468SqKvPooOo",
+				"object": "card",
+				"address_city": null,
+				"address_country": null,
+				"address_line1": null,
+				"address_line1_check": null,
+				"address_line2": null,
+				"address_state": null,
+				"address_zip": "123123",
+				"address_zip_check": "pass",
+				"brand": "Visa",
+				"country": "US",
+				"customer": "cus_8BwMPDL426wNnn",
+				"cvc_check": "pass",
+				"dynamic_last4": null,
+				"exp_month": 10,
+				"exp_year": 2018,
+				"fingerprint": "H0SJieNrXmTdq3qs",
+				"funding": "credit",
+				"last4": "4242",
+				"metadata": {
+				},
+				"name": "gru",
+				"tokenization_method": null
+			}
+		],
+		"has_more": false,
+		"total_count": 1,
+		"url": "/v1/customers/cus_8BwMPDL426wNnn/sources"
+	},
+	"subscriptions": {
+	"object": "list",
+	"data": [
+	],
+	"has_more": false,
+	"total_count": 0,
+	"url": "/v1/customers/cus_8BwMPDL426wNnn/subscriptions"
+	}
+}`
 
 // from api docs https://stripe.com/docs/api/go#list_invoices
 var StripeInvoiceResponse = `{

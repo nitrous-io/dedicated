@@ -670,7 +670,7 @@ var _ = Describe("controllers/billing", func() {
 			Expect(in.Insert(db)).To(BeNil())
 
 			fakeStripe = &FakeStripe{}
-			stripe.SetBackend(fakeStripe)
+			stripe.SetBackend("api", fakeStripe)
 		})
 
 		It("should return not found if the invoice does not exist", func() {

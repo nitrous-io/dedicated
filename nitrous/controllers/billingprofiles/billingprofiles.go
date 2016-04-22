@@ -1,6 +1,7 @@
 package billingprofiles
 
 import (
+	"net"
 	"net/http"
 	"time"
 
@@ -30,6 +31,8 @@ func Activate(env *middleware.Env, w http.ResponseWriter, r *http.Request) error
 	db := env.DB
 	u := env.User
 
+	ip, _, err := net.SplitHostPort(r.RemoteAddr)
+
 	cardToken := r.FormValue("card_token")
 	if cardToken == "" {
 		return httperror.New(http.StatusBadRequest, "card_token_required", "credit card token can't be blank")
@@ -43,7 +46,7 @@ func Activate(env *middleware.Env, w http.ResponseWriter, r *http.Request) error
 	previousState := bp.State
 
 	if bp.StripeID.Valid {
-		err = bp.UpdateCard(db, cardToken)
+		err = bp.UpdateCard(db, cardToken, ip)
 		if err != nil {
 			return shared.HandleBillingError(err)
 		}
@@ -54,9 +57,9 @@ func Activate(env *middleware.Env, w http.ResponseWriter, r *http.Request) error
 			if err != nil {
 				return err
 			}
-			err = o.ActivateBillingProfile(db, bp, cardToken)
+			err = o.ActivateBillingProfile(db, bp, cardToken, ip)
 		} else {
-			bp, err = u.ActivateBillingProfile(db, cardToken)
+			bp, err = u.ActivateBillingProfile(db, cardToken, ip)
 		}
 		if err != nil {
 			return shared.HandleBillingError(err)
@@ -102,6 +105,8 @@ func Activate(env *middleware.Env, w http.ResponseWriter, r *http.Request) error
 func Update(env *middleware.Env, w http.ResponseWriter, r *http.Request) error {
 	db := env.DB
 
+	ip, _, err := net.SplitHostPort(r.RemoteAddr)
+
 	cardToken := r.FormValue("card_token")
 	if cardToken == "" {
 		return httperror.New(http.StatusBadRequest, "card_token_required", "credit card token can't be blank")
@@ -112,7 +117,7 @@ func Update(env *middleware.Env, w http.ResponseWriter, r *http.Request) error {
 		return err
 	}
 
-	if err := bp.UpdateCard(db, cardToken); err != nil {
+	if err := bp.UpdateCard(db, cardToken, ip); err != nil {
 		return shared.HandleBillingError(err)
 	}
 

@@ -3,6 +3,7 @@ package stripe
 import (
 	"encoding/json"
 
+	"fmt"
 	"net/url"
 )
 
@@ -12,7 +13,7 @@ import (
 type CardBrand string
 
 // Verification is the list of allowed verification responses.
-// Allowed values are "pass", "fail", "unchecked".
+// Allowed values are "pass", "fail", "unchecked", "unavailabe".
 type Verification string
 
 // CardFunding is the list of allowed values for the card's funding.
@@ -24,7 +25,8 @@ type CardFunding string
 type CardParams struct {
 	Params
 	Token                                         string
-	Customer, Recipient                           string
+	Default                                       bool
+	Account, Customer, Recipient                  string
 	Name, Number, Month, Year, CVC                string
 	Address1, Address2, City, State, Zip, Country string
 }
@@ -33,32 +35,36 @@ type CardParams struct {
 // For more details see https://stripe.com/docs/api#list_cards.
 type CardListParams struct {
 	ListParams
-	Customer, Recipient string
+	Account, Customer, Recipient string
 }
 
 // Card is the resource representing a Stripe credit/debit card.
 // For more details see https://stripe.com/docs/api#cards.
 type Card struct {
-	ID            string       `json:"id"`
-	Month         uint8        `json:"exp_month"`
-	Year          uint16       `json:"exp_year"`
-	Fingerprint   string       `json:"fingerprint"`
-	Funding       CardFunding  `json:"funding"`
-	LastFour      string       `json:"last4"`
-	Brand         CardBrand    `json:"brand"`
-	City          string       `json:"address_city"`
-	Country       string       `json:"address_country"`
-	Address1      string       `json:"address_line1"`
-	Address1Check Verification `json:"address_line1_check"`
-	Address2      string       `json:"address_line2"`
-	State         string       `json:"address_state"`
-	Zip           string       `json:"address_zip"`
-	ZipCheck      Verification `json:"address_zip_check"`
-	CardCountry   string       `json:"country"`
-	Customer      *Customer    `json:"customer"`
-	CVCCheck      Verification `json:"cvc_check"`
-	Name          string       `json:"name"`
-	Recipient     *Recipient   `json:"recipient"`
+	ID            string            `json:"id"`
+	Month         uint8             `json:"exp_month"`
+	Year          uint16            `json:"exp_year"`
+	Fingerprint   string            `json:"fingerprint"`
+	Funding       CardFunding       `json:"funding"`
+	LastFour      string            `json:"last4"`
+	Brand         CardBrand         `json:"brand"`
+	Default       bool              `json:"default_for_currency"`
+	City          string            `json:"address_city"`
+	Country       string            `json:"address_country"`
+	Address1      string            `json:"address_line1"`
+	Address1Check Verification      `json:"address_line1_check"`
+	Address2      string            `json:"address_line2"`
+	State         string            `json:"address_state"`
+	Zip           string            `json:"address_zip"`
+	ZipCheck      Verification      `json:"address_zip_check"`
+	CardCountry   string            `json:"country"`
+	Customer      *Customer         `json:"customer"`
+	CVCCheck      Verification      `json:"cvc_check"`
+	Meta          map[string]string `json:"metadata"`
+	Name          string            `json:"name"`
+	Recipient     *Recipient        `json:"recipient"`
+	DynLastFour   string            `json:"dynamic_last4"`
+	Deleted       bool              `json:"deleted"`
 }
 
 // CardList is a list object for cards.
@@ -72,16 +78,33 @@ type CardList struct {
 // on updates they are simply the parameter name.
 func (c *CardParams) AppendDetails(values *url.Values, creating bool) {
 	if creating {
-		if len(c.Token) > 0 {
+		if len(c.Token) > 0 && len(c.Account) > 0 {
+			values.Add("external_account", c.Token)
+		} else if len(c.Token) > 0 {
 			values.Add("card", c.Token)
 		} else {
+			values.Add("card[object]", "card")
 			values.Add("card[number]", c.Number)
-			values.Add("card[exp_month]", c.Month)
-			values.Add("card[exp_year]", c.Year)
 
 			if len(c.CVC) > 0 {
 				values.Add("card[cvc]", c.CVC)
 			}
+		}
+	}
+
+	if len(c.Month) > 0 {
+		if creating {
+			values.Add("card[exp_month]", c.Month)
+		} else {
+			values.Add("exp_month", c.Month)
+		}
+	}
+
+	if len(c.Year) > 0 {
+		if creating {
+			values.Add("card[exp_year]", c.Year)
+		} else {
+			values.Add("exp_year", c.Year)
 		}
 	}
 
@@ -140,6 +163,11 @@ func (c *CardParams) AppendDetails(values *url.Values, creating bool) {
 			values.Add("address_country", c.Country)
 		}
 	}
+}
+
+// Display human readable representation of a Card.
+func (c *Card) Display() string {
+	return fmt.Sprintf("%s ending in %s", c.Brand, c.LastFour)
 }
 
 // UnmarshalJSON handles deserialization of a Card.

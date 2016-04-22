@@ -16,15 +16,15 @@ func init() {
 func TestCustomerNew(t *testing.T) {
 	customerParams := &stripe.CustomerParams{
 		Balance: -123,
-		Card: &stripe.CardParams{
-			Name:   "Test Card",
-			Number: "378282246310005",
-			Month:  "06",
-			Year:   "20",
-		},
-		Desc:  "Test Customer",
-		Email: "a@b.com",
+		Desc:    "Test Customer",
+		Email:   "a@b.com",
 	}
+	customerParams.SetSource(&stripe.CardParams{
+		Name:   "Test Card",
+		Number: "378282246310005",
+		Month:  "06",
+		Year:   "20",
+	})
 
 	customerParams.AddMeta("key", "value")
 	target, err := New(customerParams)
@@ -49,16 +49,92 @@ func TestCustomerNew(t *testing.T) {
 		t.Errorf("Meta %v does not match expected Meta %v\n", target.Meta, customerParams.Meta)
 	}
 
-	if target.Cards == nil {
-		t.Errorf("No cards recorded\n")
+	if target.Sources == nil {
+		t.Errorf("No sources recorded\n")
 	}
 
-	if target.Cards.Count != 1 {
-		t.Errorf("Unexpected number of cards %v\n", target.Cards.Count)
+	if target.Sources.Count != 1 {
+		t.Errorf("Unexpected number of cards %v\n", target.Sources.Count)
 	}
 
-	if target.Cards.Values[0].Name != customerParams.Card.Name {
-		t.Errorf("Card name %q does not match expected name %q\n", target.Cards.Values[0].Name, customerParams.Card.Name)
+	if target.Sources.Values[0].Card.Name != customerParams.Source.Card.Name {
+		t.Errorf("Card name %q does not match expected name %q\n", target.Sources.Values[0].Card.Name, customerParams.Source.Card.Name)
+	}
+
+	Del(target.ID)
+}
+
+func TestCustomerNewWithShipping(t *testing.T) {
+	customerParams := &stripe.CustomerParams{
+		Shipping: &stripe.CustomerShippingDetails{
+			Name: "Shipping Name",
+			Address: stripe.Address{
+				Line1: "One Street",
+			},
+		},
+	}
+
+	target, err := New(customerParams)
+
+	if err != nil {
+		t.Error(err)
+	}
+
+	if target.Shipping.Name != customerParams.Shipping.Name {
+		t.Errorf("Shipping name %q does not match expected name %v\n", target.Shipping.Name, customerParams.Shipping.Name)
+	}
+
+	if target.Shipping.Address.Line1 != customerParams.Shipping.Address.Line1 {
+		t.Errorf("Shipping address line 1 %q does not match expected address line 1 %v\n", target.Shipping.Address.Line1, customerParams.Shipping.Address.Line1)
+	}
+
+	Del(target.ID)
+}
+
+func TestCustomerUpdateWithShipping(t *testing.T) {
+
+	customerParams := &stripe.CustomerParams{
+		Shipping: &stripe.CustomerShippingDetails{
+			Name: "Shipping Name",
+			Address: stripe.Address{
+				Line1: "One Street",
+				Line2: "Apt 1",
+				City:  "Somewhere",
+				State: "SW",
+				Zip:   "10044",
+			},
+		},
+	}
+
+	target, err := New(customerParams)
+
+	customerParams.Shipping.Name = "Updated Shipping"
+	customerParams.Shipping.Address.Line1 = "Two Street"
+
+	target, err = Update(target.ID, customerParams)
+
+	if err != nil {
+		t.Error(err)
+	}
+
+	if target.Shipping.Name != customerParams.Shipping.Name {
+		t.Errorf("Shipping name %q does not match expected name %v\n", target.Shipping.Name, customerParams.Shipping.Name)
+	}
+
+	if target.Shipping.Address.Line1 != customerParams.Shipping.Address.Line1 {
+		t.Errorf("Shipping address line 1 %q does not match expected address line 1 %v\n", target.Shipping.Address.Line1, customerParams.Shipping.Address.Line1)
+	}
+	if target.Shipping.Address.Line2 != customerParams.Shipping.Address.Line2 {
+		t.Errorf("Shipping address line 2 %q does not match expected address line 2 %v\n", target.Shipping.Address.Line2, customerParams.Shipping.Address.Line2)
+	}
+	if target.Shipping.Address.City != customerParams.Shipping.Address.City {
+		t.Errorf("Shipping address city %q does not match expected address city %v\n", target.Shipping.Address.City, customerParams.Shipping.Address.City)
+	}
+	if target.Shipping.Address.State != customerParams.Shipping.Address.State {
+		t.Errorf("Shipping address state %q does not match expected address state %v\n", target.Shipping.Address.State, customerParams.Shipping.Address.State)
+	}
+	if target.Shipping.Address.Zip != customerParams.Shipping.Address.Zip {
+		t.Errorf("Shipping address zip %q does not match expected address zip %v\n", target.Shipping.Address.Zip, customerParams.Shipping.Address.Zip)
 	}
 
 	Del(target.ID)
@@ -83,37 +159,51 @@ func TestCustomerGet(t *testing.T) {
 func TestCustomerDel(t *testing.T) {
 	res, _ := New(nil)
 
-	err := Del(res.ID)
+	customerDel, err := Del(res.ID)
 
 	if err != nil {
 		t.Error(err)
+	}
+
+	if !customerDel.Deleted {
+		t.Errorf("Customer id %q expected to be marked as deleted on the returned resource\n", res.ID)
+	}
+
+	target, err := Get(res.ID, nil)
+	if err != nil {
+		t.Error(err)
+	}
+
+	if !target.Deleted {
+		t.Errorf("Customer id %q expected to be marked as deleted\n", target.ID)
 	}
 }
 
 func TestCustomerUpdate(t *testing.T) {
 	customerParams := &stripe.CustomerParams{
 		Balance: 7,
-		Card: &stripe.CardParams{
-			Number: "378282246310005",
-			Month:  "06",
-			Year:   "20",
-		},
-		Desc:  "Original Desc",
-		Email: "first@b.com",
+		Desc:    "Original Desc",
+		Email:   "first@b.com",
 	}
+	customerParams.SetSource(&stripe.CardParams{
+		Number: "378282246310005",
+		Month:  "06",
+		Year:   "20",
+	})
 
 	original, _ := New(customerParams)
 
 	updated := &stripe.CustomerParams{
 		Balance: -10,
-		Card: &stripe.CardParams{
-			Number: "4242424242424242",
-			Month:  "10",
-			Year:   "20",
-		},
-		Desc:  "Updated Desc",
-		Email: "desc@b.com",
+		Desc:    "Updated Desc",
+		Email:   "desc@b.com",
 	}
+	updated.SetSource(&stripe.CardParams{
+		Number: "4242424242424242",
+		Month:  "10",
+		Year:   "20",
+		CVC:    "123",
+	})
 
 	target, err := Update(original.ID, updated)
 
@@ -133,8 +223,8 @@ func TestCustomerUpdate(t *testing.T) {
 		t.Errorf("Email %q does not match expected email %q\n", target.Email, updated.Email)
 	}
 
-	if target.Cards == nil {
-		t.Errorf("No cards recorded\n")
+	if target.Sources == nil {
+		t.Errorf("No sources recorded\n")
 	}
 
 	Del(target.ID)
@@ -171,10 +261,14 @@ func TestCustomerDiscount(t *testing.T) {
 		t.Errorf("Coupon id %q does not match expected id %q\n", target.Discount.Coupon.ID, customerParams.Coupon)
 	}
 
-	err = discount.Del(target.ID)
+	discountDel, err := discount.Del(target.ID)
 
 	if err != nil {
 		t.Error(err)
+	}
+
+	if !discountDel.Deleted {
+		t.Errorf("Discount expected to be marked as deleted on the returned resource\n")
 	}
 
 	Del(target.ID)

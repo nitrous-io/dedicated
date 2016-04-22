@@ -14,6 +14,13 @@ type InvoiceParams struct {
 	Desc, Statement, Sub string
 	Fee                  uint64
 	Closed, Forgive      bool
+	SubPlan              string
+	SubNoProrate         bool
+	SubProrationDate     int64
+	SubProrationDateNow  bool
+	SubQuantity          uint64
+	SubTrialEnd          int64
+	TaxPercent           float64
 }
 
 // InvoiceListParams is the set of parameters that can be used when listing invoices.
@@ -52,13 +59,15 @@ type Invoice struct {
 	StartBalance int64             `json:"starting_balance"`
 	Subtotal     int64             `json:"subtotal"`
 	Total        int64             `json:"total"`
+	Tax          int64             `json:"tax"`
+	TaxPercent   float64           `json:"tax_percent"`
 	Fee          uint64            `json:"application_fee"`
 	Charge       *Charge           `json:"charge"`
 	Desc         string            `json:"description"`
 	Discount     *Discount         `json:"discount"`
 	EndBalance   int64             `json:"ending_balance"`
 	NextAttempt  int64             `json:"next_payment_attempt"`
-	Statement    string            `json:"statement_description"`
+	Statement    string            `json:"statement_descriptor"`
 	Sub          string            `json:"subscription"`
 	Webhook      int64             `json:"webhooks_delivered_at"`
 	Meta         map[string]string `json:"metadata"`
@@ -67,17 +76,19 @@ type Invoice struct {
 // InvoiceLine is the resource representing a Stripe invoice line item.
 // For more details see https://stripe.com/docs/api#invoice_line_item_object.
 type InvoiceLine struct {
-	ID        string            `json:"id"`
-	Live      bool              `json:"live_mode"`
-	Amount    int64             `json:"amount"`
-	Currency  Currency          `json:"currency"`
-	Period    *Period           `json:"period"`
-	Proration bool              `json:"proration"`
-	Type      InvoiceLineType   `json:"type"`
-	Desc      string            `json:"description"`
-	Meta      map[string]string `json:"metadata"`
-	Plan      *Plan             `json:"plan"`
-	Quantity  int64             `json:"quantity"`
+	ID           string            `json:"id"`
+	Live         bool              `json:"live_mode"`
+	Amount       int64             `json:"amount"`
+	Currency     Currency          `json:"currency"`
+	Period       *Period           `json:"period"`
+	Proration    bool              `json:"proration"`
+	Type         InvoiceLineType   `json:"type"`
+	Desc         string            `json:"description"`
+	Meta         map[string]string `json:"metadata"`
+	Plan         *Plan             `json:"plan"`
+	Quantity     int64             `json:"quantity"`
+	Sub          string            `json:"subscription"`
+	Discountable bool              `json:"discountable"`
 }
 
 // Period is a structure representing a start and end dates.

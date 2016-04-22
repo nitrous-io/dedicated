@@ -203,7 +203,7 @@ var _ = Describe("controllers/users", func() {
 
 		BeforeEach(func() {
 			fakeStripe = &test.FakeStripe{}
-			stripe.SetBackend(fakeStripe)
+			stripe.SetBackend("api", fakeStripe)
 			fakeStripe.Responses = []string{
 				listCardResp,
 				delCardResp,

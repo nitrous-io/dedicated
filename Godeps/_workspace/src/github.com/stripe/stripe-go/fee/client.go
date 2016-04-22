@@ -23,14 +23,16 @@ func Get(id string, params *stripe.FeeParams) (*stripe.Fee, error) {
 
 func (c Client) Get(id string, params *stripe.FeeParams) (*stripe.Fee, error) {
 	var body *url.Values
+	var commonParams *stripe.Params
 
 	if params != nil {
+		commonParams = &params.Params
 		body = &url.Values{}
 		params.AppendTo(body)
 	}
 
 	fee := &stripe.Fee{}
-	err := c.B.Call("POST", fmt.Sprintf("application_fees/%v/refund", id), c.Key, body, fee)
+	err := c.B.Call("GET", fmt.Sprintf("application_fees/%v", id), c.Key, body, commonParams, fee)
 
 	return fee, err
 }
@@ -49,6 +51,7 @@ func (c Client) List(params *stripe.FeeListParams) *Iter {
 
 	var body *url.Values
 	var lp *stripe.ListParams
+	var p *stripe.Params
 
 	if params != nil {
 		body = &url.Values{}
@@ -63,11 +66,12 @@ func (c Client) List(params *stripe.FeeListParams) *Iter {
 
 		params.AppendTo(body)
 		lp = &params.ListParams
+		p = params.ToParams()
 	}
 
 	return &Iter{stripe.GetIter(lp, body, func(b url.Values) ([]interface{}, stripe.ListMeta, error) {
 		list := &feeList{}
-		err := c.B.Call("GET", "/application_fees", c.Key, &b, list)
+		err := c.B.Call("GET", "/application_fees", c.Key, &b, p, list)
 
 		ret := make([]interface{}, len(list.Values))
 		for i, v := range list.Values {
@@ -92,5 +96,5 @@ func (i *Iter) Fee() *stripe.Fee {
 }
 
 func getC() Client {
-	return Client{stripe.GetBackend(), stripe.Key}
+	return Client{stripe.GetBackend(stripe.APIBackend), stripe.Key}
 }

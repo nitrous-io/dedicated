@@ -530,7 +530,7 @@ var _ = Describe("controllers/subscriptions", func() {
 
 		BeforeEach(func() {
 			fakeStripe = &test.FakeStripe{}
-			stripe.SetBackend(fakeStripe)
+			stripe.SetBackend("api", fakeStripe)
 
 			// Insert plan
 			p := &plan.Plan{

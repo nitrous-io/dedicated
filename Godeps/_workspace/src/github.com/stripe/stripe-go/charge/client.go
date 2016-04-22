@@ -33,19 +33,17 @@ func (c Client) New(params *stripe.ChargeParams) (*stripe.Charge, error) {
 		"currency": {string(params.Currency)},
 	}
 
+	if params.Source == nil && len(params.Customer) == 0 {
+		err := errors.New("Invalid charge params: either customer or a source must be set")
+		return nil, err
+	}
+
+	if params.Source != nil {
+		params.Source.AppendDetails(body, true)
+	}
+
 	if len(params.Customer) > 0 {
 		body.Add("customer", params.Customer)
-	} else if len(params.Token) > 0 {
-		body.Add("card", params.Token)
-	} else if params.Card != nil {
-		if len(params.Card.Token) > 0 {
-			body.Add("card", params.Card.Token)
-		} else {
-			params.Card.AppendDetails(body, true)
-		}
-	} else {
-		err := errors.New("Invalid charge params: either customer, card Tok or card need to be set")
-		return nil, err
 	}
 
 	if len(params.Desc) > 0 {
@@ -53,11 +51,15 @@ func (c Client) New(params *stripe.ChargeParams) (*stripe.Charge, error) {
 	}
 
 	if len(params.Statement) > 0 {
-		body.Add("statement_description", params.Statement)
+		body.Add("statement_descriptor", params.Statement)
 	}
 
 	if len(params.Email) > 0 {
 		body.Add("receipt_email", params.Email)
+	}
+
+	if len(params.Dest) > 0 {
+		body.Add("destination", params.Dest)
 	}
 
 	body.Add("capture", strconv.FormatBool(!params.NoCapture))
@@ -67,10 +69,14 @@ func (c Client) New(params *stripe.ChargeParams) (*stripe.Charge, error) {
 		body.Add("application_fee", strconv.FormatUint(params.Fee, 10))
 	}
 
+	if params.Shipping != nil {
+		params.Shipping.AppendDetails(body)
+	}
+
 	params.AppendTo(body)
 
 	charge := &stripe.Charge{}
-	err := c.B.Call("POST", "/charges", token, body, charge)
+	err := c.B.Call("POST", "/charges", token, body, &params.Params, charge)
 
 	return charge, err
 }
@@ -83,14 +89,16 @@ func Get(id string, params *stripe.ChargeParams) (*stripe.Charge, error) {
 
 func (c Client) Get(id string, params *stripe.ChargeParams) (*stripe.Charge, error) {
 	var body *url.Values
+	var commonParams *stripe.Params
 
 	if params != nil {
+		commonParams = &params.Params
 		body = &url.Values{}
 		params.AppendTo(body)
 	}
 
 	charge := &stripe.Charge{}
-	err := c.B.Call("GET", "/charges/"+id, c.Key, body, charge)
+	err := c.B.Call("GET", "/charges/"+id, c.Key, body, commonParams, charge)
 
 	return charge, err
 }
@@ -103,8 +111,10 @@ func Update(id string, params *stripe.ChargeParams) (*stripe.Charge, error) {
 
 func (c Client) Update(id string, params *stripe.ChargeParams) (*stripe.Charge, error) {
 	var body *url.Values
+	var commonParams *stripe.Params
 
 	if params != nil {
+		commonParams = &params.Params
 		body = &url.Values{}
 
 		if len(params.Desc) > 0 {
@@ -119,7 +129,7 @@ func (c Client) Update(id string, params *stripe.ChargeParams) (*stripe.Charge, 
 	}
 
 	charge := &stripe.Charge{}
-	err := c.B.Call("POST", "/charges/"+id, c.Key, body, charge)
+	err := c.B.Call("POST", "/charges/"+id, c.Key, body, commonParams, charge)
 
 	return charge, err
 }
@@ -133,8 +143,10 @@ func Capture(id string, params *stripe.CaptureParams) (*stripe.Charge, error) {
 func (c Client) Capture(id string, params *stripe.CaptureParams) (*stripe.Charge, error) {
 	var body *url.Values
 	token := c.Key
+	var commonParams *stripe.Params
 
 	if params != nil {
+		commonParams = &params.Params
 		body = &url.Values{}
 
 		if params.Amount > 0 {
@@ -153,7 +165,8 @@ func (c Client) Capture(id string, params *stripe.CaptureParams) (*stripe.Charge
 	}
 
 	charge := &stripe.Charge{}
-	err := c.B.Call("POST", fmt.Sprintf("/charges/%v/capture", id), token, body, charge)
+
+	err := c.B.Call("POST", fmt.Sprintf("/charges/%v/capture", id), token, body, commonParams, charge)
 
 	return charge, err
 }
@@ -172,6 +185,7 @@ func (c Client) List(params *stripe.ChargeListParams) *Iter {
 
 	var body *url.Values
 	var lp *stripe.ListParams
+	var p *stripe.Params
 
 	if params != nil {
 		body = &url.Values{}
@@ -186,11 +200,12 @@ func (c Client) List(params *stripe.ChargeListParams) *Iter {
 
 		params.AppendTo(body)
 		lp = &params.ListParams
+		p = params.ToParams()
 	}
 
 	return &Iter{stripe.GetIter(lp, body, func(b url.Values) ([]interface{}, stripe.ListMeta, error) {
 		list := &chargeList{}
-		err := c.B.Call("GET", "/charges", c.Key, &b, list)
+		err := c.B.Call("GET", "/charges", c.Key, &b, p, list)
 
 		ret := make([]interface{}, len(list.Values))
 		for i, v := range list.Values {
@@ -223,6 +238,45 @@ func (c Client) MarkSafe(id string) (*stripe.Charge, error) {
 		&stripe.ChargeParams{Fraud: ReportSafe})
 }
 
+// Update updates a charge's dispute.
+// For more details see https://stripe.com/docs/api#update_dispute.
+func UpdateDispute(id string, params *stripe.DisputeParams) (*stripe.Dispute, error) {
+	return getC().UpdateDispute(id, params)
+}
+
+func (c Client) UpdateDispute(id string, params *stripe.DisputeParams) (*stripe.Dispute, error) {
+	var body *url.Values
+	var commonParams *stripe.Params
+
+	if params != nil {
+		commonParams = &params.Params
+		body = &url.Values{}
+
+		if params.Evidence != nil {
+			params.Evidence.AppendDetails(body)
+		}
+		params.AppendTo(body)
+	}
+
+	dispute := &stripe.Dispute{}
+	err := c.B.Call("POST", fmt.Sprintf("/charges/%v/dispute", id), c.Key, body, commonParams, dispute)
+
+	return dispute, err
+}
+
+// Close dismisses a charge's dispute in the customer's favor.
+// For more details see https://stripe.com/docs/api#close_dispute.
+func CloseDispute(id string) (*stripe.Dispute, error) {
+	return getC().CloseDispute(id)
+}
+
+func (c Client) CloseDispute(id string) (*stripe.Dispute, error) {
+	dispute := &stripe.Dispute{}
+	err := c.B.Call("POST", fmt.Sprintf("/charges/%v/dispute/close", id), c.Key, nil, nil, dispute)
+
+	return dispute, err
+}
+
 // Iter is an iterator for lists of Charges.
 // The embedded Iter carries methods with it;
 // see its documentation for details.
@@ -237,5 +291,5 @@ func (i *Iter) Charge() *stripe.Charge {
 }
 
 func getC() Client {
-	return Client{stripe.GetBackend(), stripe.Key}
+	return Client{stripe.GetBackend(stripe.APIBackend), stripe.Key}
 }

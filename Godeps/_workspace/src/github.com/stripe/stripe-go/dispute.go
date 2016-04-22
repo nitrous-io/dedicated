@@ -12,8 +12,9 @@ import (
 type DisputeReason string
 
 // DisputeStatus is the list of allowed values for a discount's status.
-// Allowed values are "won", "lost", "needs_ressponse", "under_review",
-// "warning_needs_response", "warning_under_review", "charge_refunded".
+// Allowed values are "won", "lost", "needs_response", "under_review",
+// "warning_needs_response", "warning_under_review", "charge_refunded",
+// "warning_closed".
 type DisputeStatus string
 
 // DisputeParams is the set of parameters that can be used when updating a dispute.
@@ -36,9 +37,17 @@ type DisputeEvidenceParams struct {
 	CustomerComm, UncategorizedText, UncategorizedFile                                         string
 }
 
+// DisputeListParams is the set of parameters that can be used when listing disputes.
+// For more details see https://stripe.com/docs/api#list_disputes.
+type DisputeListParams struct {
+	ListParams
+	Created int64
+}
+
 // Dispute is the resource representing a Stripe dispute.
 // For more details see https://stripe.com/docs/api#disputes.
 type Dispute struct {
+	ID              string            `json:"id"`
 	Live            bool              `json:"livemode"`
 	Amount          uint64            `json:"amount"`
 	Currency        Currency          `json:"currency"`

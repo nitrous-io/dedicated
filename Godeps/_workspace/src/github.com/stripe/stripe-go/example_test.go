@@ -17,13 +17,13 @@ func ExampleCharge_new() {
 	params := &stripe.ChargeParams{
 		Amount:   1000,
 		Currency: currency.USD,
-		Card: &stripe.CardParams{
-			Name:   "Go Stripe",
-			Number: "4242424242424242",
-			Month:  "10",
-			Year:   "20",
-		},
 	}
+	params.SetSource(&stripe.CardParams{
+		Name:   "Go Stripe",
+		Number: "4242424242424242",
+		Month:  "10",
+		Year:   "20",
+	})
 	params.AddMeta("key", "value")
 
 	ch, err := charge.New(params)
@@ -70,10 +70,14 @@ func ExampleInvoice_update() {
 func ExampleCustomer_delete() {
 	stripe.Key = "sk_key"
 
-	err := customer.Del("acct_example_id")
+	customerDel, err := customer.Del("cus_example_id")
 
 	if err != nil {
 		log.Fatal(err)
+	}
+
+	if !customerDel.Deleted {
+		log.Fatal("Customer doesn't appear deleted while it should be")
 	}
 }
 

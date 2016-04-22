@@ -58,7 +58,7 @@ var _ = Describe("controllers/stripehooks", func() {
 		svr = test.NewTestServer("", db, ft)
 
 		fakeStripe = &test.FakeStripe{}
-		stripe.SetBackend(fakeStripe)
+		stripe.SetBackend("api", fakeStripe)
 
 		succeedFnCalled = false
 		succeedFnErr = nil

@@ -5,8 +5,12 @@ import (
 	. "github.com/stripe/stripe-go"
 	"github.com/stripe/stripe-go/account"
 	"github.com/stripe/stripe-go/balance"
+	"github.com/stripe/stripe-go/bankaccount"
+	"github.com/stripe/stripe-go/bitcoinreceiver"
+	"github.com/stripe/stripe-go/bitcointransaction"
 	"github.com/stripe/stripe-go/card"
 	"github.com/stripe/stripe-go/charge"
+	"github.com/stripe/stripe-go/countryspec"
 	"github.com/stripe/stripe-go/coupon"
 	"github.com/stripe/stripe-go/customer"
 	"github.com/stripe/stripe-go/discount"
@@ -14,11 +18,15 @@ import (
 	"github.com/stripe/stripe-go/event"
 	"github.com/stripe/stripe-go/fee"
 	"github.com/stripe/stripe-go/feerefund"
+	"github.com/stripe/stripe-go/fileupload"
 	"github.com/stripe/stripe-go/invoice"
 	"github.com/stripe/stripe-go/invoiceitem"
+	"github.com/stripe/stripe-go/order"
 	"github.com/stripe/stripe-go/plan"
+	"github.com/stripe/stripe-go/product"
 	"github.com/stripe/stripe-go/recipient"
 	"github.com/stripe/stripe-go/refund"
+	"github.com/stripe/stripe-go/reversal"
 	"github.com/stripe/stripe-go/sub"
 	"github.com/stripe/stripe-go/token"
 	"github.com/stripe/stripe-go/transfer"
@@ -26,10 +34,6 @@ import (
 
 // API is the Stripe client. It contains all the different resources available.
 type API struct {
-	// key is the secret key used for authentication.
-	key string
-	// backend is the Backend implementation used to invoke Stripe APIs.
-	backend Backend
 	// Charges is the client used to invoke /charges APIs.
 	// For more details see https://stripe.com/docs/api#charges.
 	Charges *charge.Client
@@ -78,6 +82,9 @@ type API struct {
 	// Account is the client used to invoke /account APIs.
 	// For more details see https://stripe.com/docs/api#account.
 	Account *account.Client
+	// CountrySpec is the client used to invoke /country_specs APIs.
+	// For more details see https://stripe.com/docs/api#country_specs.
+	CountrySpec *countryspec.Client
 	// Balance is the client used to invoke /balance and transaction-related APIs.
 	// For more details see https://stripe.com/docs/api#balance.
 	Balance *balance.Client
@@ -87,35 +94,67 @@ type API struct {
 	// Tokens is the client used to invoke /tokens APIs.
 	// For more details see https://stripe.com/docs/api#tokens.
 	Tokens *token.Client
+	// FileUploads is the client used to invoke the uploads /files APIs.
+	// For more details see https://stripe.com/docs/api#file_uploads.
+	FileUploads *fileupload.Client
+	// BitcoinReceivers is the client used to invoke /bitcoin/receivers APIs.
+	// For more details see https://stripe.com/docs/api#bitcoin_receivers.
+	BitcoinReceivers *bitcoinreceiver.Client
+	// BitcoinTransactions is the client used to invoke /bitcoin/transactions APIs.
+	// For more details see https://stripe.com/docs/api#bitcoin_receivers.
+	BitcoinTransactions *bitcointransaction.Client
+	// Reversals is the client used to invoke /transfers/reversals APIs.
+	Reversals *reversal.Client
+	// BankAccounts is the client used to invoke /accounts/bank_accounts APIs.
+	BankAccounts *bankaccount.Client
+	// Products is the client used to invoke /products APIs.
+	// For more details see https://stripe.com/docs/api#products.
+	Products *product.Client
+	// Orders is the client used to invoke /orders APIs.
+	// For more details see https://stripe.com/docs/api#orders.
+	Orders *order.Client
 }
 
 // Init initializes the Stripe client with the appropriate secret key
 // as well as providing the ability to override the backend as needed.
-func (a *API) Init(key string, backend Backend) {
-	if backend == nil {
-		backend = GetBackend()
+func (a *API) Init(key string, backends *Backends) {
+	if backends == nil {
+		backends = &Backends{GetBackend(APIBackend), GetBackend(UploadsBackend)}
 	}
 
-	a.backend = backend
-	a.key = key
+	a.Charges = &charge.Client{B: backends.API, Key: key}
+	a.Customers = &customer.Client{B: backends.API, Key: key}
+	a.Cards = &card.Client{B: backends.API, Key: key}
+	a.Subs = &sub.Client{B: backends.API, Key: key}
+	a.Plans = &plan.Client{B: backends.API, Key: key}
+	a.Coupons = &coupon.Client{B: backends.API, Key: key}
+	a.Discounts = &discount.Client{B: backends.API, Key: key}
+	a.Invoices = &invoice.Client{B: backends.API, Key: key}
+	a.InvoiceItems = &invoiceitem.Client{B: backends.API, Key: key}
+	a.Disputes = &dispute.Client{B: backends.API, Key: key}
+	a.Transfers = &transfer.Client{B: backends.API, Key: key}
+	a.Recipients = &recipient.Client{B: backends.API, Key: key}
+	a.Refunds = &refund.Client{B: backends.API, Key: key}
+	a.Fees = &fee.Client{B: backends.API, Key: key}
+	a.FeeRefunds = &feerefund.Client{B: backends.API, Key: key}
+	a.Account = &account.Client{B: backends.API, Key: key}
+	a.CountrySpec = &countryspec.Client{B: backends.API, Key: key}
+	a.Balance = &balance.Client{B: backends.API, Key: key}
+	a.Events = &event.Client{B: backends.API, Key: key}
+	a.Tokens = &token.Client{B: backends.API, Key: key}
+	a.FileUploads = &fileupload.Client{B: backends.Uploads, Key: key}
+	a.BitcoinReceivers = &bitcoinreceiver.Client{B: backends.API, Key: key}
+	a.BitcoinTransactions = &bitcointransaction.Client{B: backends.API, Key: key}
+	a.Reversals = &reversal.Client{B: backends.API, Key: key}
+	a.BankAccounts = &bankaccount.Client{B: backends.API, Key: key}
+	a.Products = &product.Client{B: backends.API, Key: key}
+	a.Orders = &order.Client{B: backends.API, Key: key}
+}
 
-	a.Charges = &charge.Client{B: a.backend, Key: a.key}
-	a.Customers = &customer.Client{B: a.backend, Key: a.key}
-	a.Cards = &card.Client{B: a.backend, Key: a.key}
-	a.Subs = &sub.Client{B: a.backend, Key: a.key}
-	a.Plans = &plan.Client{B: a.backend, Key: a.key}
-	a.Coupons = &coupon.Client{B: a.backend, Key: a.key}
-	a.Discounts = &discount.Client{B: a.backend, Key: a.key}
-	a.Invoices = &invoice.Client{B: a.backend, Key: a.key}
-	a.InvoiceItems = &invoiceitem.Client{B: a.backend, Key: a.key}
-	a.Disputes = &dispute.Client{B: a.backend, Key: a.key}
-	a.Transfers = &transfer.Client{B: a.backend, Key: a.key}
-	a.Recipients = &recipient.Client{B: a.backend, Key: a.key}
-	a.Refunds = &refund.Client{B: a.backend, Key: a.key}
-	a.Fees = &fee.Client{B: a.backend, Key: a.key}
-	a.FeeRefunds = &feerefund.Client{B: a.backend, Key: a.key}
-	a.Account = &account.Client{B: a.backend, Key: a.key}
-	a.Balance = &balance.Client{B: a.backend, Key: a.key}
-	a.Events = &event.Client{B: a.backend, Key: a.key}
-	a.Tokens = &token.Client{B: a.backend, Key: a.key}
+// New creates a new Stripe client with the appropriate secret key
+// as well as providing the ability to override the backends as needed.
+func New(key string, backends *Backends) *API {
+	api := API{}
+	api.Init(key, backends)
+	return &api
 }
