@@ -921,8 +921,7 @@ func (u *User) ActivateBillingProfile(d *db.Database, token string) (bp *billing
 	}
 	c, err := customer.New(params)
 	if err != nil {
-		err = billingprofile.HandleStripeError(err)
-		return
+		return nil, billingprofile.HandleStripeError(err)
 	}
 
 	// remove the Stripe profile to prevent junk in the Stripe dashboard
@@ -936,18 +935,17 @@ func (u *User) ActivateBillingProfile(d *db.Database, token string) (bp *billing
 
 	bp, err = u.BillingProfile(d)
 	if err != nil {
-		return
+		return nil, err
 	}
 
 	if err = bp.Activate(d, c); err != nil {
 		if err == billingprofile.ErrCardBanned {
-			err = ErrCardBanned
+			return nil, ErrCardBanned
 		}
-		return
+		return nil, err
 	}
 
-	err = nil
-	return
+	return bp, nil
 }
 
 // populates Suspicious field if conditions are matched

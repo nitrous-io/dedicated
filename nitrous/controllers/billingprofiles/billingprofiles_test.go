@@ -13,6 +13,7 @@ import (
 
 	"github.com/gorilla/mux"
 	"github.com/jmoiron/sqlx"
+	"github.com/nitrous-io/dedicated/nitrous/controllers/billingprofiles"
 	"github.com/nitrous-io/dedicated/nitrous/db"
 	"github.com/nitrous-io/dedicated/nitrous/models/billingprofile"
 	"github.com/nitrous-io/dedicated/nitrous/models/org"
@@ -20,8 +21,8 @@ import (
 	"github.com/nitrous-io/dedicated/nitrous/models/token"
 	"github.com/nitrous-io/dedicated/nitrous/models/user"
 	"github.com/nitrous-io/dedicated/nitrous/serializers"
-	"github.com/nitrous-io/dedicated/nitrous/server"
 	"github.com/nitrous-io/dedicated/nitrous/test"
+	"github.com/nitrous-io/dedicated/pkg/geoip"
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
 	stripe "github.com/stripe/stripe-go"
@@ -37,13 +38,13 @@ var _ = Describe("controllers/billingprofiles", func() {
 		db      *db.Database
 		handler *mux.Router
 
-		svr             *server.Server
 		authTokenInputs test.AuthTokenInputs
 		u               *user.User
 		bp              *billingprofile.BillingProfile
 		t               *token.Token
 		fakeStripe      *test.FakeStripe
 		ft              *test.FakeTracker
+		fakeIPLookupDB  geoip.Locatable
 	)
 
 	BeforeEach(func() {
@@ -51,7 +52,7 @@ var _ = Describe("controllers/billingprofiles", func() {
 
 		db, err = test.TestDatabase("nitrous_test")
 		Expect(err).To(BeNil())
-		svr = test.NewTestServer("", db, nil)
+		svr := test.NewTestServer("", db, nil)
 		ft = test.NewFakeTracker()
 		svr.Tracker = ft
 		handler = svr.Router()
@@ -62,8 +63,7 @@ var _ = Describe("controllers/billingprofiles", func() {
 			Password: "123456",
 			Email:    "foo@example.com",
 		}
-		err = test.WrapInTransaction(db, u.Insert)
-		Expect(err).To(BeNil())
+		Expect(test.WrapInTransaction(db, u.Insert)).To(BeNil())
 
 		bp, err = u.BillingProfile(db)
 		Expect(err).To(BeNil())
@@ -72,12 +72,16 @@ var _ = Describe("controllers/billingprofiles", func() {
 			UserID: u.ID,
 			Token:  "valid-token",
 		}
-		err = t.Insert(db)
-		Expect(err).To(BeNil())
+		Expect(t.Insert(db)).To(BeNil())
 
 		stripe.Key = "sk_key"
 		fakeStripe = &test.FakeStripe{}
 		stripe.SetBackend(fakeStripe)
+
+		// Set IPLookupDB to nil to disable user IP lookup. This can be replaced
+		// with any implementation of geoip.Locatable in tests.
+		fakeIPLookupDB = nil
+		billingprofiles.IPLookupDB = fakeIPLookupDB
 	})
 
 	AfterEach(func() {
@@ -127,9 +131,7 @@ var _ = Describe("controllers/billingprofiles", func() {
 		})
 
 		Context("when accessed as a org", func() {
-			var (
-				o *org.Org
-			)
+			var o *org.Org
 
 			BeforeEach(func() {
 				o = &org.Org{
@@ -195,9 +197,12 @@ var _ = Describe("controllers/billingprofiles", func() {
 	})
 
 	Describe("POST /api/v0/user/billing_profiles", func() {
-		doRequest := func(params *url.Values) *httptest.ResponseRecorder {
+		doRequest := func(params *url.Values, remoteAddr ...string) *httptest.ResponseRecorder {
 			req, err := test.NewAuthedRequest(t, "POST", "/api/v0/user/billing_profile", params)
 			Expect(err).To(BeNil())
+			if len(remoteAddr) > 0 {
+				req.RemoteAddr = remoteAddr[0]
+			}
 			res := httptest.NewRecorder()
 			handler.ServeHTTP(res, req)
 			return res
@@ -208,10 +213,7 @@ var _ = Describe("controllers/billingprofiles", func() {
 				It("returns the created billing profile", func() {
 					fakeStripe.Responses = []string{test.StripeCustomerResponse}
 
-					p := &url.Values{}
-					p.Set("card_token", "cc_token")
-					res := doRequest(p)
-
+					res := doRequest(&url.Values{"card_token": {"cc_token"}})
 					Expect(res.Code).To(Equal(http.StatusCreated))
 
 					var j struct {
@@ -270,10 +272,7 @@ var _ = Describe("controllers/billingprofiles", func() {
 				It("should update the existing customer object", func() {
 					fakeStripe.Responses = []string{test.StripeCustomerResponse}
 
-					p := &url.Values{}
-					p.Set("card_token", "cc_token")
-					res := doRequest(p)
-
+					res := doRequest(&url.Values{"card_token": {"cc_token"}})
 					Expect(res.Code).To(Equal(http.StatusCreated))
 
 					Expect(fakeStripe.ReceivedRequests).To(HaveLen(1))
@@ -295,27 +294,23 @@ var _ = Describe("controllers/billingprofiles", func() {
 			It("should return a card declined error when user's card is declined", func() {
 				fakeStripe.Errors = []*stripe.Error{test.StripeCardDeclined}
 
-				p := &url.Values{}
-				p.Set("card_token", "cc_token")
-				res := doRequest(p)
+				res := doRequest(&url.Values{"card_token": {"cc_token"}})
 				Expect(res.Code).To(Equal(http.StatusBadRequest))
 
 				errType, errDesc := test.ErrorSlug(res.Body)
 				Expect(errType).To(Equal("card_declined"))
-				Expect(errDesc).To(Equal("Your Credit Card was declined. Try contacting the bank directly for assistance."))
+				Expect(errDesc).To(Equal("Your credit card was declined. Try contacting the bank directly for assistance."))
 			})
 
 			It("should return a card expired error when user's card is expired", func() {
 				fakeStripe.Errors = []*stripe.Error{test.StripeCardExpired}
 
-				p := &url.Values{}
-				p.Set("card_token", "cc_token")
-				res := doRequest(p)
+				res := doRequest(&url.Values{"card_token": {"cc_token"}})
 				Expect(res.Code).To(Equal(http.StatusBadRequest))
 
 				errType, errDesc := test.ErrorSlug(res.Body)
 				Expect(errType).To(Equal("card_expired"))
-				Expect(errDesc).To(Equal("Your Credit Card has expired. Please try again with a recent card."))
+				Expect(errDesc).To(Equal("Your credit card has expired. Please try again with a recent card."))
 
 				Expect(ft.PropsCalled).To(HaveLen(0))
 			})
@@ -323,9 +318,7 @@ var _ = Describe("controllers/billingprofiles", func() {
 			It("should return a incorrect cvc error when the supplied cvc is incorrect", func() {
 				fakeStripe.Errors = []*stripe.Error{test.StripeIncorrectCvc}
 
-				p := &url.Values{}
-				p.Set("card_token", "cc_token")
-				res := doRequest(p)
+				res := doRequest(&url.Values{"card_token": {"cc_token"}})
 				Expect(res.Code).To(Equal(http.StatusBadRequest))
 
 				errType, errDesc := test.ErrorSlug(res.Body)
@@ -338,9 +331,7 @@ var _ = Describe("controllers/billingprofiles", func() {
 			It("should return a incorrect zip error when the supplied zip is incorrect", func() {
 				fakeStripe.Errors = []*stripe.Error{test.StripeIncorrectZip}
 
-				p := &url.Values{}
-				p.Set("card_token", "cc_token")
-				res := doRequest(p)
+				res := doRequest(&url.Values{"card_token": {"cc_token"}})
 				Expect(res.Code).To(Equal(http.StatusBadRequest))
 
 				errType, errDesc := test.ErrorSlug(res.Body)
@@ -375,26 +366,79 @@ var _ = Describe("controllers/billingprofiles", func() {
 				Expect(err).To(BeNil())
 
 				fakeStripe.Responses = []string{test.StripeCustomerResponse}
-				p := &url.Values{}
-				p.Set("card_token", "cc_token")
-				res := doRequest(p)
 
+				res := doRequest(&url.Values{"card_token": {"cc_token"}})
 				Expect(res.Code).To(Equal(http.StatusBadRequest))
+
 				errType, errDesc := test.ErrorSlug(res.Body)
 				Expect(errType).To(Equal("card_banned"))
 				Expect(errDesc).To(Equal("Your credit card is banned."))
+			})
+
+			Context("when user IP lookup database is available", func() {
+				var origIPLookupDB geoip.Locatable
+
+				BeforeEach(func() {
+					origIPLookupDB = billingprofiles.IPLookupDB
+					billingprofiles.IPLookupDB = &geoip.FakeDB{
+						M: map[string]string{
+							"1.2.3.4": "SG", // IP -> country mapping
+							"8.8.8.8": "US",
+						},
+					}
+
+					fakeStripe.Responses = []string{
+						test.StripeCardTokenResponse, // return a US card
+						test.StripeCustomerResponse,
+					}
+				})
+
+				AfterEach(func() {
+					billingprofiles.IPLookupDB = origIPLookupDB
+				})
+
+				It("sends a request to the Stripe API to get the card details using its token", func() {
+					doRequest(&url.Values{
+						"card_token": {"cc_token"}},
+						"1.1.1.1", // Any non-empty string will do here.
+					)
+
+					Expect(fakeStripe.ReceivedRequests).To(HaveLen(2))
+					cardReq := fakeStripe.ReceivedRequests[0]
+					Expect(cardReq["method"]).To(Equal("GET"))
+					Expect(cardReq["path"]).To(Equal("/tokens/cc_token"))
+				})
+
+				It("returns 400 Bad Request if the user IP is not the same country as that of the credit card", func() {
+					res := doRequest(
+						&url.Values{"card_token": {"cc_token"}},
+						"1.2.3.4", // SG IP address.
+					)
+					Expect(res.Code).To(Equal(http.StatusBadRequest))
+				})
+
+				It("returns 201 Created if the user IP is in the same country as that of the credit card", func() {
+					res := doRequest(
+						&url.Values{"card_token": {"cc_token"}},
+						"8.8.8.8", // US IP address.
+					)
+					Expect(res.Code).To(Equal(http.StatusCreated))
+				})
 			})
 		}
 
 		Context("as an organisation", func() {
 			var (
 				o          *org.Org
-				oldRequest func(params *url.Values) *httptest.ResponseRecorder
+				oldRequest func(params *url.Values, remoteAddr ...string) *httptest.ResponseRecorder
 			)
-			request := func(params *url.Values) *httptest.ResponseRecorder {
+			request := func(params *url.Values, remoteAddr ...string) *httptest.ResponseRecorder {
 				url := fmt.Sprintf("/api/v0/orgs/%s/billing_profile", o.Slug)
 				req, err := test.NewAuthedRequest(t, "POST", url, params)
 				Expect(err).To(BeNil())
+				if len(remoteAddr) > 0 {
+					req.RemoteAddr = remoteAddr[0]
+				}
 				res := httptest.NewRecorder()
 				handler.ServeHTTP(res, req)
 				return res
@@ -433,12 +477,10 @@ var _ = Describe("controllers/billingprofiles", func() {
 		Context("as a user", func() {
 			sharedExamples()
 
-			It("should send upgraded_to_paid_at to mixpanel", func() {
+			It("tracks to Mixpanel", func() {
 				fakeStripe.Responses = []string{test.StripeCustomerResponse}
-				p := &url.Values{}
-				p.Set("card_token", "cc_token")
-				res := doRequest(p)
 
+				res := doRequest(&url.Values{"card_token": {"cc_token"}})
 				Expect(res.Code).To(Equal(http.StatusCreated))
 
 				Expect(ft.PropsCalled).To(HaveLen(2))
@@ -457,13 +499,11 @@ var _ = Describe("controllers/billingprofiles", func() {
 	})
 
 	Describe("PUT /api/v0/user/billing_profiles", func() {
-		var doRequest func(params *url.Values) *httptest.ResponseRecorder
+		var doRequest func(params *url.Values, remoteAddr ...string) *httptest.ResponseRecorder
 
 		sharedExamples := func() {
 			It("should return an error when credit card token is not provided", func() {
-				p := &url.Values{}
-				p.Set("card_token", "")
-				res := doRequest(p)
+				res := doRequest(&url.Values{"card_token": {""}})
 				Expect(res.Code).To(Equal(http.StatusBadRequest))
 
 				errType, errDesc := test.ErrorSlug(res.Body)
@@ -472,9 +512,7 @@ var _ = Describe("controllers/billingprofiles", func() {
 			})
 
 			It("should return an error when trying to update an unactivated profile", func() {
-				p := &url.Values{}
-				p.Set("card_token", "token")
-				res := doRequest(p)
+				res := doRequest(&url.Values{"card_token": {"cc_token"}})
 				Expect(res.Code).To(Equal(http.StatusBadRequest))
 
 				errType, errDesc := test.ErrorSlug(res.Body)
@@ -501,35 +539,29 @@ var _ = Describe("controllers/billingprofiles", func() {
 				It("should return a card declined error when user's card is declined'", func() {
 					fakeStripe.Errors = []*stripe.Error{test.StripeCardDeclined}
 
-					p := &url.Values{}
-					p.Set("card_token", "cc_token")
-					res := doRequest(p)
+					res := doRequest(&url.Values{"card_token": {"cc_token"}})
 					Expect(res.Code).To(Equal(http.StatusBadRequest))
 
 					errType, errDesc := test.ErrorSlug(res.Body)
 					Expect(errType).To(Equal("card_declined"))
-					Expect(errDesc).To(Equal("Your Credit Card was declined. Try contacting the bank directly for assistance."))
+					Expect(errDesc).To(Equal("Your credit card was declined. Try contacting the bank directly for assistance."))
 				})
 
 				It("should return a card expired error when user's card is expired", func() {
 					fakeStripe.Errors = []*stripe.Error{test.StripeCardExpired}
 
-					p := &url.Values{}
-					p.Set("card_token", "cc_token")
-					res := doRequest(p)
+					res := doRequest(&url.Values{"card_token": {"cc_token"}})
 					Expect(res.Code).To(Equal(http.StatusBadRequest))
 
 					errType, errDesc := test.ErrorSlug(res.Body)
 					Expect(errType).To(Equal("card_expired"))
-					Expect(errDesc).To(Equal("Your Credit Card has expired. Please try again with a recent card."))
+					Expect(errDesc).To(Equal("Your credit card has expired. Please try again with a recent card."))
 				})
 
 				It("should return a incorrect cvc error when the supplied cvc is incorrect", func() {
 					fakeStripe.Errors = []*stripe.Error{test.StripeIncorrectCvc}
 
-					p := &url.Values{}
-					p.Set("card_token", "cc_token")
-					res := doRequest(p)
+					res := doRequest(&url.Values{"card_token": {"cc_token"}})
 					Expect(res.Code).To(Equal(http.StatusBadRequest))
 
 					errType, errDesc := test.ErrorSlug(res.Body)
@@ -540,9 +572,7 @@ var _ = Describe("controllers/billingprofiles", func() {
 				It("should return a incorrect zip error when the supplied zip is incorrect", func() {
 					fakeStripe.Errors = []*stripe.Error{test.StripeIncorrectZip}
 
-					p := &url.Values{}
-					p.Set("card_token", "cc_token")
-					res := doRequest(p)
+					res := doRequest(&url.Values{"card_token": {"cc_token"}})
 					Expect(res.Code).To(Equal(http.StatusBadRequest))
 
 					errType, errDesc := test.ErrorSlug(res.Body)
@@ -575,24 +605,71 @@ var _ = Describe("controllers/billingprofiles", func() {
 					Expect(err).To(BeNil())
 
 					fakeStripe.Responses = []string{test.StripeCustomerResponse}
-					p := &url.Values{}
-					p.Set("card_token", "cc_token")
-					res := doRequest(p)
 
+					res := doRequest(&url.Values{"card_token": {"cc_token"}})
 					Expect(res.Code).To(Equal(http.StatusBadRequest))
+
 					errType, errDesc := test.ErrorSlug(res.Body)
 					Expect(errType).To(Equal("card_banned"))
 					Expect(errDesc).To(Equal("Your credit card is banned."))
+				})
+
+				Context("when user IP lookup database is available", func() {
+					var origIPLookupDB geoip.Locatable
+
+					BeforeEach(func() {
+						origIPLookupDB = billingprofiles.IPLookupDB
+						billingprofiles.IPLookupDB = &geoip.FakeDB{
+							M: map[string]string{
+								"1.2.3.4": "SG", // IP -> country mapping
+								"8.8.8.8": "US",
+							},
+						}
+
+						fakeStripe.Responses = []string{
+							test.StripeCardTokenResponse, // return a US card
+							test.StripeCustomerResponse,
+						}
+					})
+
+					AfterEach(func() {
+						billingprofiles.IPLookupDB = origIPLookupDB
+					})
+
+					It("sends a request to the Stripe API to get the card details using its token", func() {
+						doRequest(&url.Values{
+							"card_token": {"cc_token"}},
+							"1.1.1.1", // Any non-empty string will do here.
+						)
+
+						Expect(fakeStripe.ReceivedRequests).To(HaveLen(2))
+						cardReq := fakeStripe.ReceivedRequests[0]
+						Expect(cardReq["method"]).To(Equal("GET"))
+						Expect(cardReq["path"]).To(Equal("/tokens/cc_token"))
+					})
+
+					It("returns 400 Bad Request if the user IP is not the same country as that of the credit card", func() {
+						res := doRequest(&url.Values{
+							"card_token": {"cc_token"}},
+							"1.2.3.4", // SG IP address.
+						)
+						Expect(res.Code).To(Equal(http.StatusBadRequest))
+					})
+
+					It("returns 200 OK if the user IP is in the same country as that of the credit card", func() {
+						res := doRequest(&url.Values{
+							"card_token": {"cc_token"}},
+							"8.8.8.8", // US IP address.
+						)
+						Expect(res.Code).To(Equal(http.StatusOK))
+					})
 				})
 
 				ItReturnsTheCreatedBillingProfile := func() {
 					It("returns the updated billing profile", func() {
 						fakeStripe.Responses = []string{test.StripeCustomerResponse}
 
-						p := &url.Values{}
-						p.Set("card_token", "cc_token")
-						res := doRequest(p)
-
+						res := doRequest(&url.Values{"card_token": {"cc_token"}})
 						Expect(res.Code).To(Equal(http.StatusOK))
 
 						var j struct {
@@ -631,9 +708,12 @@ var _ = Describe("controllers/billingprofiles", func() {
 
 		Context("as a user", func() {
 			BeforeEach(func() {
-				doRequest = func(params *url.Values) *httptest.ResponseRecorder {
+				doRequest = func(params *url.Values, remoteAddr ...string) *httptest.ResponseRecorder {
 					req, err := test.NewAuthedRequest(t, "PUT", "/api/v0/user/billing_profile", params)
 					Expect(err).To(BeNil())
+					if len(remoteAddr) > 0 {
+						req.RemoteAddr = remoteAddr[0]
+					}
 					res := httptest.NewRecorder()
 					handler.ServeHTTP(res, req)
 					return res
@@ -644,12 +724,8 @@ var _ = Describe("controllers/billingprofiles", func() {
 		})
 
 		Context("as an organisation", func() {
-			var (
-				o *org.Org
-			)
-
 			BeforeEach(func() {
-				o = &org.Org{
+				o := &org.Org{
 					Name:  "Foo Bar, Inc.",
 					Slug:  "foobar",
 					Email: "eng@foobar.com",
@@ -667,10 +743,13 @@ var _ = Describe("controllers/billingprofiles", func() {
 				bp, err = billingprofile.FindForOrg(db, o.ID)
 				Expect(err).To(BeNil())
 
-				doRequest = func(params *url.Values) *httptest.ResponseRecorder {
+				doRequest = func(params *url.Values, remoteAddr ...string) *httptest.ResponseRecorder {
 					url := fmt.Sprintf("/api/v0/orgs/%s/billing_profile", o.Slug)
 					req, err := test.NewAuthedRequest(t, "PUT", url, params)
 					Expect(err).To(BeNil())
+					if len(remoteAddr) > 0 {
+						req.RemoteAddr = remoteAddr[0]
+					}
 					res := httptest.NewRecorder()
 					handler.ServeHTTP(res, req)
 					return res
@@ -683,9 +762,7 @@ var _ = Describe("controllers/billingprofiles", func() {
 				_, err := db.Exec(`UPDATE org_memberships SET role = $1 WHERE user_id = $2;`, orgmembership.RoleMember, u.ID)
 				Expect(err).To(BeNil())
 
-				p := &url.Values{}
-				p.Set("card_token", "cc_token")
-				res := doRequest(p)
+				res := doRequest(&url.Values{"card_token": {"cc_token"}})
 				Expect(res.Code).To(Equal(http.StatusForbidden))
 			})
 
@@ -693,9 +770,7 @@ var _ = Describe("controllers/billingprofiles", func() {
 				_, err := db.Exec(`UPDATE org_memberships SET role = $1 WHERE user_id = $2;`, orgmembership.RoleAdmin, u.ID)
 				Expect(err).To(BeNil())
 
-				p := &url.Values{}
-				p.Set("card_token", "cc_token")
-				res := doRequest(p)
+				res := doRequest(&url.Values{"card_token": {"cc_token"}})
 				Expect(res.Code).To(Equal(http.StatusForbidden))
 			})
 		})

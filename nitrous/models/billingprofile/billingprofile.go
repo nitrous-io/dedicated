@@ -181,13 +181,13 @@ func (b *BillingProfile) Update(d db.QueryReceiver) error {
 	return nstmt.QueryRowx(b).StructScan(b)
 }
 
-func (b *BillingProfile) UpdateCard(d *db.Database, token string) error {
+func (b *BillingProfile) UpdateCard(d *db.Database, cardToken string) error {
 	if !b.StripeID.Valid {
 		return StripeProfileRequiredError
 	}
 
 	cus, err := customer.Update(b.StripeID.String,
-		&stripe.CustomerParams{Token: token})
+		&stripe.CustomerParams{Token: cardToken})
 	if err != nil {
 		return HandleStripeError(err)
 	}

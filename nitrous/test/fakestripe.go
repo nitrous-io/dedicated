@@ -106,6 +106,41 @@ var StripeCustomerResponse = `{
 		"default_card": "card_14wQPX2CU2PklWtHi34KFonT"
 	}`
 
+// From https://stripe.com/docs/api#retrieve_token.
+var StripeCardTokenResponse = `{
+  "id": "tok_15PM61D2OOBduWpz0rjGwmeN",
+  "object": "token",
+  "card": {
+	"id": "card_15PM61D2OOBduWpzm9iG9lVP",
+	"object": "card",
+	"address_city": null,
+	"address_country": null,
+	"address_line1": null,
+	"address_line1_check": null,
+	"address_line2": null,
+	"address_state": null,
+	"address_zip": null,
+	"address_zip_check": null,
+	"brand": "Visa",
+	"country": "US",
+	"cvc_check": null,
+	"dynamic_last4": null,
+	"exp_month": 8,
+	"exp_year": 2016,
+	"funding": "credit",
+	"last4": "4242",
+	"metadata": {
+	},
+	"name": null,
+	"tokenization_method": null
+  },
+  "client_ip": null,
+  "created": 1422314201,
+  "livemode": false,
+  "type": "card",
+  "used": false
+}`
+
 // from api docs https://stripe.com/docs/api/go#list_invoices
 var StripeInvoiceResponse = `{
   "id": "in_17AYBv2eZvKYlo2C8sW8Cs4R",
@@ -124,45 +159,45 @@ var StripeInvoiceResponse = `{
   "ending_balance": null,
   "forgiven": false,
   "lines": {
-    "data": [
-      {
-        "id": "sub_7PNezyXAgzNnkn",
-        "object": "line_item",
-        "amount": 2000,
-        "currency": "usd",
-        "description": null,
-        "discountable": true,
-        "livemode": true,
-        "metadata": {
-        },
-        "period": {
-          "start": 1450933120,
-          "end": 1453611520
-        },
-        "plan": {
-          "id": "gold21323",
-          "object": "plan",
-          "amount": 2000,
-          "created": 1386247539,
-          "currency": "usd",
-          "interval": "month",
-          "interval_count": 1,
-          "livemode": false,
-          "metadata": {
-          },
-          "name": "New plan name",
-          "statement_descriptor": null,
-          "trial_period_days": null
-        },
-        "proration": false,
-        "quantity": 1,
-        "subscription": null,
-        "type": "subscription"
-      }
-    ],
-    "total_count": 1,
-    "object": "list",
-    "url": "/v1/invoices/in_17AYBv2eZvKYlo2C8sW8Cs4R/lines"
+	"data": [
+	  {
+		"id": "sub_7PNezyXAgzNnkn",
+		"object": "line_item",
+		"amount": 2000,
+		"currency": "usd",
+		"description": null,
+		"discountable": true,
+		"livemode": true,
+		"metadata": {
+		},
+		"period": {
+		  "start": 1450933120,
+		  "end": 1453611520
+		},
+		"plan": {
+		  "id": "gold21323",
+		  "object": "plan",
+		  "amount": 2000,
+		  "created": 1386247539,
+		  "currency": "usd",
+		  "interval": "month",
+		  "interval_count": 1,
+		  "livemode": false,
+		  "metadata": {
+		  },
+		  "name": "New plan name",
+		  "statement_descriptor": null,
+		  "trial_period_days": null
+		},
+		"proration": false,
+		"quantity": 1,
+		"subscription": null,
+		"type": "subscription"
+	  }
+	],
+	"total_count": 1,
+	"object": "list",
+	"url": "/v1/invoices/in_17AYBv2eZvKYlo2C8sW8Cs4R/lines"
   },
   "livemode": false,
   "metadata": {

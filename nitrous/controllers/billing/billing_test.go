@@ -776,7 +776,7 @@ var _ = Describe("controllers/billing", func() {
 				Expect(res.Code).To(Equal(http.StatusBadRequest))
 				errType, errDesc := ErrorSlug(res.Body)
 				Expect(errType).To(Equal("card_declined"))
-				Expect(errDesc).To(Equal("Your Credit Card was declined. Try contacting the bank directly for assistance."))
+				Expect(errDesc).To(Equal("Your credit card was declined. Try contacting the bank directly for assistance."))
 
 				at := getInvoiceManualAttempt()
 				Expect(at.Success).To(BeFalse())
@@ -793,7 +793,7 @@ var _ = Describe("controllers/billing", func() {
 				Expect(res.Code).To(Equal(http.StatusBadRequest))
 				errType, errDesc := ErrorSlug(res.Body)
 				Expect(errType).To(Equal("card_expired"))
-				Expect(errDesc).To(Equal("Your Credit Card has expired. Please try again with a recent card."))
+				Expect(errDesc).To(Equal("Your credit card has expired. Please try again with a recent card."))
 
 				at := getInvoiceManualAttempt()
 				Expect(at.Success).To(BeFalse())
