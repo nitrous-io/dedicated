@@ -186,17 +186,15 @@ func (b *BillingProfile) UpdateCard(d *db.Database, token string) error {
 		return StripeProfileRequiredError
 	}
 
-	params := &stripe.CustomerParams{
-		Token: token,
-	}
-	c, err := customer.Update(b.StripeID.String, params)
+	cus, err := customer.Update(b.StripeID.String,
+		&stripe.CustomerParams{Token: token})
 	if err != nil {
 		return HandleStripeError(err)
 	}
 
-	crd := c.Cards.Values[0]
+	crd := cus.Cards.Values[0]
 
-	if err := b.SetCard(d, crd); err != nil {
+	if err := b.setFromCard(d, crd); err != nil {
 		return err
 	}
 
@@ -204,21 +202,24 @@ func (b *BillingProfile) UpdateCard(d *db.Database, token string) error {
 	if err != nil {
 		return err
 	}
+	defer tx.Rollback()
 
 	if err := b.Update(tx); err != nil {
-		tx.Rollback()
 		return fmt.Errorf("Billing profile update failed. Reason - %s", err)
 	}
 
 	return tx.Commit()
 }
 
-func (b *BillingProfile) SetCard(d *db.Database, crd *stripe.Card) error {
+func (b *BillingProfile) setFromCard(d *db.Database, crd *stripe.Card) error {
 	var banned bool
 	err := d.Get(&banned, `SELECT COUNT(*) > 0
 		FROM billing_profiles
-		INNER JOIN users ON users.id = billing_profiles.user_id
-		WHERE banned_at IS NOT NULL AND stripe_fingerprint = $1 LIMIT 1;`, crd.Fingerprint)
+		JOIN users ON users.id = billing_profiles.user_id
+		WHERE
+			users.banned_at IS NOT NULL
+			AND billing_profiles.stripe_fingerprint = $1
+		LIMIT 1;`, crd.Fingerprint)
 	if err != nil {
 		return err
 	}
@@ -246,7 +247,7 @@ func (b *BillingProfile) Activate(d *db.Database, cus *stripe.Customer) error {
 	b.PendingActivation = false
 
 	if cus.Cards != nil && len(cus.Cards.Values) >= 1 {
-		if err := b.SetCard(d, cus.Cards.Values[0]); err != nil {
+		if err := b.setFromCard(d, cus.Cards.Values[0]); err != nil {
 			return err
 		}
 	}
