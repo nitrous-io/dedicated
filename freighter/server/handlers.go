@@ -1067,13 +1067,10 @@ func (s *Server) httpForward(w http.ResponseWriter, r *http.Request) error {
 		r.Header.Set("X-Forwarded-Proto", "https")
 	}
 
-	forwardPort := r.Header.Get(freighter.ForwardPortHeader)
 	containerSlug := r.Header.Get(freighter.ContainerSlugHeader)
 	containerPort := r.Header.Get(freighter.ContainerPortHeader)
 	var addr string
-	if forwardPort != "" {
-		addr = fmt.Sprintf("%s:%s", "0.0.0.0", r.Header.Get(freighter.ForwardPortHeader))
-	} else if containerSlug != "" && containerPort != "" {
+	if containerSlug != "" && containerPort != "" {
 		containerList, err := s.provider.List()
 		if err != nil {
 			s.handleError(w, err)

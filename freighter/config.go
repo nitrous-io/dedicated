@@ -2,6 +2,12 @@ package freighter
 
 var (
 	// These headers are set in Atlas.
+	// TODO: Remove this header.
+	// TODO: Support current port configuration (i.e. via hostport:containerport mapping)
+	// as an advanced option and to allow non-HTTP traffic to be forwarded to containers.
+
+	// User don't have to configure port mapping anymore because we support
+	// port 1024 to 9999 for preview by default now.
 	// ForwardPortHeader is used for Websocket connection from browser to freighterd.
 	ForwardPortHeader = "X-FORWARDED-PORT"
 	// ContainerSlugHeader and ContainerPortHeader are used for preview apps/sites.

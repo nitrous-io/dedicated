@@ -12,15 +12,6 @@ func (s *Server) drawRoutes() {
 	// This will handle requests that has (X-FORWARDED-PORT) OR
 	// (X-NITROUS-PROXY-CONTAINER-SLUG AND X-NITROUS-PROXY-CONTAINER-PORT)
 	s.router.NewRoute().MatcherFunc(func(r *http.Request, rm *mux.RouteMatch) bool {
-		fp := r.Header.Get(freighter.ForwardPortHeader)
-		if fp != "" {
-			_, err := strconv.ParseInt(fp, 10, 64)
-			if err != nil {
-				return false
-			}
-			return true
-		}
-
 		containerSlug := r.Header.Get(freighter.ContainerSlugHeader)
 		containerPort := r.Header.Get(freighter.ContainerPortHeader)
 		if containerSlug != "" && containerPort != "" {
