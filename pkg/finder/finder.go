@@ -80,7 +80,7 @@ func (f *Finder) FindContent(term string, ignoreCase, useRegexp bool, filePatter
 
 	fch := make(chan *pt.GrepParams, chanSize)
 	option := defaultOption()
-	go pt.Find(f.root, pattern, fch, option)
+	go pt.Find([]string{f.root}, pattern, fch, option)
 	go pt.Grep(fch, out, option)
 
 	return results, nil

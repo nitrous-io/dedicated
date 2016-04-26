@@ -3,9 +3,10 @@ package the_platinum_searcher
 import (
 	"io/ioutil"
 	"os"
-
 	"path/filepath"
+	"runtime"
 	"strings"
+	"sync"
 )
 
 type find struct {
@@ -13,19 +14,19 @@ type find struct {
 	Option *Option
 }
 
-func Find(root string, pattern *Pattern, out chan *GrepParams, option *Option) {
+func Find(roots []string, pattern *Pattern, out chan *GrepParams, option *Option) {
 	find := find{
 		Out:    out,
 		Option: option,
 	}
-	find.Start(root, pattern)
+	find.Start(roots, pattern)
 }
 
-func (f *find) Start(root string, pattern *Pattern) {
+func (f *find) Start(roots []string, pattern *Pattern) {
 	if f.Option.SearchStream {
 		f.findStream(pattern)
 	} else {
-		f.findFile(root, pattern)
+		f.findFiles(roots, pattern)
 	}
 }
 
@@ -35,7 +36,18 @@ func (f *find) findStream(pattern *Pattern) {
 	close(f.Out)
 }
 
-func (f *find) findFile(root string, pattern *Pattern) {
+func (f *find) findFiles(roots []string, pattern *Pattern) {
+	done := make(chan struct{}, len(roots))
+	for _, root := range roots {
+		go f.findFile(root, pattern, done)
+	}
+	for i := 0; i < cap(done); i++ {
+		<-done
+	}
+	close(f.Out)
+}
+
+func (f *find) findFile(root string, pattern *Pattern, done chan struct{}) {
 
 	var ignores ignoreMatchers
 	if f.Option.NoPtIgnore == false {
@@ -51,14 +63,14 @@ func (f *find) findFile(root string, pattern *Pattern) {
 	}
 
 	ignores = append(ignores, genericIgnore(f.Option.Ignore))
-	Walk(root, ignores, f.Option.Follow, func(path string, info *FileInfo, depth int, ignores ignoreMatchers, err error) (error, ignoreMatchers) {
+	Walk(root, ignores, f.Option.Follow, f.Option.Parallel, func(path string, info *FileInfo, depth int, ignores ignoreMatchers, err error) (error, ignoreMatchers) {
 		if info.IsDir() {
 			if depth > f.Option.Depth+1 {
 				return filepath.SkipDir, ignores
 			}
 			//Current Directory skipping should be checked first before loading ignores
 			//within this directory
-			if !isRoot(depth) && isHidden(info.Name()) {
+			if !isRoot(depth) && (!f.Option.Hidden && isHidden(info.Name())) {
 				return filepath.SkipDir, ignores
 			} else {
 				if ignores.Match(path, info.IsDir()) {
@@ -71,7 +83,10 @@ func (f *find) findFile(root string, pattern *Pattern) {
 		if !info.follow && info.IsSymlink() {
 			return nil, ignores
 		}
-		if !isRoot(depth) && isHidden(info.Name()) {
+		if info.IsNamedPipe() {
+			return nil, ignores
+		}
+		if !isRoot(depth) && (!f.Option.Hidden && isHidden(info.Name())) {
 			return nil, ignores
 		}
 
@@ -92,27 +107,38 @@ func (f *find) findFile(root string, pattern *Pattern) {
 		f.Out <- &GrepParams{path, fileType, pattern}
 		return nil, ignores
 	})
-	close(f.Out)
+	done <- struct{}{}
 }
 
 type WalkFunc func(path string, info *FileInfo, depth int, ignores ignoreMatchers, err error) (error, ignoreMatchers)
 
-func Walk(root string, ignores ignoreMatchers, follow bool, walkFn WalkFunc) error {
+func Walk(root string, ignores ignoreMatchers, follow, multiFinder bool, walkFn WalkFunc) error {
 	info, err := os.Lstat(root)
 	fileInfo := newFileInfo(root, info, follow)
 	if err != nil {
 		walkError, _ := walkFn(root, fileInfo, 1, nil, err)
 		return walkError
 	}
-	return walk(root, fileInfo, 1, ignores, walkFn)
+
+	var pool chan struct{}
+	if multiFinder {
+		pool = make(chan struct{}, runtime.NumCPU())
+	}
+	waiter := &sync.WaitGroup{}
+	err = walk(root, fileInfo, 1, ignores, walkFn, waiter, pool)
+	waiter.Wait()
+	return err
 }
 
-func walkOnGoRoutine(path string, info *FileInfo, notify chan int, depth int, parentIgnore ignoreMatchers, walkFn WalkFunc) {
-	walk(path, info, depth, parentIgnore, walkFn)
-	notify <- 0
+func walkOnGoRoutine(path string, info *FileInfo, depth int, parentIgnore ignoreMatchers, walkFn WalkFunc, waiter *sync.WaitGroup, pool chan struct{}) {
+	walk(path, info, depth, parentIgnore, walkFn, waiter, pool)
+	if pool != nil {
+		<-pool
+	}
+	waiter.Done()
 }
 
-func walk(path string, info *FileInfo, depth int, parentIgnores ignoreMatchers, walkFn WalkFunc) error {
+func walk(path string, info *FileInfo, depth int, parentIgnores ignoreMatchers, walkFn WalkFunc, waiter *sync.WaitGroup, pool chan struct{}) error {
 	err, ig := walkFn(path, info, depth, parentIgnores, nil)
 	if err != nil {
 		if info.IsDir() && err == filepath.SkipDir {
@@ -132,21 +158,29 @@ func walk(path string, info *FileInfo, depth int, parentIgnores ignoreMatchers, 
 	}
 
 	depth++
-	notify := make(chan int, len(list))
 	for _, l := range list {
 		fileInfo := newFileInfo(path, l, info.follow)
-		if isDirectRoot(depth) {
-			go walkOnGoRoutine(filepath.Join(path, fileInfo.Name()), fileInfo, notify, depth, ig, walkFn)
 
+		// normal mode(pool == nil): spawn goroutine on DirectRoot
+		// multiple finder mode(pool != nil): spawn goroutine as many as possible
+		if pool == nil {
+			if isDirectRoot(depth) {
+				waiter.Add(1)
+				go walkOnGoRoutine(filepath.Join(path, fileInfo.Name()), fileInfo, depth, ig, walkFn, waiter, pool)
+			} else {
+				walk(filepath.Join(path, fileInfo.Name()), fileInfo, depth, ig, walkFn, waiter, pool)
+			}
 		} else {
-			walk(filepath.Join(path, fileInfo.Name()), fileInfo, depth, ig, walkFn)
+			select {
+			case pool <- struct{}{}:
+				waiter.Add(1)
+				go walkOnGoRoutine(filepath.Join(path, fileInfo.Name()), fileInfo, depth, ig, walkFn, waiter, pool)
+			default:
+				walk(filepath.Join(path, fileInfo.Name()), fileInfo, depth, ig, walkFn, waiter, pool)
+			}
 		}
 	}
-	if isDirectRoot(depth) {
-		for i := 0; i < cap(notify); i++ {
-			<-notify
-		}
-	}
+
 	return nil
 }
 
