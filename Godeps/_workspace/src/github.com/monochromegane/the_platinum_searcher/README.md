@@ -50,6 +50,23 @@ $ # You can specified PATH and some OPTIONS.
 $ pt OPTIONS PATTERN PATH
 ```
 
+## Configuration
+
+### .ptignore
+
+If you put .ptignore on $HOME or current directory, pt ignore the files.
+The file is .gitignore format.
+
+### .ptconfig.toml
+
+If you put .ptconfig.toml on $HOME or current directory, pt use option in the file.
+The file is TOML format like the following.
+
+```toml
+color = true
+context = 3
+```
+
 ## Editor Integration
 
 ### Vim + Unite.vim
@@ -74,7 +91,7 @@ You can use pt with [pt.el](https://github.com/bling/pt.el), which can be instal
 
 [![wercker status](https://app.wercker.com/status/59ef90ac217537abc0994546958037f3/m/master "wercker status")](https://app.wercker.com/project/bykey/59ef90ac217537abc0994546958037f3)
 
-[![Build Status](https://travis-ci.org/monochromegane/the_platinum_searcher.png?branch=master)](https://travis-ci.org/monochromegane/the_platinum_searcher)
+[![Build Status](https://travis-ci.org/monochromegane/the_platinum_searcher.svg?branch=master)](https://travis-ci.org/monochromegane/the_platinum_searcher)
 
 ## Contributing
 

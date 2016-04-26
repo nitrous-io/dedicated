@@ -3,16 +3,19 @@ package main
 import (
 	"fmt"
 	"os"
+	"path/filepath"
 	"runtime"
 	"strings"
 	"time"
 
 	flags "github.com/jessevdk/go-flags"
+	"github.com/monochromegane/conflag"
+	"github.com/monochromegane/go-home"
 	"github.com/monochromegane/terminal"
 	pt "github.com/monochromegane/the_platinum_searcher"
 )
 
-const version = "1.7.5"
+const version = "1.7.9"
 
 var opts pt.Option
 
@@ -32,7 +35,15 @@ func main() {
 
 	parser := flags.NewParser(&opts, flags.Default)
 	parser.Name = "pt"
-	parser.Usage = "[OPTIONS] PATTERN [PATH]"
+	parser.Usage = "[OPTIONS] [PATTERN] [PATH]"
+
+	conflag.LongHyphen = true
+	conflag.BoolValue = false
+	for _, c := range []string{filepath.Join(home.Dir(), ".ptconfig.toml"), ".ptconfig.toml"} {
+		if args, err := conflag.ArgsFrom(c); err == nil {
+			parser.ParseArgs(args)
+		}
+	}
 
 	args, err := parser.Parse()
 	if err != nil {
@@ -50,20 +61,42 @@ func main() {
 	}
 
 	opts.SearchStream = false
-	if len(args) == 1 {
-		if !terminal.IsTerminal(os.Stdin) {
-			opts.SearchStream = true
-			opts.NoGroup = true
+	if opts.FilesWithRegexp == "" && len(args) == 1 {
+		fi, err := os.Stdin.Stat()
+		if runtime.GOOS == "windows" {
+			if err == nil {
+				opts.SearchStream = true
+				opts.NoGroup = true
+			}
+		} else {
+			if err != nil {
+				os.Exit(1)
+			}
+
+			mode := fi.Mode()
+			if (mode&os.ModeNamedPipe != 0) || mode.IsRegular() {
+				opts.SearchStream = true
+				opts.NoGroup = true
+			}
 		}
 	}
 
-	var root = "."
-	if len(args) == 2 {
-		root = strings.TrimRight(args[1], "\"")
-		_, err := os.Lstat(root)
-		if err != nil {
-			fmt.Fprintf(os.Stderr, "%s\n", err)
-			os.Exit(1)
+	var roots = []string{"."}
+	if (opts.FilesWithRegexp == "" && len(args) >= 2) ||
+		(opts.FilesWithRegexp != "" && len(args) > 0) {
+		roots = []string{}
+		paths := args[1:]
+		if opts.FilesWithRegexp != "" {
+			paths = args
+		}
+		for _, root := range paths {
+			root = strings.TrimRight(root, "\"")
+			_, err := os.Lstat(root)
+			if err != nil {
+				fmt.Fprintf(os.Stderr, "%s\n", err)
+				os.Exit(1)
+			}
+			roots = append(roots, root)
 		}
 	}
 
@@ -82,7 +115,7 @@ func main() {
 	}
 
 	pattern := ""
-	if len(args) > 0 {
+	if opts.FilesWithRegexp == "" && len(args) > 0 {
 		pattern = args[0]
 	}
 
@@ -93,7 +126,7 @@ func main() {
 
 	start := time.Now()
 
-	searcher := pt.PlatinumSearcher{root, pattern, &opts}
+	searcher := pt.PlatinumSearcher{roots, pattern, &opts}
 	err = searcher.Search()
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "%s\n", err)
@@ -105,7 +138,7 @@ func main() {
 		fmt.Printf("%s Elapsed\n", elapsed)
 	}
 
-	if pt.FileMatchCount == 0 {
+	if pt.FileMatchCount == 0 && pt.MatchCount == 0 {
 		os.Exit(1)
 	}
 }
