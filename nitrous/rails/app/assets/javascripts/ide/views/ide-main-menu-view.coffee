@@ -424,6 +424,16 @@ App.IdeMainMenuView = Em.View.extend
         url: "/app/#/dashboard/workstations/#{App.get('host.slug')}/projects/#{App.get('container.slug')}/collaborators"
         target: '_blank'
     ])
+
+    base.push(menu 'PubStorm', [
+      menuItem 'Getting Started Guide',
+        url: 'http://help.pubstorm.com/getting-started/getting_started'
+        target: '_blank'
+      menuItem 'Adding a Custom Domain',
+        url: 'http://help.pubstorm.com/getting-started/custom_domains'
+        target: '_blank'
+    ])
+
     base.push(menu 'Help', @get('helpMenuItems'))
 
     base
