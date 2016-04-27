@@ -12,6 +12,7 @@ import (
 	"github.com/nitrous-io/dedicated/nitrous/controllers/containerkeys"
 	"github.com/nitrous-io/dedicated/nitrous/controllers/containers"
 	"github.com/nitrous-io/dedicated/nitrous/controllers/coupons"
+	"github.com/nitrous-io/dedicated/nitrous/controllers/customdomains"
 	"github.com/nitrous-io/dedicated/nitrous/controllers/dockerregistry"
 	"github.com/nitrous-io/dedicated/nitrous/controllers/events"
 	"github.com/nitrous-io/dedicated/nitrous/controllers/feedback"
@@ -234,6 +235,7 @@ func (s *Server) drawRoutes() {
 				"/containers/{slug}/keys":                  r("userkeys.Create", userkeys.Create, EventContainerKeyAdded),
 				"/containers/{slug}/container_keys/github": r("containerkeys.AddToGitHub", containerkeys.AddToGitHub, EventContainerKeyAddedToGitHub),
 				"/containers/{slug}/collaborators":         r("containercollabs.Add", containercollabs.Add, EventContainerCollabAdded),
+				"/containers/{slug}/custom_domains":        r("customdomains.Create", customdomains.Create, EventContainerCustomDomainCreated),
 				"/feedback":                                r("feedback.Send", feedback.Send),
 				"/invoices/{id}/pay":                       r("billing.PayInvoice", billing.PayInvoice, EventInvoiceManuallyPaid),
 				"/subscriptions/{slug}/upgrade":            r("subscriptions.Upgrade", subscriptions.Upgrade),
