@@ -103,6 +103,9 @@ App.IdeController = Em.ObjectController.extend
         , (jqxhr) =>
           @set('errorDialog', @containerStoppedErrDialog())
 
+      evSocket.on 'host.disk_almost_full', (data) =>
+        App.snackbar.post "Disk is almost full. Please remove any unnecessary files or upgrade your plan."
+
       evSocket.on 'container.started', (data) =>
         if @get('content.id') == data?.container?.id
           @set('containerStarted', true)
