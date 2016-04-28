@@ -60,6 +60,11 @@
 			"Rev": "a8126df93b2406675168d2930b6d3db46ffb805c"
 		},
 		{
+			"ImportPath": "github.com/fiorix/freegeoip",
+			"Comment": "v3.1.3-5-g58aba23",
+			"Rev": "58aba23e8e8960c74ef0a459987da1a397f127d2"
+		},
+		{
 			"ImportPath": "github.com/fsouza/go-dockerclient",
 			"Comment": "0.2.1-722-gbf7f7bb",
 			"Rev": "bf7f7bb65f1e2bbdae3c95b27234bb3e284ba7c7"
@@ -96,6 +101,11 @@
 		{
 			"ImportPath": "github.com/gorilla/websocket",
 			"Rev": "a6f041ac33b84488bb44137d6866cd3c8706d792"
+		},
+		{
+			"ImportPath": "github.com/howeyc/fsnotify",
+			"Comment": "v0.9.0-16-gf0c08ee",
+			"Rev": "f0c08ee9c60704c1879025f2ae0ff3e000082c13"
 		},
 		{
 			"ImportPath": "github.com/jessevdk/go-flags",
@@ -212,6 +222,11 @@
 			"Rev": "a0ee4df1f2d58a75dd9d74e755615706d68e9ce9"
 		},
 		{
+			"ImportPath": "github.com/oschwald/maxminddb-golang",
+			"Comment": "v0.2.0-43-gbfd1341",
+			"Rev": "bfd134128faa57c37ef41fff5fb1a9ca94450a9b"
+		},
+		{
 			"ImportPath": "github.com/rcrowley/go-metrics",
 			"Rev": "a5cfc242a56ba7fa70b785f678d6214837bf93b9"
 		},
@@ -265,6 +280,14 @@
 		{
 			"ImportPath": "golang.org/x/oauth2",
 			"Rev": "188fb45fbef6ffd967b3a8abcfe176fd473361df"
+		},
+		{
+			"ImportPath": "golang.org/x/sys/unix",
+			"Rev": "f64b50fbea64174967a8882830d621a18ee1548e"
+		},
+		{
+			"ImportPath": "golang.org/x/sys/windows",
+			"Rev": "f64b50fbea64174967a8882830d621a18ee1548e"
 		},
 		{
 			"ImportPath": "golang.org/x/text/encoding",

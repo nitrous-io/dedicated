@@ -39,8 +39,8 @@ var (
 
 	errInvoiceUserPaying = httperror.New(http.StatusBadRequest, "invoice_user_paying", "a user can only pay one invoice at a time")
 
-	errCardDeclined = httperror.New(http.StatusBadRequest, "card_declined", "Your Credit Card was declined. Try contacting the bank directly for assistance.")
-	errCardExpired  = httperror.New(http.StatusBadRequest, "card_expired", "Your Credit Card has expired. Please try again with a recent card.")
+	errCardDeclined = httperror.New(http.StatusBadRequest, "card_declined", "Your credit card was declined. Try contacting the bank directly for assistance.")
+	errCardExpired  = httperror.New(http.StatusBadRequest, "card_expired", "Your credit card has expired. Please try again with a recent card.")
 
 	errPayInvoiceForbidden = httperror.New(http.StatusForbidden, "pay_invoice_forbidden", "You do not have permission to pay invoices")
 )

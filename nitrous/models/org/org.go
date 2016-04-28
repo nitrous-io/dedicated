@@ -187,7 +187,7 @@ func (o *Org) UsedHostsCount(d *db.Database) (int, error) {
 	return len(orgs), err
 }
 
-func (o *Org) ActivateBillingProfile(d *db.Database, bp *billingprofile.BillingProfile, token string) (err error) {
+func (o *Org) ActivateBillingProfile(d *db.Database, bp *billingprofile.BillingProfile, token string) error {
 	params := &stripe.CustomerParams{
 		Email: o.Email,
 		Desc:  fmt.Sprintf("Organization %q", o.Name),
@@ -202,18 +202,16 @@ func (o *Org) ActivateBillingProfile(d *db.Database, bp *billingprofile.BillingP
 	}
 	c, err := customer.New(params)
 	if err != nil {
-		err = billingprofile.HandleStripeError(err)
-		return
+		return billingprofile.HandleStripeError(err)
 	}
 
-	defer func() {
-		if err != nil {
-			if err := customer.Del(c.ID); err != nil {
-				logrus.Errorf("Unable to delete customer %s, err: %v", c.ID, err)
-			}
+	if err := bp.Activate(d, c); err != nil {
+		if err := customer.Del(c.ID); err != nil {
+			logrus.Errorf("Unable to delete customer %s, err: %v", c.ID, err)
 		}
-	}()
 
-	err = bp.Activate(d, c)
-	return
+		return err
+	}
+
+	return nil
 }
