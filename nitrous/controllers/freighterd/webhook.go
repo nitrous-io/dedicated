@@ -7,11 +7,13 @@ import (
 	"github.com/Sirupsen/logrus"
 	"github.com/gorilla/mux"
 	"github.com/lib/pq"
+	"github.com/nitrous-io/dedicated/nitrous/controllers"
 	"github.com/nitrous-io/dedicated/nitrous/middleware"
 	"github.com/nitrous-io/dedicated/nitrous/models/host"
 	"github.com/nitrous-io/dedicated/nitrous/models/token"
 	"github.com/nitrous-io/dedicated/nitrous/models/user"
 	"github.com/nitrous-io/dedicated/nitrous/pkg/httperror"
+	"github.com/nitrous-io/dedicated/nitrous/serializers"
 	"github.com/nitrous-io/nitrous-common/msgverifier"
 )
 
@@ -56,6 +58,23 @@ func Webhook(env *middleware.Env, w http.ResponseWriter, r *http.Request) error 
 		if err := h.UpdateColumn(env.DB, "last_pinged_at", pq.NullTime{time.Now(), true}); err != nil {
 			return err
 		}
+
+		env.Status = http.StatusOK
+		env.Data = map[string]interface{}{
+			"status": "ok",
+		}
+		return nil
+	case "disk_almost_full":
+		if _, err := token.FindByUser(env.DB, u.ID); err != nil {
+			return errNotLoggedIn
+		}
+
+		env.Events.Publish(
+			controllers.NewEvent(controllers.EventHostDiskAlmostFull, map[string]*serializers.Host{
+				"host": serializers.SerializeHost(h),
+			}),
+			u.Topic(),
+		)
 
 		env.Status = http.StatusOK
 		env.Data = map[string]interface{}{

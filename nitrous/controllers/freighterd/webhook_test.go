@@ -11,11 +11,13 @@ import (
 	"time"
 
 	"github.com/gorilla/mux"
+	"github.com/nitrous-io/dedicated/nitrous/controllers"
 	"github.com/nitrous-io/dedicated/nitrous/controllers/freighterd"
 	"github.com/nitrous-io/dedicated/nitrous/db"
 	"github.com/nitrous-io/dedicated/nitrous/models/host"
 	"github.com/nitrous-io/dedicated/nitrous/models/token"
 	"github.com/nitrous-io/dedicated/nitrous/models/user"
+	"github.com/nitrous-io/dedicated/nitrous/serializers"
 	"github.com/nitrous-io/dedicated/nitrous/server"
 
 	"github.com/nitrous-io/nitrous-common/msgverifier"
@@ -137,6 +139,67 @@ var _ = Describe("controllers/freighterd", func() {
 				h, err = host.FindByIdentifier(db, hs.H.Slug)
 				Expect(err).To(BeNil())
 				Expect(h.LastPingedAt.Valid).To(BeFalse())
+			})
+		})
+
+		Context("with a verified 'disk_almost_full' message", func() {
+			var msg string
+
+			BeforeEach(func() {
+				hs.H.Update(db)
+
+				m := &freighterd.Message{Event: "disk_almost_full"}
+				msg = genMessage(hs.H.Secret, m)
+
+				t := &token.Token{UserID: hs.H.UserID}
+				err := t.Insert(db)
+				Expect(err).To(BeNil())
+			})
+
+			It("accepts host ID in addition to slug", func() {
+				doRequest(strconv.FormatInt(hs.H.ID, 10), msg)
+				Expect(res.Code).To(Equal(http.StatusOK))
+			})
+
+			It("responds with HTTP 200 and publish disk almost full event", func() {
+				ch := svr.Events.Subscribe(u.Topic())
+				defer svr.Events.Unsubscribe(ch, u.Topic())
+
+				doRequest(hs.H.Slug, msg)
+
+				Expect(res.Code).To(Equal(http.StatusOK))
+
+				select {
+				case <-time.After(50 * time.Millisecond):
+					Fail("Timed out waiting for host disk almost full event")
+				case msg := <-ch:
+					e := msg.(*controllers.Event)
+					Expect(e.Name).To(Equal(controllers.EventHostDiskAlmostFull))
+
+					h, err := host.FindByIdentifier(db, hs.H.Slug)
+					Expect(err).To(BeNil())
+
+					serializedHost := e.Data.(map[string]*serializers.Host)["host"]
+					Expect(serializedHost.ID).To(Equal(h.ID))
+					Expect(serializedHost.Slug).To(Equal(h.Slug))
+				}
+			})
+
+			It("responds with HTTP 401 and does not publish the event if user is not logged in", func() {
+				ch := svr.Events.Subscribe(u.Topic())
+				defer svr.Events.Unsubscribe(ch, u.Topic())
+
+				_, err := db.Exec(`DELETE FROM tokens WHERE user_id = $1`, hs.H.UserID)
+				Expect(err).To(BeNil())
+
+				doRequest(hs.H.Slug, msg)
+
+				Expect(res.Code).To(Equal(http.StatusUnauthorized))
+				select {
+				case <-time.After(50 * time.Millisecond):
+				case <-ch:
+					Fail("no messages should be delivered")
+				}
 			})
 		})
 
