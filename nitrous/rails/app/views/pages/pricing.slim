@@ -50,8 +50,10 @@
                   strong
                     ' 50
                   span hrs usage / mo.
-                li.usage
-                  |&nbsp;
+                li.memory
+                  strong
+                  '
+                  | Memory
                 li.usage
                   |&nbsp;
 
@@ -85,8 +87,10 @@
                   strong
                     ' Unlimited
                   span usage
-                li.usage
-                  |&nbsp;
+                li.memory
+                  strong
+                  '
+                  | Memory
                 li.usage
                   |&nbsp;
 
@@ -132,6 +136,45 @@
                   span ON
 
               a.btn.blue href="/app/#/signup" Sign Up
+
+            li.selectable data-index='3'
+              .title-section
+                .title
+                .plan-price
+                  .monthly
+                    .focus
+                      span $
+                      span.price
+                      small
+                        ' /mo.
+                .desc
+                  span
+
+              ul.details
+                li.containers
+                  span
+                    ' Up to
+                  strong
+                  '
+                  | Projects
+                li.storage
+                  strong
+                  '
+                  | SSD Storage
+                li.usage
+                  strong
+                    ' Unlimited
+                  span usage
+                li.memory
+                  strong
+                  '
+                  | Memory
+                li.always-on
+                  strong
+                    ' Always
+                  span ON
+
+              a.btn.blue-outline href="/app/#/signup" Sign Up
 
           .box-wrapper.auto.pricing-details
             .box.grow-2.active
