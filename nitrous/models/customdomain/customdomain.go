@@ -16,6 +16,17 @@ type CustomDomain struct {
 	UpdatedAt     *time.Time `db:"updated_at"`
 }
 
+func FindAll(db *db.Database, containerID int64) ([]*CustomDomain, error) {
+	customDomains := []*CustomDomain{}
+	err := db.Select(&customDomains,
+		"SELECT * FROM custom_domains WHERE container_id = $1 ORDER BY domain ASC, port ASC",
+		containerID)
+	if err != nil {
+		return nil, err
+	}
+	return customDomains, nil
+}
+
 func (cd *CustomDomain) Insert(d db.QueryReceiver) error {
 	s, err := d.PrepareNamed(`
 		INSERT INTO custom_domains

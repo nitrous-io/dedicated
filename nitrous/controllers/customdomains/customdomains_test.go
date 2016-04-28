@@ -2,6 +2,7 @@ package customdomains_test
 
 import (
 	"database/sql"
+	"encoding/json"
 	"fmt"
 	"net/http"
 	"net/http/httptest"
@@ -13,6 +14,7 @@ import (
 	"github.com/nitrous-io/dedicated/nitrous/models/customdomain"
 	"github.com/nitrous-io/dedicated/nitrous/models/token"
 	"github.com/nitrous-io/dedicated/nitrous/models/user"
+	"github.com/nitrous-io/dedicated/nitrous/serializers"
 	"github.com/nitrous-io/dedicated/nitrous/server"
 	"github.com/nitrous-io/dedicated/nitrous/test"
 	. "github.com/onsi/ginkgo"
@@ -77,6 +79,70 @@ var _ = Describe("controllers/customdomains", func() {
 		if db != nil {
 			db.Close()
 		}
+	})
+
+	Describe("GET /containers/{slug}/custom_domains", func() {
+		doRequest := func(params *url.Values) *httptest.ResponseRecorder {
+			req, err := test.NewAuthedRequest(t, "GET", fmt.Sprintf("/api/v0/containers/%v/custom_domains", cnr.Slug), params)
+			Expect(err).To(BeNil())
+			res := httptest.NewRecorder()
+			svr.Router().ServeHTTP(res, req)
+			return res
+		}
+
+		It("responds with all custom domains of a container order by domain and port", func() {
+			cd1 := &customdomain.CustomDomain{
+				ContainerID:   cnr.ID,
+				Domain:        "www.gomama.com",
+				Port:          80,
+				ContainerPort: 4000,
+			}
+			err := cd1.Insert(db)
+			Expect(err).To(BeNil())
+
+			cd2 := &customdomain.CustomDomain{
+				ContainerID:   cnr.ID,
+				Domain:        "www.gograndmama.com",
+				Port:          80,
+				ContainerPort: 5000,
+			}
+			err = cd2.Insert(db)
+			Expect(err).To(BeNil())
+
+			cd3 := &customdomain.CustomDomain{
+				ContainerID:   cnr.ID,
+				Domain:        "www.gograndmama.com",
+				Port:          90,
+				ContainerPort: 5000,
+			}
+			err = cd3.Insert(db)
+			Expect(err).To(BeNil())
+
+			params := &url.Values{}
+			params.Set("slug", cnr.Slug)
+			res := doRequest(params)
+			Expect(res.Code).To(Equal(http.StatusOK))
+
+			var j map[string][]serializers.CustomDomain
+			data := res.Body.Bytes()
+			err = json.Unmarshal(data, &j)
+			Expect(err).To(BeNil())
+			customDomains, ok := j["custom_domains"]
+			Expect(ok).To(BeTrue())
+			Expect(customDomains).To(HaveLen(3))
+			Expect(customDomains[0].ContainerID).To(Equal(cnr.ID))
+			Expect(customDomains[0].Domain).To(Equal("www.gograndmama.com"))
+			Expect(customDomains[0].Port).To(Equal(int64(80)))
+			Expect(customDomains[0].ContainerPort).To(Equal(int64(5000)))
+			Expect(customDomains[1].ContainerID).To(Equal(cnr.ID))
+			Expect(customDomains[1].Domain).To(Equal("www.gograndmama.com"))
+			Expect(customDomains[1].Port).To(Equal(int64(90)))
+			Expect(customDomains[1].ContainerPort).To(Equal(int64(5000)))
+			Expect(customDomains[2].ContainerID).To(Equal(cnr.ID))
+			Expect(customDomains[2].Domain).To(Equal("www.gomama.com"))
+			Expect(customDomains[2].Port).To(Equal(int64(80)))
+			Expect(customDomains[2].ContainerPort).To(Equal(int64(4000)))
+		})
 	})
 
 	Describe("POST /containers/{slug}/custom_domains", func() {

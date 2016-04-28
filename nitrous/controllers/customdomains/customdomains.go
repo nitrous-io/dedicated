@@ -12,9 +12,11 @@ import (
 	"github.com/nitrous-io/dedicated/nitrous/models/customdomain"
 	"github.com/nitrous-io/dedicated/nitrous/models/host"
 	"github.com/nitrous-io/dedicated/nitrous/pkg/httperror"
+	"github.com/nitrous-io/dedicated/nitrous/serializers"
 )
 
 var (
+	Index  middleware.Middleware = containers.WithContainerAndHost(index, containers.TouchHost)
 	Create middleware.Middleware = containers.WithContainerAndHost(create, containers.TouchHost)
 
 	errInvalidDomain        = httperror.New(http.StatusBadRequest, "invalid_request", "Invalid domain")
@@ -22,6 +24,20 @@ var (
 	errInvalidContainerPort = httperror.New(http.StatusBadRequest, "invalid_request", "Invalid container port -- Please specify port between 1024 to 9999")
 	errDuplicateDomain      = httperror.New(http.StatusBadRequest, "invalid_request", "Duplicated domain name with same port")
 )
+
+func index(cn *container.Container, h *host.Host, env *middleware.Env, w http.ResponseWriter, r *http.Request) error {
+	customDomains, err := customdomain.FindAll(env.DB, cn.ID)
+	if err != nil {
+		return err
+	}
+
+	env.Status = http.StatusOK
+	env.Data = map[string]interface{}{
+		"custom_domains": serializers.SerializeCustomDomains(customDomains),
+	}
+	return nil
+
+}
 
 func create(cn *container.Container, h *host.Host, env *middleware.Env, w http.ResponseWriter, r *http.Request) error {
 	domain := r.FormValue("domain")
