@@ -101,13 +101,7 @@ class Users < Thor
       where(orgs__slug: 'flatiron-org').
       where(users__id: u.uid)
     halt "no flatiron user found for IDENT #{ident}" if r.count != 1
-    t = DB[:tokens].where(user_id: u.uid).
-      order(Sequel.desc(:created_at))
-    if t.count > 1
-      puts "Token is:\n#{t.all[0][:token]}"
-      return
-    end
-    puts "No token found for #{u.summary}. Creating..."
+    
     # SecureRandom has some issues, but should suffice for these purposes:
     # https://bugs.ruby-lang.org/issues/9569
     tokenstr = SecureRandom::base64(191)[0..254]

@@ -4,7 +4,7 @@ supported = false
 localStorageSupported = false
 
 `with(Modernizr) {
-  supported = applicationcache && draganddrop && flexbox && fontface &&
+  supported = applicationcache && flexbox && fontface &&
     generatedcontent && hashchange && history && opacity && rgba && svg &&
     websockets;
   localStorageSupported = Modernizr.localstorage

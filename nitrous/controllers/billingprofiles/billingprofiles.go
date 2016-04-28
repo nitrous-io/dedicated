@@ -11,7 +11,21 @@ import (
 	"github.com/nitrous-io/dedicated/nitrous/models/org"
 	"github.com/nitrous-io/dedicated/nitrous/pkg/httperror"
 	"github.com/nitrous-io/dedicated/nitrous/serializers"
+	"github.com/nitrous-io/dedicated/pkg/geoip"
+	stripetoken "github.com/stripe/stripe-go/token"
 )
+
+var (
+	IPLookupDB geoip.Locatable
+
+	errCardCountryDifferent = httperror.New(http.StatusBadRequest, "bad_request", "Failed to authorize credit card")
+)
+
+func init() {
+	// Initialize the IP lookup database asynchronously since it's not crucial -
+	// if it's not yet downloaded, we will simply skip IP address verification.
+	go initIPLookupDB()
+}
 
 func Show(env *middleware.Env, w http.ResponseWriter, r *http.Request) error {
 	bp, err := shared.BillingProfileForRequest(env, r)
@@ -33,6 +47,10 @@ func Activate(env *middleware.Env, w http.ResponseWriter, r *http.Request) error
 	cardToken := r.FormValue("card_token")
 	if cardToken == "" {
 		return httperror.New(http.StatusBadRequest, "card_token_required", "credit card token can't be blank")
+	}
+
+	if err := verifyCard(cardToken, env.RemoteAddr); err != nil {
+		return err
 	}
 
 	bp, err := shared.BillingProfileForRequest(env, r)
@@ -107,6 +125,10 @@ func Update(env *middleware.Env, w http.ResponseWriter, r *http.Request) error {
 		return httperror.New(http.StatusBadRequest, "card_token_required", "credit card token can't be blank")
 	}
 
+	if err := verifyCard(cardToken, env.RemoteAddr); err != nil {
+		return err
+	}
+
 	bp, err := shared.BillingProfileForRequest(env, r)
 	if err != nil {
 		return err
@@ -121,4 +143,48 @@ func Update(env *middleware.Env, w http.ResponseWriter, r *http.Request) error {
 		"billing_profile": serializers.SerializeBillingProfile(bp),
 	}
 	return nil
+}
+
+// Ensure that user IP is from the same country as that of the credit card to
+// prevent fraud.
+func verifyCard(cardToken, ip string) error {
+	if IPLookupDB == nil {
+		logrus.Warnf("failed to verify card - IP lookup database not initialized")
+		return nil
+	}
+
+	// Retrieve card details from Stripe.
+	t, err := stripetoken.Get(cardToken, nil)
+	if err != nil {
+		return err
+	}
+
+	if t.Card == nil || t.Card.CardCountry == "" {
+		return nil
+	}
+
+	// Lookup user country from IP address. If lookup fails, we just log and
+	// continue as if verification succeeded, since users could be
+	// using anonymizer software.
+	countryCode, err := IPLookupDB.LookupCountry(ip)
+	if err != nil {
+		logrus.Warnf("failed to lookup country of IP %q, err: %v", ip, err)
+		return nil
+	}
+
+	if countryCode != t.Card.CardCountry {
+		return errCardCountryDifferent
+	}
+
+	return nil
+}
+
+func initIPLookupDB() {
+	db, err := geoip.New()
+	if err != nil {
+		logrus.Warnf("failed to initialize geoip database, err: %v", err)
+		return
+	}
+
+	IPLookupDB = db
 }

@@ -227,14 +227,14 @@ var _ = Describe("models/billingprofile", func() {
 			stripe.SetBackend(fakeStripe)
 		})
 
-		Context("when called on a profile with an empty StripeID", func() {
+		Context("when billing profile does not have a StripeID (i.e. there is no existing Stripe profile", func() {
 			It("returns StripeProfileRequiredError", func() {
 				err := bp.UpdateCard(db, "token")
 				Expect(err).To(Equal(billingprofile.StripeProfileRequiredError))
 			})
 		})
 
-		Context("when called on a profile with a StripeID", func() {
+		Context("when billing profile has a StripeID", func() {
 			BeforeEach(func() {
 				bp.State = "paid"
 				bp.StripeID = sql.NullString{"sc_01", true}
@@ -244,8 +244,7 @@ var _ = Describe("models/billingprofile", func() {
 				bp.ExpMonth = sql.NullInt64{10, true}
 				bp.ExpYear = sql.NullInt64{2014, true}
 
-				err := bp.Update(db)
-				Expect(err).To(BeNil())
+				Expect(bp.Update(db)).To(BeNil())
 			})
 
 			It("updates the record in database, if the Stripe call was successful", func() {
@@ -266,7 +265,7 @@ var _ = Describe("models/billingprofile", func() {
 				Expect(bp.PendingActivation).To(BeFalse())
 			})
 
-			It("sets the state if the card was previously no card", func() {
+			It("updates state to paid if the card was previously no card", func() {
 				fakeStripe.Responses = []string{test.StripeCustomerResponse}
 
 				bp.State = billingprofile.StateNoCard
@@ -279,7 +278,7 @@ var _ = Describe("models/billingprofile", func() {
 				Expect(bp.State).To(Equal(billingprofile.StatePaid))
 			})
 
-			It("sets the state if the card was previously free", func() {
+			It("updates state to paid if the card was previously free", func() {
 				fakeStripe.Responses = []string{test.StripeCustomerResponse}
 
 				bp.State = billingprofile.StateFree
@@ -290,6 +289,27 @@ var _ = Describe("models/billingprofile", func() {
 				Expect(err).To(BeNil())
 
 				Expect(bp.State).To(Equal(billingprofile.StatePaid))
+			})
+
+			It("does not update the state to paid if the transition does not make sense", func() {
+				for _, state := range []string{
+					billingprofile.StateExempt,
+					billingprofile.StateDelinquent,
+					billingprofile.StatePaymentDue} {
+
+					fakeStripe = &test.FakeStripe{}
+					stripe.SetBackend(fakeStripe)
+					fakeStripe.Responses = []string{test.StripeCustomerResponse}
+
+					bp.State = state
+					err := bp.UpdateCard(db, "token")
+					Expect(err).To(BeNil())
+
+					bp, err = billingprofile.FindByID(db, bp.ID)
+					Expect(err).To(BeNil())
+
+					Expect(bp.State).NotTo(Equal(billingprofile.StatePaid))
+				}
 			})
 
 			It("returns CardDeclined error, if Stripe returns a card declined error", func() {
@@ -341,24 +361,16 @@ var _ = Describe("models/billingprofile", func() {
 			})
 
 			It("returns ErrCardBanned when the card belongs to a banned user", func() {
-				b := &user.User{
-					Username: "banner",
-					Password: "123456",
-					Email:    "banner@example.com",
-				}
-				err := test.WrapInTransaction(db, b.Insert)
-				Expect(err).To(BeNil())
-
 				u2 := &user.User{
 					Username: "bad",
 					Name:     "quxboy",
 					Password: "123456",
 					Email:    "bad@example.com",
 				}
-				err = test.WrapInTransaction(db, u2.Insert)
+				err := test.WrapInTransaction(db, u2.Insert)
 				Expect(err).To(BeNil())
 
-				_, err = db.Exec(`UPDATE users SET deleted_at = now(), banned_at = now(), banned_by_id = $1 WHERE id = $2;`, b.ID, u2.ID)
+				_, err = db.Exec(`UPDATE users SET deleted_at = now(), banned_at = now(), banned_by_id = $1 WHERE id = $2;`, u.ID, u2.ID)
 				Expect(err).To(BeNil())
 
 				_, err = db.Exec(`UPDATE billing_profiles SET stripe_fingerprint = 'H0SJieNrXmTdq3qs' WHERE user_id = $1;`, u2.ID)
@@ -369,78 +381,6 @@ var _ = Describe("models/billingprofile", func() {
 				err = bp.UpdateCard(db, "token")
 				Expect(err).To(Equal(billingprofile.ErrCardBanned))
 			})
-		})
-	})
-
-	Describe("SetCard()", func() {
-		var (
-			bp *billingprofile.BillingProfile
-		)
-
-		BeforeEach(func() {
-			var err error
-			bp, err = u.BillingProfile(db)
-			Expect(err).To(BeNil())
-		})
-
-		It("should return an error if the card is banned", func() {
-			u2 := &user.User{
-				Username: "bad",
-				Name:     "quxboy",
-				Password: "123456",
-				Email:    "bad@example.com",
-			}
-			err := test.WrapInTransaction(db, u2.Insert)
-			Expect(err).To(BeNil())
-
-			_, err = db.Exec(`UPDATE users SET deleted_at = now(), banned_at = now(), banned_by_id = $1 WHERE id = $2;`, u.ID, u2.ID)
-			Expect(err).To(BeNil())
-
-			_, err = db.Exec(`UPDATE billing_profiles SET stripe_fingerprint = 'H0SJieNrXmTdq3qs' WHERE user_id = $1;`, u2.ID)
-			Expect(err).To(BeNil())
-
-			strCard := &stripe.Card{
-				Fingerprint: "H0SJieNrXmTdq3qs",
-			}
-			Expect(bp.SetCard(db, strCard)).To(Equal(billingprofile.ErrCardBanned))
-
-			Expect(bp.StripeFingerprint).ToNot(Equal("H0SJieNrXmTdq3qs"))
-		})
-
-		It("set the properties on the card", func() {
-			strCard := &stripe.Card{
-				Fingerprint: "H0SJieNrXmTdq3qs",
-				LastFour:    "1901",
-				Brand:       "AMEX",
-				Month:       8,
-				Year:        2019,
-			}
-			Expect(bp.SetCard(db, strCard)).To(BeNil())
-
-			Expect(bp.PendingActivation).To(BeFalse())
-			Expect(bp.LastFour.String).To(Equal("1901"))
-			Expect(bp.CardType.String).To(Equal("AMEX"))
-			Expect(bp.ExpMonth.Int64).To(Equal(int64(8)))
-			Expect(bp.ExpYear.Int64).To(Equal(int64(2019)))
-			Expect(bp.StripeFingerprint.String).To(Equal("H0SJieNrXmTdq3qs"))
-			Expect(bp.State).To(Equal(billingprofile.StatePaid))
-			Expect(bp.PendingActivation).To(BeFalse())
-		})
-
-		It("does not set the state to paid if the transition does not make sense", func() {
-			strCard := &stripe.Card{
-				Fingerprint: "H0SJieNrXmTdq3qs",
-				LastFour:    "1901",
-				Brand:       "AMEX",
-				Month:       8,
-				Year:        2019,
-			}
-			for _, s := range []string{billingprofile.StateExempt,
-				billingprofile.StateDelinquent, billingprofile.StatePaymentDue} {
-				bp.State = s
-				Expect(bp.SetCard(db, strCard)).To(BeNil())
-				Expect(bp.State).To(Equal(s))
-			}
 		})
 	})
 
@@ -500,6 +440,47 @@ var _ = Describe("models/billingprofile", func() {
 			Expect(b1.StripeFingerprint.String).To(Equal("xcv22sx3"))
 			Expect(b1.State).To(Equal(billingprofile.StatePaid))
 			Expect(b1.PendingActivation).To(BeFalse())
+		})
+
+		It("returns ErrCardBanned when the card belongs to a banned user", func() {
+			u2 := &user.User{
+				Username: "bad",
+				Name:     "quxboy",
+				Password: "123456",
+				Email:    "bad@example.com",
+			}
+			err := test.WrapInTransaction(db, u2.Insert)
+			Expect(err).To(BeNil())
+
+			_, err = db.Exec(`UPDATE users SET deleted_at = now(), banned_at = now(), banned_by_id = $1 WHERE id = $2;`, u.ID, u2.ID)
+			Expect(err).To(BeNil())
+
+			_, err = db.Exec(`UPDATE billing_profiles SET stripe_fingerprint = 'xcv22sx3' WHERE user_id = $1;`, u2.ID)
+			Expect(err).To(BeNil())
+
+			cus := &stripe.Customer{
+				ID: "cus_12xx35z",
+				Cards: &stripe.CardList{
+					Values: []*stripe.Card{
+						&stripe.Card{
+							LastFour:    "1901",
+							Brand:       "AMEX",
+							Month:       8,
+							Year:        2019,
+							Fingerprint: "xcv22sx3",
+						},
+					},
+				},
+			}
+
+			_, err = db.Exec(`UPDATE billing_profiles SET state = 'no_card', pending_activation = TRUE, last_four = '2344' WHERE user_id = $1;`, u.ID)
+			Expect(err).To(BeNil())
+
+			b, err := billingprofile.Find(db, u.ID)
+			Expect(err).To(BeNil())
+
+			err = b.Activate(db, cus)
+			Expect(err).To(Equal(billingprofile.ErrCardBanned))
 		})
 	})
 

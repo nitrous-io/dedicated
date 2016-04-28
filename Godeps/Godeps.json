@@ -5,24 +5,10 @@
 		"./..."
 	],
 	"Deps": [
-    {
-      "ImportPath": "github.com/mrjones/oauth",
-       "Rev": "fdd43ab9ffd4adbedbecf59a0ec6a7e0d3ef3970"
-		},
 		{
-			"ImportPath": "golang.org/x/text/encoding/japanese",
-			"Comment": "null-116",
-			"Rev": "5b2527008a4c8988ca9dc6f010ebfb9dae67150b"
-		},
-		{
-			"ImportPath": "golang.org/x/text/transform",
-			"Comment": "null-116",
-			"Rev": "5b2527008a4c8988ca9dc6f010ebfb9dae67150b"
-		},
-		{
-			"ImportPath": "golang.org/x/oauth2",
-			"Comment": "weekly-56",
-			"Rev": "afe77d958c701557ec5dc56f6936fcc194d15520"
+			"ImportPath": "github.com/BurntSushi/toml",
+			"Comment": "v0.2.0-1-gf42bdee",
+			"Rev": "f42bdee2ab503fed466739d8e8c55ae34fd9be45"
 		},
 		{
 			"ImportPath": "github.com/Sirupsen/logrus",
@@ -36,11 +22,6 @@
 		{
 			"ImportPath": "github.com/c9s/goprocinfo/linux",
 			"Rev": "4aacc5a471d5027aeebf371f0acf7b38f276a77d"
-		},
-		{
-			"ImportPath": "github.com/digitalocean/godo",
-			"Comment": "v0.5.0-7-g6ae442f",
-			"Rev": "6ae442f8d5dae46921484681156699b1ba8ecf0c"
 		},
 		{
 			"ImportPath": "github.com/docker/distribution",
@@ -77,6 +58,11 @@
 		{
 			"ImportPath": "github.com/facebookgo/stats",
 			"Rev": "a8126df93b2406675168d2930b6d3db46ffb805c"
+		},
+		{
+			"ImportPath": "github.com/fiorix/freegeoip",
+			"Comment": "v3.1.3-5-g58aba23",
+			"Rev": "58aba23e8e8960c74ef0a459987da1a397f127d2"
 		},
 		{
 			"ImportPath": "github.com/fsouza/go-dockerclient",
@@ -117,6 +103,16 @@
 			"Rev": "a6f041ac33b84488bb44137d6866cd3c8706d792"
 		},
 		{
+			"ImportPath": "github.com/howeyc/fsnotify",
+			"Comment": "v0.9.0-16-gf0c08ee",
+			"Rev": "f0c08ee9c60704c1879025f2ae0ff3e000082c13"
+		},
+		{
+			"ImportPath": "github.com/jessevdk/go-flags",
+			"Comment": "v1-334-g6b9493b",
+			"Rev": "6b9493b3cb60367edd942144879646604089e3f7"
+		},
+		{
 			"ImportPath": "github.com/jinzhu/now",
 			"Rev": "caef738a54cb159a5fe083e01609bc6873a84501"
 		},
@@ -151,9 +147,29 @@
 			"Rev": "72f92d689673c197c1dd25d6067ee274510e120e"
 		},
 		{
+			"ImportPath": "github.com/monochromegane/conflag",
+			"Rev": "6d68c9aa4183844ddc1655481798fe4d90d483e9"
+		},
+		{
+			"ImportPath": "github.com/monochromegane/go-gitignore",
+			"Rev": "38717d0a108ca0e5af632cd6845ca77d45b50729"
+		},
+		{
+			"ImportPath": "github.com/monochromegane/go-home",
+			"Rev": "25d9dda593924a11ea52e4ffbc8abdb0dbe96401"
+		},
+		{
+			"ImportPath": "github.com/monochromegane/terminal",
+			"Rev": "2da212063ce19aed90ee5bbb00ad1ad7393d7f48"
+		},
+		{
 			"ImportPath": "github.com/monochromegane/the_platinum_searcher",
-			"Comment": "v1.7.5",
-			"Rev": "2d6d6b795e0d98b45e8a7fe967c85684ba0c5ceb"
+			"Comment": "v1.7.9",
+			"Rev": "f1a85132465f22ac5975aa1429de3ac8be9770c9"
+		},
+		{
+			"ImportPath": "github.com/mrjones/oauth",
+			"Rev": "fdd43ab9ffd4adbedbecf59a0ec6a7e0d3ef3970"
 		},
 		{
 			"ImportPath": "github.com/nitrous-io/nitrous-common/cipher",
@@ -206,6 +222,11 @@
 			"Rev": "a0ee4df1f2d58a75dd9d74e755615706d68e9ce9"
 		},
 		{
+			"ImportPath": "github.com/oschwald/maxminddb-golang",
+			"Comment": "v0.2.0-43-gbfd1341",
+			"Rev": "bfd134128faa57c37ef41fff5fb1a9ca94450a9b"
+		},
+		{
 			"ImportPath": "github.com/rcrowley/go-metrics",
 			"Rev": "a5cfc242a56ba7fa70b785f678d6214837bf93b9"
 		},
@@ -237,10 +258,6 @@
 			"Rev": "67c04d1c96c503a11ebce2de1ad3b8c56100ba5a"
 		},
 		{
-			"ImportPath": "github.com/tent/http-link-go",
-			"Rev": "ac974c61c2f990f4115b119354b5e0b47550e888"
-		},
-		{
 			"ImportPath": "github.com/vaughan0/go-ini",
 			"Rev": "a98ad7ee00ec53921f08832bc06ecf7fd600e6a1"
 		},
@@ -265,12 +282,25 @@
 			"Rev": "188fb45fbef6ffd967b3a8abcfe176fd473361df"
 		},
 		{
+			"ImportPath": "golang.org/x/sys/unix",
+			"Rev": "f64b50fbea64174967a8882830d621a18ee1548e"
+		},
+		{
+			"ImportPath": "golang.org/x/sys/windows",
+			"Rev": "f64b50fbea64174967a8882830d621a18ee1548e"
+		},
+		{
 			"ImportPath": "golang.org/x/text/encoding",
 			"Rev": "ef0bf1da95d2b971524f971801f2a4c2d0b4841f"
 		},
 		{
-			"ImportPath": "golang.org/x/text/transform",
+			"ImportPath": "golang.org/x/text/encoding/japanese",
 			"Rev": "ef0bf1da95d2b971524f971801f2a4c2d0b4841f"
+		},
+		{
+			"ImportPath": "golang.org/x/text/transform",
+			"Comment": "null-116",
+			"Rev": "5b2527008a4c8988ca9dc6f010ebfb9dae67150b"
 		},
 		{
 			"ImportPath": "gopkg.in/bufio.v1",
@@ -280,6 +310,10 @@
 		{
 			"ImportPath": "gopkg.in/redis.v2",
 			"Rev": "e6179049628164864e6e84e973cfb56335748dea"
+		},
+		{
+			"ImportPath": "gopkg.in/yaml.v2",
+			"Rev": "a83829b6f1293c91addabc89d0571c246397bbf4"
 		}
 	]
 }

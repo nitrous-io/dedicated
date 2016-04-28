@@ -6,12 +6,14 @@ type Option struct {
 	ForceColor        bool     // Force color.  Not user option.
 	EnableColor       bool     // Enable color. Not user option.
 	NoGroup           bool     `long:"nogroup" description:"Don't print file name at header (Disabled by default)"`
+	Column            bool     `long:"column" description:"Print column (Disabled by default)"`
 	FilesWithMatches  bool     `short:"l" long:"files-with-matches" description:"Only print filenames that contain matches"`
 	VcsIgnore         []string `long:"vcs-ignore" description:"VCS ignore files" default:".gitignore" default:".hgignore" default:".ptignore"`
 	NoPtIgnore        bool     `long:"noptignore" description:"Don't use default ($Home/.ptignore) file for ignore patterns"`
 	NoGlobalGitIgnore bool     `long:"noglobal-gitignore" description:"Don't use git's global gitignore file for ignore patterns"`
-	SkipVcsIgnore     func()   `short:"U" long:"skip-vsc-ignores" description:"Don't use VCS ignore file for ignore patterns. Still obey .ptignore"`
+	SkipVcsIgnore     func()   `short:"U" long:"skip-vcs-ignores" description:"Don't use VCS ignore file for ignore patterns. Still obey .ptignore"`
 	skipVcsIgnore     bool     // Skip VCS ignore file. Not user option.
+	Hidden            bool     `short:"H" long:"hidden" description:"Search hidden files and directories"`
 	Ignore            []string `long:"ignore" description:"Ignore files/directories matching pattern"`
 	IgnoreCase        bool     `short:"i" long:"ignore-case" description:"Match case insensitively"`
 	SmartCase         bool     `short:"S" long:"smart-case" description:"Match case insensitively unless PATTERN contains uppercase characters"`
@@ -24,10 +26,12 @@ type Option struct {
 	Context           int      `short:"C" long:"context" description:"Print lines before and after match"`
 	OutputEncode      string   `short:"o" long:"output-encode" description:"Specify output encoding (none, jis, sjis, euc)"`
 	SearchStream      bool     // Input from pipe. Not user option.
-	Regexp            bool     `short:"e" description:"Parse PATTERN as a regular expression (Disabled by default)"`
+	Regexp            bool     `short:"e" description:"Parse PATTERN as a regular expression (Disabled by default). Accepted syntax is the same as https://github.com/google/re2/wiki/Syntax except from \\C"`
 	WordRegexp        bool     `short:"w" long:"word-regexp" description:"Only match whole words"`
 	Proc              int      // Number of goroutine. Not user option.
+	Count             bool     `short:"c" long:"count" description:"Only print the number of matches in each file."`
 	Stats             bool     `long:"stats" description:"Print stats about files scanned, time taken, etc"`
+	Parallel          bool     `long:"parallel" description:"Use as many concurrent finders as possible, this will lead the result disorder"`
 	Version           bool     `long:"version" description:"Show version"`
 }
 

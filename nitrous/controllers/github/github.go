@@ -81,7 +81,6 @@ var (
 type OAuthState struct {
 	UserID    int64     `json:"user_id"`
 	Token     string    `json:"token,omitempty"`
-	Beta      bool      `json:"beta"`
 	Bonus     bool      `json:"bonus"`
 	Purpose   string    `json:"purpose,omitempty"`
 	CreatedAt time.Time `json:"created_at"`
@@ -222,13 +221,12 @@ func authorize(env *middleware.Env, w http.ResponseWriter, r *http.Request) erro
 		return errAuthorizeForbidden
 	}
 
-	beta := r.FormValue("beta") == "true"
 	earnBonusRequest := r.FormValue("bonus") == "true"
-
 	connected, err := userprofile.ConnectedToGithub(env.DB, env.User.ID)
 	if err != nil {
 		return err
 	}
+
 	if connected {
 		if !earnBonusRequest {
 			return errAlreadyConnectedGithub
@@ -265,7 +263,7 @@ func authorize(env *middleware.Env, w http.ResponseWriter, r *http.Request) erro
 		return nil
 	}
 
-	state, err := setOrReuseState(w, r, env.User.ID, OAuthStatePurposeConnect, beta, earnBonusRequest)
+	state, err := setOrReuseState(w, r, env.User.ID, OAuthStatePurposeConnect, earnBonusRequest)
 	if err != nil {
 		return err
 	}
@@ -281,9 +279,7 @@ func authorize(env *middleware.Env, w http.ResponseWriter, r *http.Request) erro
 // /api/v0/github/authorize_to_login
 // AuthorizeToLogin returns GitHub authorization url that front-end needs to redirect to for login with GitHub.
 func AuthorizeToLogin(env *middleware.Env, w http.ResponseWriter, r *http.Request) error {
-	beta := r.FormValue("beta") == "true"
-
-	state, err := setState(w, r, OAuthStatePurposeLogin, beta)
+	state, err := setState(w, r, OAuthStatePurposeLogin)
 	if err != nil {
 		return err
 	}
@@ -299,9 +295,7 @@ func AuthorizeToLogin(env *middleware.Env, w http.ResponseWriter, r *http.Reques
 // /api/v0/github/authorize_to_signup
 // AuthorizeToSignUp returns GitHub authorization url that front-end needs to redirect to for sign up with GitHub.
 func AuthorizeToSignUp(env *middleware.Env, w http.ResponseWriter, r *http.Request) error {
-	beta := r.FormValue("beta") == "true"
-
-	state, err := setState(w, r, OAuthStatePurposeSignUp, beta)
+	state, err := setState(w, r, OAuthStatePurposeSignUp)
 	if err != nil {
 		return err
 	}
@@ -360,25 +354,22 @@ func OAuthCallback(env *middleware.Env, w http.ResponseWriter, r *http.Request) 
 
 	code := r.FormValue("code")
 	if code == "" {
-		redirectError(w, r, "failed to connect with GitHub", state.Beta)
+		redirectError(w, r, "failed to connect with GitHub")
 		return mh.Error(errInvalidOauthCode, errLabel)
 	}
 
 	gitHubUserName, tokenJSON, gitHubUserEmail, err := FetchGitHubUser(code)
 	if err != nil {
 		logrus.Errorf("failed to fetch GitHub user: '%s'", err)
-		redirectError(w, r, "failed to connect with GitHub", state.Beta)
+		redirectError(w, r, "failed to connect with GitHub")
 		return mh.Error(err, errLabel)
 	}
 
 	switch state.Purpose {
 	case OAuthStatePurposeLogin, OAuthStatePurposeSignUp:
-		loginPath := "/legacy/#/login"
-		signupPath := "/legacy/#/signup"
-		if state.Beta {
-			loginPath = envvars.BetaLoginLocation
-			signupPath = envvars.BetaSignupLocation
-		}
+		loginPath := "/app/#/login"
+		signupPath := "/app/#/signup"
+
 		// If `Purpose` is `login` or `signup`, we proceed based on whether the user exists or not
 		// If the user exists, it proceeds to login otherwise redirects to signup page
 		redirectUrlForError := ""
@@ -433,7 +424,7 @@ func OAuthCallback(env *middleware.Env, w http.ResponseWriter, r *http.Request) 
 		}
 	default:
 		if err := connectToGitHub(env, state, gitHubUserName, tokenJSON); err != nil {
-			redirectError(w, r, "failed to connect with GitHub", state.Beta)
+			redirectError(w, r, "failed to connect with GitHub")
 			return mh.Error(err, errLabel)
 		}
 
@@ -464,13 +455,9 @@ func OAuthCallback(env *middleware.Env, w http.ResponseWriter, r *http.Request) 
 			}
 		}
 
-		redirect := "/legacy/#/account"
-		if state.Beta {
-			if state.Bonus {
-				redirect = fmt.Sprintf("%s?connected_github=true", envvars.BetaEarnBonusLocation)
-			} else {
-				redirect = envvars.BetaDashboardLocation
-			}
+		redirect := "/app/#/dashboard"
+		if state.Bonus {
+			redirect = "/app/#/earn-bonuses?connected_github=true"
 		}
 
 		http.Redirect(w, r, redirect, http.StatusFound)
@@ -574,12 +561,11 @@ func storeGitHubInfoInRedis(state *OAuthState, gitHubUserName string, tokenJSON 
 	return nil
 }
 
-func makeOAuthState(userID int64, token string, purpose string, beta, bonus bool) (string, error) {
+func makeOAuthState(userID int64, token string, purpose string, bonus bool) (string, error) {
 	createdAt := time.Now().UTC()
 	return verifier.Generate(&OAuthState{
 		UserID:    userID,
 		Token:     token,
-		Beta:      beta,
 		Bonus:     bonus,
 		Purpose:   purpose,
 		CreatedAt: createdAt,
@@ -621,9 +607,9 @@ func readOAuthState(signedState string) (*OAuthState, error) {
 	return state, nil
 }
 
-func setState(w http.ResponseWriter, r *http.Request, purpose string, beta bool) (string, error) {
+func setState(w http.ResponseWriter, r *http.Request, purpose string) (string, error) {
 	tempKey := uuid.Make()
-	state, err := makeOAuthState(0, tempKey, purpose, beta, false)
+	state, err := makeOAuthState(0, tempKey, purpose, false)
 	if err != nil {
 		return "", err
 	}
@@ -648,7 +634,7 @@ func setState(w http.ResponseWriter, r *http.Request, purpose string, beta bool)
 
 // Reuse existing cookie state if it has been set previously by the
 // same API call. Otherwise generate new signed state.
-func setOrReuseState(w http.ResponseWriter, r *http.Request, userID int64, purpose string, beta, bonus bool) (string, error) {
+func setOrReuseState(w http.ResponseWriter, r *http.Request, userID int64, purpose string, bonus bool) (string, error) {
 	// Check if existing github_state cookie is set.
 	cookie, err := r.Cookie("github_state")
 	if err == nil {
@@ -661,7 +647,7 @@ func setOrReuseState(w http.ResponseWriter, r *http.Request, userID int64, purpo
 	}
 
 	// Otherwise generate new state
-	state, err := makeOAuthState(userID, "", purpose, beta, bonus)
+	state, err := makeOAuthState(userID, "", purpose, bonus)
 	if err != nil {
 		return "", err
 	}
@@ -675,13 +661,9 @@ func setOrReuseState(w http.ResponseWriter, r *http.Request, userID int64, purpo
 	return state, nil
 }
 
-func redirectError(w http.ResponseWriter, r *http.Request, errMsg string, beta bool) {
+func redirectError(w http.ResponseWriter, r *http.Request, errMsg string) {
 	// note: don't url.QueryEscape() errMsg, Redirect will do it
-	path := "app"
-	if !beta {
-		path = "legacy"
-	}
-	uri := fmt.Sprintf("/%s/#/account?errmsg=%s", path, errMsg)
+	uri := fmt.Sprintf("/app/#/account?errmsg=%s", errMsg)
 	http.Redirect(w, r, uri, http.StatusFound)
 }
 
