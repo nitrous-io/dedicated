@@ -5,6 +5,7 @@ import (
 	"regexp"
 	"strconv"
 
+	"github.com/gorilla/mux"
 	"github.com/lib/pq"
 	"github.com/nitrous-io/dedicated/nitrous/controllers/containers"
 	"github.com/nitrous-io/dedicated/nitrous/middleware"
@@ -18,6 +19,7 @@ import (
 var (
 	Index  middleware.Middleware = containers.WithContainerAndHost(index, containers.TouchHost)
 	Create middleware.Middleware = containers.WithContainerAndHost(create, containers.TouchHost)
+	Delete middleware.Middleware = containers.WithContainerAndHost(delete, containers.TouchHost)
 
 	errInvalidDomain        = httperror.New(http.StatusBadRequest, "invalid_request", "Invalid domain")
 	errInvalidPort          = httperror.New(http.StatusBadRequest, "invalid_request", "Invalid port -- Please specify port 80, 443 or between 1024 to 9999")
@@ -83,5 +85,23 @@ func create(cn *container.Container, h *host.Host, env *middleware.Env, w http.R
 		"status": "created",
 	}
 
+	return nil
+}
+
+func delete(cn *container.Container, h *host.Host, env *middleware.Env, w http.ResponseWriter, r *http.Request) error {
+	customDomainID, err := strconv.ParseInt(mux.Vars(r)["cdid"], 10, 64)
+	if err != nil {
+		return errInvalidPort
+	}
+
+	err = customdomain.Destroy(env.DB, cn.ID, customDomainID)
+	if err != nil {
+		return err
+	}
+
+	env.Status = http.StatusOK
+	env.Data = map[string]interface{}{
+		"status": "ok",
+	}
 	return nil
 }

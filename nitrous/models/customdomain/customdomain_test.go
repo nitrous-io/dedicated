@@ -86,4 +86,35 @@ var _ = Describe("models/customdomain", func() {
 			Expect(cd.Insert(db)).NotTo(BeNil())
 		})
 	})
+
+	Describe("Destroy()", func() {
+		It("deletes custom domains", func() {
+			cd1 := &customdomain.CustomDomain{
+				ContainerID:   c.ID,
+				Domain:        "www.gomama.com",
+				Port:          80,
+				ContainerPort: 4000,
+			}
+			Expect(cd1.Insert(db)).To(BeNil())
+
+			cd2 := &customdomain.CustomDomain{
+				ContainerID:   c.ID,
+				Domain:        "www.gobaba.com",
+				Port:          80,
+				ContainerPort: 5000,
+			}
+			Expect(cd2.Insert(db)).To(BeNil())
+
+			customDomains, err := customdomain.FindAll(db, c.ID)
+			Expect(err).To(BeNil())
+			Expect(customDomains).To(HaveLen(2))
+
+			err = customdomain.Destroy(db, c.ID, customDomains[0].ID)
+			Expect(err).To(BeNil())
+
+			customDomains, err = customdomain.FindAll(db, c.ID)
+			Expect(err).To(BeNil())
+			Expect(customDomains).To(HaveLen(1))
+		})
+	})
 })

@@ -250,4 +250,35 @@ var _ = Describe("controllers/customdomains", func() {
 			Expect(res.Code).To(Equal(http.StatusBadRequest))
 		})
 	})
+
+	Describe("DELETE /containers/{slug}/custom_domains/{id}", func() {
+		doRequest := func(id int64) *httptest.ResponseRecorder {
+			req, err := test.NewAuthedFormRequest(t, "DELETE", fmt.Sprintf("/api/v0/containers/%s/custom_domains/%d", cnr.Slug, id), nil)
+			Expect(err).To(BeNil())
+			res := httptest.NewRecorder()
+			svr.Router().ServeHTTP(res, req)
+			return res
+		}
+
+		It("deletes a custom domain for the container", func() {
+			cd := &customdomain.CustomDomain{
+				ContainerID:   cnr.ID,
+				Domain:        "www.gomama.com",
+				Port:          80,
+				ContainerPort: 4000,
+			}
+			err := cd.Insert(db)
+			Expect(err).To(BeNil())
+
+			customDomains, err := customdomain.FindAll(db, cnr.ID)
+			Expect(err).To(BeNil())
+			Expect(len(customDomains)).To(Equal(1))
+
+			doRequest(customDomains[0].ID)
+
+			customDomains, err = customdomain.FindAll(db, cnr.ID)
+			Expect(err).To(BeNil())
+			Expect(len(customDomains)).To(Equal(0))
+		})
+	})
 })

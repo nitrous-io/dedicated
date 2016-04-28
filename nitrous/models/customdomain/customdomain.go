@@ -39,3 +39,8 @@ func (cd *CustomDomain) Insert(d db.QueryReceiver) error {
 	}
 	return s.QueryRowx(cd).StructScan(cd)
 }
+
+func Destroy(db *db.Database, containerID, id int64) error {
+	_, err := db.Exec(`DELETE FROM custom_domains WHERE id = $1 AND container_id = $2;`, id, containerID)
+	return err
+}
