@@ -63,39 +63,20 @@ App.IdeMainMenuView = Em.View.extend
   userBinding: Em.Binding.oneWay 'App.user'
 
   previewItems: (->
-    items = []
-    App.get('container.previewablePorts').map (port)->
-      txt = "Port #{port.containerPort}"
-      if port.preview
-        txt = "#{txt} (Default)"
-      item = menuItem txt,
-        url: "http://#{App.get 'container.preview_hostname'}:#{port.containerPort}"
+    [
+      menuItem "Port 3000 -- HTTP",
+        url: "http://#{App.get 'container.preview_hostname'}"
         target: '_blank'
         track: Mp.EventIDEUserClickedPreviewLink
-
-      if port.preview
-        items.unshift(item)
-      else
-        items.push(item)
-
-    if items.length == 0
-      items.push(
-        menuItem 'No ports available',
-          disabled: true
-      )
-
-    items.push(
-      separator,
-      menuItem 'Configure Ports',
-        url: "#{@get('dashboardURL')}/ports"
-        target: "_blank",
-        track: Mp.EventIDEUserClickedConfigurePorts
+      menuItem "Port 3000 -- HTTPS",
+        url: "https://#{App.get 'container.preview_hostname'}"
+        target: '_blank'
+        track: Mp.EventIDEUserClickedPreviewLink
       separator,
       menuItem 'Preview Help',
-        url: 'http://docs.nitrous.io/v1.0/docs/preview'
+        url: 'https://community.nitrous.io/docs/preview-your-app'
         target: '_blank'
-    )
-    items
+    ]
   ).property 'App.container', 'App.container.previewablePorts.@each'
 
   nitrousScriptsItems: (->
