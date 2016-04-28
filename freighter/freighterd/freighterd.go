@@ -14,6 +14,7 @@ import (
 
 	"github.com/Sirupsen/logrus"
 	"github.com/nitrous-io/dedicated/freighter"
+	"github.com/nitrous-io/dedicated/freighter/pkg/stats"
 	"github.com/nitrous-io/dedicated/freighter/provider/docker"
 	"github.com/nitrous-io/dedicated/freighter/server"
 	"github.com/nitrous-io/dedicated/pkg/reexec"
@@ -21,6 +22,8 @@ import (
 	// load required init for reexec commands
 	_ "github.com/nitrous-io/dedicated/freighter/cops"
 )
+
+const StorageThreshold = 0.95
 
 var (
 	version     string
@@ -111,6 +114,14 @@ func main() {
 		}
 	}()
 
+	go func() {
+		// check disk usage every 5 minutes
+		ticker := time.NewTicker(300 * time.Second)
+		for _ = range ticker.C {
+			notifyIfDiskAlmostFull(svr)
+		}
+	}()
+
 	for {
 		s := <-ch
 		logrus.Infof("freighterd (rev: %v, pid: %v) signal received: %s", version, pid, s)
@@ -160,6 +171,27 @@ func pingIfActive(svr *server.Server, prov *docker.DockerProvider, threshold int
 		"source": "freighter",
 	}); err != nil {
 		logrus.Errorf("pingIfActive: failed to notify nitrousd: %v", err)
+	}
+	return
+}
+
+func notifyIfDiskAlmostFull(svr *server.Server) {
+	// Since we don't need cpu usage, make the period short.
+	stats, err := stats.Sample(10 * time.Millisecond)
+	if err != nil {
+		logrus.Errorf("notifyIfDiskAlmostFull: failed to fetch stats: %v", err)
+		return
+	}
+
+	if ((float64(stats.InodeUsage) / float64(stats.InodeTotal)) > StorageThreshold) ||
+		(float64(stats.StorageUsage)/float64(stats.StorageTotal)) > StorageThreshold {
+		logrus.Infof("disk is almost full: storage: %d/%d inodes: %d/%d", stats.StorageUsage, stats.StorageTotal, stats.InodeUsage, stats.InodeTotal)
+		if err := svr.NotifyWebhook(map[string]interface{}{
+			"event":  "disk_almost_full",
+			"source": "freighter",
+		}); err != nil {
+			logrus.Errorf("notifyIfDiskAlmostFull: failed to notify nitrousd: %v", err)
+		}
 	}
 	return
 }
