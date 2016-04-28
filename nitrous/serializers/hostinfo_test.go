@@ -17,6 +17,8 @@ var _ = Describe("host info serializer", func() {
 			MemoryTotal:  1024000,
 			StorageUsage: 1000000,
 			StorageTotal: 10000000,
+			InodeUsage:   1000000,
+			InodeTotal:   10000000,
 			NumCPU:       2,
 			PerCPUUsage:  []float64{1.5, 80.0},
 		}
@@ -31,6 +33,8 @@ var _ = Describe("host info serializer", func() {
 				"memory_total": 1024000,
 				"storage_usage": 1000000,
 				"storage_total": 10000000,
+				"inode_usage": 1000000,
+				"inode_total": 10000000,
 				"num_cpu": 2,
 				"per_cpu_usage": [1.5, 80.0]
 			}`))

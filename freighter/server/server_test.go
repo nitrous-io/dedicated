@@ -1333,6 +1333,8 @@ var _ = Describe("server", func() {
 				MemoryTotal:  17179869184,
 				StorageUsage: 2000000000,
 				StorageTotal: 1000000000000,
+				InodeUsage:   1769747,
+				InodeTotal:   7864320,
 				NumCPU:       2,
 				PerCPUUsage:  []float64{0.5, 30},
 			}, nil
@@ -1355,6 +1357,8 @@ var _ = Describe("server", func() {
 				"memory_total": 17179869184,
 				"storage_usage": 2000000000,
 				"storage_total": 1000000000000,
+				"inode_usage": 1769747,
+				"inode_total": 7864320,
 				"num_cpu": 2,
 				"per_cpu_usage": [0.5, 30]
 			}}`))

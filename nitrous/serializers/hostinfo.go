@@ -8,6 +8,8 @@ type HostInfo struct {
 	MemoryTotal  uint64    `json:"memory_total"`
 	StorageUsage uint64    `json:"storage_usage"`
 	StorageTotal uint64    `json:"storage_total"`
+	InodeUsage   uint64    `json:"inode_usage"`
+	InodeTotal   uint64    `json:"inode_total"`
 	NumCPU       int       `json:"num_cpu"`
 	PerCPUUsage  []float64 `json:"per_cpu_usage"`
 }
@@ -22,6 +24,8 @@ func SerializeHostInfo(info *freighterclient.HostInfo) *HostInfo {
 		MemoryTotal:  info.MemoryTotal,
 		StorageUsage: info.StorageUsage,
 		StorageTotal: info.StorageTotal,
+		InodeUsage:   info.InodeUsage,
+		InodeTotal:   info.InodeTotal,
 		NumCPU:       info.NumCPU,
 		PerCPUUsage:  info.PerCPUUsage,
 	}
