@@ -729,6 +729,8 @@ var _ = Describe("controllers/hosts", func() {
 				MemoryTotal:  17179869184,
 				StorageUsage: 2000000000,
 				StorageTotal: 1000000000000,
+				InodeUsage:   1755324,
+				InodeTotal:   7864320,
 				NumCPU:       2,
 				PerCPUUsage:  []float64{0.5, 30},
 			}
@@ -779,6 +781,8 @@ var _ = Describe("controllers/hosts", func() {
 			Expect(j.Stats.MemoryTotal).To(Equal(uint64(17179869184)))
 			Expect(j.Stats.StorageUsage).To(Equal(uint64(2000000000)))
 			Expect(j.Stats.StorageTotal).To(Equal(uint64(1000000000000)))
+			Expect(j.Stats.InodeUsage).To(Equal(uint64(1755324)))
+			Expect(j.Stats.InodeTotal).To(Equal(uint64(7864320)))
 			Expect(j.Stats.NumCPU).To(Equal(2))
 			Expect(j.Stats.PerCPUUsage).To(Equal([]float64{0.5, 30}))
 		})
