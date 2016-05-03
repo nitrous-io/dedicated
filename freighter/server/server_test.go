@@ -72,21 +72,59 @@ var _ = Describe("server", func() {
 		res = httptest.NewRecorder()
 	})
 
-	It("forwards HTTP requests", func() {
-		ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-			w.Write([]byte("hello forwarder"))
-		}))
-		defer ts.Close()
+	Describe("Request with headers", func() {
+		BeforeEach(func() {
+			// Creates a temporary virtual network interface to serve request on ip 1.2.3.4
+			cmd := exec.Command("ifconfig", "eth0:0", "1.2.3.4")
+			err := cmd.Run()
+			Expect(err).To(BeNil())
+		})
 
-		_, port, err := net.SplitHostPort(ts.Listener.Addr().String())
-		Expect(err).To(BeNil(), "failed to get test server's port")
+		AfterEach(func() {
+			cmd := exec.Command("ifconfig", "eth0:0", "down")
+			err := cmd.Run()
+			Expect(err).To(BeNil())
+		})
 
-		req, err := http.NewRequest("GET", "/", nil)
-		req.Header.Set(freighter.ForwardPortHeader, port)
-		Expect(err).To(BeNil())
+		It("forwards HTTP requests with X-NITROUS-PROXY-CONTAINER-SLUG and X-NITROUS-PROXY-CONTAINER-PORT headers", func() {
+			prov.Containers = []*provider.ContainerInfo{
+				{
+					ID:      "aaa",
+					Name:    "foo",
+					Image:   "ubuntu",
+					ImageID: "abc123",
+					Host:    "1.2.3.4",
+					Gateway: "1.2.3.0",
+					State:   provider.ContainerStateRunning,
+					User:    "guest",
+					Volumes: map[string]string{},
+				},
+			}
 
-		handler.ServeHTTP(res, req)
-		Expect(res.Body.String()).To(Equal("hello forwarder"))
+			fooHandler := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+				w.Write([]byte("hello from foo container"))
+			})
+
+			l, err := net.Listen("tcp", "1.2.3.4:3333")
+			Expect(err).To(BeNil())
+			s := &http.Server{
+				Handler: fooHandler,
+			}
+			ts := &httptest.Server{
+				Config:   s,
+				Listener: l,
+			}
+			ts.Start()
+			defer ts.Close()
+
+			req, err := http.NewRequest("GET", "/", nil)
+			Expect(err).To(BeNil())
+			req.Header.Set(freighter.ContainerSlugHeader, "foo")
+			req.Header.Set(freighter.ContainerPortHeader, "3333")
+
+			handler.ServeHTTP(res, req)
+			Expect(res.Body.String()).To(Equal("hello from foo container"))
+		})
 	})
 
 	Describe("GET /", func() {
