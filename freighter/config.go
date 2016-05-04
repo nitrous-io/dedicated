@@ -1,10 +1,20 @@
 package freighter
 
 var (
-	// default header to read forwarded fort for preview. Tender should write
-	// the port to this header
+	// These headers are set in Atlas.
+	// TODO: Remove this header.
+	// TODO: Support current port configuration (i.e. via hostport:containerport mapping)
+	// as an advanced option and to allow non-HTTP traffic to be forwarded to containers.
+
+	// User don't have to configure port mapping anymore because we support
+	// port 1024 to 9999 for preview by default now.
+	// ForwardPortHeader is used for Websocket connection from browser to freighterd.
 	ForwardPortHeader = "X-FORWARDED-PORT"
-	Version           string
+	// ContainerSlugHeader and ContainerPortHeader are used for preview apps/sites.
+	ContainerSlugHeader = "X-NITROUS-PROXY-CONTAINER-SLUG"
+	ContainerPortHeader = "X-NITROUS-PROXY-CONTAINER-PORT"
+
+	Version string
 )
 
 // HostAddress is an address that the server will listen at. For example

@@ -24,6 +24,11 @@ type Stats struct {
 	// StorageTotal in bytes.
 	StorageTotal uint64 `json:"storage_total"`
 
+	// Number of Inodes
+	InodeUsage uint64 `json:"inode_usage"`
+	// Maximum number of Inodes
+	InodeTotal uint64 `json:"inode_total"`
+
 	NumCPU int `json:"num_cpu"`
 	// Percent usage per CPU.
 	PerCPUUsage []float64 `json:"per_cpu_usage"`
@@ -50,6 +55,9 @@ var Sample = func(period time.Duration) (*Stats, error) {
 	used := total - (statfs.Bfree * uint64(statfs.Bsize))
 	stats.StorageUsage = used
 	stats.StorageTotal = total
+
+	stats.InodeUsage = statfs.Files - statfs.Ffree
+	stats.InodeTotal = statfs.Files
 
 	errch := make(chan error)
 	usagech := make(chan []float64)

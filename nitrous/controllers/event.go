@@ -35,6 +35,7 @@ const (
 	EventHostRespeccing             EventName = "host.respeccing"
 	EventHostRespecced              EventName = "host.respecced"
 	EventHostRespecFailed           EventName = "host.respec_failed"
+	EventHostDiskAlmostFull         EventName = "host.disk_almost_full"
 	EventHostsRefreshed             EventName = "hosts.refreshed"
 	EventImageCreated               EventName = "image.created"
 	EventImageUpdated               EventName = "image.updated"

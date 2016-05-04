@@ -26,6 +26,8 @@ var _ = Describe("stats", func() {
 			Expect(stats.MemoryTotal).NotTo(BeZero())
 			Expect(stats.StorageUsage).NotTo(BeZero())
 			Expect(stats.StorageTotal).NotTo(BeZero())
+			Expect(stats.InodeUsage).NotTo(BeZero())
+			Expect(stats.InodeTotal).NotTo(BeZero())
 			Expect(stats.NumCPU).To(Equal(runtime.NumCPU()))
 			Expect(stats.PerCPUUsage).To(HaveLen(runtime.NumCPU()))
 		})

@@ -9,18 +9,20 @@ import (
 )
 
 func (s *Server) drawRoutes() {
-	// handle forwarding requests. This will only handle requests that has
-	// X-FORWARDED-PORT
+	// This will handle requests that has (X-FORWARDED-PORT) OR
+	// (X-NITROUS-PROXY-CONTAINER-SLUG AND X-NITROUS-PROXY-CONTAINER-PORT)
 	s.router.NewRoute().MatcherFunc(func(r *http.Request, rm *mux.RouteMatch) bool {
-		fp := r.Header.Get(freighter.ForwardPortHeader)
-		if fp == "" {
-			return false
+		containerSlug := r.Header.Get(freighter.ContainerSlugHeader)
+		containerPort := r.Header.Get(freighter.ContainerPortHeader)
+		if containerSlug != "" && containerPort != "" {
+			_, err := strconv.ParseInt(containerPort, 10, 64)
+			if err != nil {
+				return false
+			}
+			return true
 		}
-		_, err := strconv.ParseInt(fp, 10, 64)
-		if err != nil {
-			return false
-		}
-		return true
+
+		return false
 	}).HandlerFunc(s.wrapError(s.httpForward))
 
 	s.route("/", s.home, "GET")
