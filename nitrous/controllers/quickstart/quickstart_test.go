@@ -214,6 +214,30 @@ var _ = Describe("controllers/quickstart", func() {
 			Expect(bp.State).To(Equal(billingprofile.StateFree))
 		})
 
+		It("responds with repository information with empty slice port value if ports is not set", func() {
+			_, err := db.Exec(`UPDATE users
+				SET confirmation_sent_at = now()
+				WHERE id = $1;`, hs.U.ID)
+			Expect(err).To(BeNil())
+
+			quickstart.GithubRepoClient = &test.FakeRepoClient{
+				Content: `{
+					"template": "rails"
+				}`,
+			}
+
+			res := doRequest("https://github.com/yeouchien/hack.git")
+			var j struct {
+				Quickstart struct {
+					Ports []int64 `json:"ports"`
+				} `json:"quickstart"`
+			}
+			err = json.NewDecoder(res.Body).Decode(&j)
+			Expect(err).To(BeNil())
+
+			Expect(j.Quickstart.Ports).To(Equal([]int64{}))
+		})
+
 		It("returns invalid json error if nitrous.json is invalid", func() {
 			_, err := db.Exec(`UPDATE users
 				SET confirmation_sent_at = now()
@@ -223,7 +247,7 @@ var _ = Describe("controllers/quickstart", func() {
 			quickstart.GithubRepoClient = &test.FakeRepoClient{
 				Content: `{
 					"template": "rails",,
-					"ports": [8000, 9000, 10000],,,,,
+					"ports": [8000, 9000],,,,,
 				}`,
 			}
 
@@ -231,6 +255,25 @@ var _ = Describe("controllers/quickstart", func() {
 			errType, errDesc := test.ErrorSlug(res.Body)
 			Expect(errType).To(Equal("invalid_request"))
 			Expect(errDesc).To(Equal("Invalid nitrous.json"))
+		})
+
+		It("returns error if port is invalid", func() {
+			_, err := db.Exec(`UPDATE users
+				SET confirmation_sent_at = now()
+				WHERE id = $1;`, hs.U.ID)
+			Expect(err).To(BeNil())
+
+			quickstart.GithubRepoClient = &test.FakeRepoClient{
+				Content: `{
+					"template": "rails",
+					"ports": [1022, 10000]
+				}`,
+			}
+
+			res := doRequest("https://github.com/yeouchien/hack.git")
+			errType, errDesc := test.ErrorSlug(res.Body)
+			Expect(errType).To(Equal("invalid_request"))
+			Expect(errDesc).To(Equal("Invalid port in nitrous.json -- Port should be between 1024 - 9999"))
 		})
 
 		It("returns error if template slug does not exist", func() {
@@ -242,14 +285,14 @@ var _ = Describe("controllers/quickstart", func() {
 			quickstart.GithubRepoClient = &test.FakeRepoClient{
 				Content: `{
 					"template": "ruby-on-rails",
-					"ports": [8000, 9000, 10000]
+					"ports": [8000, 9000]
 				}`,
 			}
 
 			res := doRequest("https://github.com/yeouchien/hack.git")
 			errType, errDesc := test.ErrorSlug(res.Body)
 			Expect(errType).To(Equal("invalid_request"))
-			Expect(errDesc).To(Equal("Invalid repository info"))
+			Expect(errDesc).To(Equal("Invalid template in nitrous.json"))
 		})
 	})
 })
