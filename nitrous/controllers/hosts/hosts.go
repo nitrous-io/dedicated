@@ -57,6 +57,7 @@ var (
 	errSubscriptionStillActive     = httperror.New(http.StatusBadRequest, "invalid_request", "cannot terminate a workstation with an active subscription")
 	errFreeUsageExceededForStart   = httperror.New(http.StatusForbidden, "forbidden", "you cannot start this workstation because you've exceeded your quota")
 	errFreeUsageExceededForRestart = httperror.New(http.StatusForbidden, "forbidden", "you cannot restart this workstation because you've exceeded your quota")
+	errDiskFull                    = httperror.New(http.StatusForbidden, "forbidden", "you cannot start your workstation because disk space is full. Please contact support")
 )
 
 var (
@@ -257,6 +258,7 @@ func Start(h *host.Host, env *middleware.Env, w http.ResponseWriter, r *http.Req
 
 	urlArgs := host.URLArgsFromHost(h)
 	info, err := HostbuilderClient.Start(h.Provider, h.MachineConfig(), hostbuilderHeaders(env), urlArgs)
+
 	if err != nil {
 		if e, ok := err.(net.Error); ok && e.Timeout() {
 			logrus.Errorf("hostbuilder timeout starting host: %v", e)
@@ -266,6 +268,10 @@ func Start(h *host.Host, env *middleware.Env, w http.ResponseWriter, r *http.Req
 		// return original hostbuilderclient error.
 		if err := hostcontrol.UpdateAndRecordState(db, h, origState, u.ID); err != nil {
 			logrus.Errorf("hosts.Start: Unable to reset host state: %v", err)
+		}
+
+		if strings.Contains(err.Error(), "no disk space left") {
+			return errDiskFull
 		}
 
 		PublishHostEvent(env, controllers.EventHostUpdated, h)
@@ -364,6 +370,10 @@ func Restart(h *host.Host, env *middleware.Env, w http.ResponseWriter, r *http.R
 		// return original hostbuilderclient error.
 		if err := hostcontrol.UpdateAndRecordState(db, h, origState, u.ID); err != nil {
 			logrus.Errorf("hosts.Restart: Unable to restore host state: %v", err)
+		}
+
+		if strings.Contains(err.Error(), "no disk space left") {
+			return errDiskFull
 		}
 
 		PublishHostEvent(env, controllers.EventHostUpdated, h)

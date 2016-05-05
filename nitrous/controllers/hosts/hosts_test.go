@@ -1671,6 +1671,52 @@ var _ = Describe("controllers/hosts", func() {
 			})
 		})
 
+		Context("when hostbuilder fails to start the host due to disk space full", func() {
+			BeforeEach(func() {
+				hb := hostbuilderclient.NewHostbuilder("www.example.com")
+				replaceTransport(hb, &test.FakeRoundTripper{
+					Message: diskFullErrorResponse,
+					Status:  http.StatusBadRequest,
+				})
+				hosts.HostbuilderClient = hb
+			})
+
+			It("responds with HTTP 403 Forbidden", func() {
+				doRequest(hs.H.Slug)
+				Expect(res.Code).To(Equal(http.StatusForbidden))
+
+				errType, errDesc := test.ErrorSlug(res.Body)
+				Expect(errType).To(Equal("forbidden"))
+				Expect(errDesc).To(Equal("you cannot start your workstation because disk space is full. Please contact support"))
+			})
+
+			It("resets the host to its original state", func() {
+				doRequest(hs.H.Slug)
+
+				h, err := host.Find(db, hs.U, hs.H.Slug)
+				Expect(err).To(BeNil())
+				Expect(h.State).To(Equal(host.StateStopped))
+			})
+
+			It("logs transitions for the host", func() {
+				origState := hs.H.State
+				doRequest(hs.H.Slug)
+
+				var count int
+				err := db.QueryRowx(
+					"SELECT COUNT(*) FROM host_transitions WHERE host_id = $1 AND state = $2 AND previous_state = $3",
+					hs.H.ID, host.StateStarting, origState).Scan(&count)
+				Expect(err).To(BeNil())
+				Expect(count).To(Equal(1))
+
+				err = db.QueryRowx(
+					"SELECT COUNT(*) FROM host_transitions WHERE host_id = $1 AND state = $2 AND previous_state = $3",
+					hs.H.ID, origState, host.StateStarting).Scan(&count)
+				Expect(err).To(BeNil())
+				Expect(count).To(Equal(1))
+			})
+		})
+
 		Context("oauth token failure modes", func() {
 			BeforeEach(func() {
 				authTokenInputs.Path = "/api/v0/hosts/foo/start"
@@ -2279,6 +2325,51 @@ var _ = Describe("controllers/hosts", func() {
 
 			It("responds with HTTP 500 Internal Server Error", func() {
 				Expect(res.Code).To(Equal(http.StatusInternalServerError))
+			})
+
+			It("resets the host to its original state", func() {
+				h, err := host.Find(db, hs.U, hs.H.Slug)
+				Expect(err).To(BeNil())
+				Expect(h.State).To(Equal(host.StateRunning))
+			})
+
+			It("logs transitions back for the host", func() {
+				var count int
+				err := db.QueryRowx(
+					"SELECT COUNT(*) FROM host_transitions WHERE host_id = $1 AND state = $2 AND previous_state = $3",
+					hs.H.ID, host.StateRestarting, origState).Scan(&count)
+				Expect(err).To(BeNil())
+				Expect(count).To(Equal(1))
+
+				err = db.QueryRowx(
+					"SELECT COUNT(*) FROM host_transitions WHERE host_id = $1 AND state = $2 AND previous_state = $3",
+					hs.H.ID, origState, host.StateRestarting).Scan(&count)
+				Expect(err).To(BeNil())
+				Expect(count).To(Equal(1))
+			})
+		})
+
+		Context("when hostbuilder fails to restart the host due to disk space full", func() {
+			var origState string
+			BeforeEach(func() {
+				hb := hostbuilderclient.NewHostbuilder("www.example.com")
+				replaceTransport(hb, &test.FakeRoundTripper{
+					Message: diskFullErrorResponse,
+					Status:  http.StatusBadRequest,
+				})
+
+				hosts.HostbuilderClient = hb
+
+				origState = hs.H.State
+				doRequest(hs.H.Slug, t.Token, nil)
+			})
+
+			It("responds with HTTP 403 Forbidden", func() {
+				Expect(res.Code).To(Equal(http.StatusForbidden))
+
+				errType, errDesc := test.ErrorSlug(res.Body)
+				Expect(errType).To(Equal("forbidden"))
+				Expect(errDesc).To(Equal("you cannot start your workstation because disk space is full. Please contact support"))
 			})
 
 			It("resets the host to its original state", func() {
@@ -3104,9 +3195,10 @@ var _ = Describe("controllers/hosts", func() {
 })
 
 var (
-	stopOkResponse = `{"state": "stopped", "ip_address": ""}`
-	okResponse     = `{"freighterd_port":65333,"ip_address":"1.2.3.4","id":"i-abcde"}`
-	errorResponse  = `{"error":"some error occurred"}`
+	stopOkResponse        = `{"state": "stopped", "ip_address": ""}`
+	okResponse            = `{"freighterd_port":65333,"ip_address":"1.2.3.4","id":"i-abcde"}`
+	errorResponse         = `{"error":"some error occurred"}`
+	diskFullErrorResponse = `{"error":"no disk space left"}`
 )
 
 // replace the transport in hostbuilder client with a new fake transport
