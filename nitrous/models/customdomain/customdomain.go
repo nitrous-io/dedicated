@@ -1,0 +1,46 @@
+package customdomain
+
+import (
+	"time"
+
+	"github.com/nitrous-io/dedicated/nitrous/db"
+)
+
+type CustomDomain struct {
+	ID            int64      `db:"id"`
+	ContainerID   int64      `db:"container_id"`
+	Domain        string     `db:"domain"`
+	Port          int64      `db:"port"`
+	ContainerPort int64      `db:"container_port"`
+	CreatedAt     *time.Time `db:"created_at"`
+	UpdatedAt     *time.Time `db:"updated_at"`
+}
+
+func FindAll(db *db.Database, containerID int64) ([]*CustomDomain, error) {
+	customDomains := []*CustomDomain{}
+	err := db.Select(&customDomains,
+		"SELECT * FROM custom_domains WHERE container_id = $1 ORDER BY domain ASC, port ASC",
+		containerID)
+	if err != nil {
+		return nil, err
+	}
+	return customDomains, nil
+}
+
+func (cd *CustomDomain) Insert(d db.QueryReceiver) error {
+	s, err := d.PrepareNamed(`
+		INSERT INTO custom_domains
+		(container_id, domain, port, container_port)
+		VALUES (:container_id, :domain, :port, :container_port)
+		RETURNING *;
+	`)
+	if err != nil {
+		return err
+	}
+	return s.QueryRowx(cd).StructScan(cd)
+}
+
+func Destroy(db *db.Database, containerID, id int64) error {
+	_, err := db.Exec(`DELETE FROM custom_domains WHERE id = $1 AND container_id = $2;`, id, containerID)
+	return err
+}
