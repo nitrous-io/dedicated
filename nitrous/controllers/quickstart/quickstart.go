@@ -19,10 +19,12 @@ import (
 var (
 	GithubRepoClient repoclient.RepoClient
 
-	errRepoInfo            = httperror.New(http.StatusForbidden, "invalid_request", "Invalid repository info")
-	errInvalidNitrousJSON  = httperror.New(http.StatusForbidden, "invalid_request", "Invalid nitrous.json")
-	errInvalidUrl          = httperror.New(http.StatusForbidden, "invalid_request", "Invalid repository URL")
-	errFileContentNotFound = httperror.New(http.StatusForbidden, "invalid_request", "Failed to retrieve repository info")
+	errRepoInfo                   = httperror.New(http.StatusForbidden, "invalid_request", "Invalid repository info")
+	errInvalidNitrousJSON         = httperror.New(http.StatusForbidden, "invalid_request", "Invalid nitrous.json")
+	errInvalidTemplateNitrousJSON = httperror.New(http.StatusForbidden, "invalid_request", "Invalid template in nitrous.json")
+	errInvalidPortNitrousJSON     = httperror.New(http.StatusForbidden, "invalid_request", "Invalid port in nitrous.json -- Port should be between 1024 - 9999")
+	errInvalidUrl                 = httperror.New(http.StatusForbidden, "invalid_request", "Invalid repository URL")
+	errFileContentNotFound        = httperror.New(http.StatusForbidden, "invalid_request", "Failed to retrieve repository info")
 )
 
 type scripts map[string]string
@@ -144,6 +146,16 @@ func RepoInfo(env *mw.Env, w http.ResponseWriter, r *http.Request) error {
 }
 
 func validateRepoInfo(repoInfo *repository, env *mw.Env) error {
+	if repoInfo.Ports == nil {
+		repoInfo.Ports = make([]int64, 0)
+	} else {
+		for _, port := range repoInfo.Ports {
+			if port < 1024 || port > 9999 {
+				return errInvalidPortNitrousJSON
+			}
+		}
+	}
+
 	tmpls, err := template.All(env.DB)
 	if err != nil {
 		return err
@@ -154,8 +166,7 @@ func validateRepoInfo(repoInfo *repository, env *mw.Env) error {
 			return nil
 		}
 	}
-
-	return errRepoInfo
+	return errInvalidTemplateNitrousJSON
 }
 
 func confirmEmail(env *mw.Env) error {

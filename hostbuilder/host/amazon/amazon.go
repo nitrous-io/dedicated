@@ -59,6 +59,7 @@ var (
 	ErrCreateTimeout    = errors.New("timed out creating host")
 	ErrTimeout          = errors.New("operation timed out")
 	ErrInstanceNotFound = errors.New("instance not found")
+	ErrDiskFull         = errors.New("no disk space left")
 
 	KnownRegions = map[string]aws.Region{
 		// aws.APNortheast.Name:  aws.APNortheast,
@@ -719,6 +720,10 @@ func mountUserVolume(ctx *host.HostContext) error {
 	metadataCmd := fmt.Sprintf(`sudo mkdir -p %s/etc/metadata && echo -e %s | sudo tee %s/etc/metadata/metadata{,.%s}`,
 		userMountPoint, getMetadata(h), userMountPoint, ts)
 	if out, err := conn.CombinedOutput(metadataCmd); err != nil {
+		// If it fails due to disk space, it should return an error, so we can handle it properly.
+		if strings.Contains(string(out), "No space left on device") {
+			return ErrDiskFull
+		}
 		h.Printf("failed to write host information, err: %v, output: %s", err, out)
 	}
 
