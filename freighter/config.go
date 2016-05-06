@@ -10,6 +10,9 @@ var (
 	// port 1024 to 9999 for preview by default now.
 	// ForwardPortHeader is used for Websocket connection from browser to freighterd.
 	ForwardPortHeader = "X-FORWARDED-PORT"
+	// ContainerProtoHeader is used to set X-Forwarded-Proto
+	// so that preview is using the correct protocol.
+	ContainerProtoHeader = "X-NITROUS-PROXY-CONTAINER-PROTO"
 	// ContainerSlugHeader and ContainerPortHeader are used for preview apps/sites.
 	ContainerSlugHeader = "X-NITROUS-PROXY-CONTAINER-SLUG"
 	ContainerPortHeader = "X-NITROUS-PROXY-CONTAINER-PORT"
