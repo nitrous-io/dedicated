@@ -24,6 +24,7 @@ import (
 	"github.com/nitrous-io/dedicated/nitrous/models/cert"
 	"github.com/nitrous-io/dedicated/nitrous/models/container"
 	"github.com/nitrous-io/dedicated/nitrous/models/containercollab"
+	"github.com/nitrous-io/dedicated/nitrous/models/customdomain"
 	"github.com/nitrous-io/dedicated/nitrous/models/host"
 	"github.com/nitrous-io/dedicated/nitrous/models/image"
 	"github.com/nitrous-io/dedicated/nitrous/models/usercontainerdata"
@@ -652,6 +653,11 @@ func destroy(cn *container.Container, h *host.Host, env *middleware.Env, w http.
 						}
 					}
 				}
+			}
+
+			// Delete the custom domains that is associate to the container
+			if err := customdomain.Destroy(db, cn.ID, -1); err != nil {
+				logger.Errorf("failed to delete custom domains from database, err: %v", err)
 			}
 
 			cn = hydrateContainer(cn, liveContainer, h)

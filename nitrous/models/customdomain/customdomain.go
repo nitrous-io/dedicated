@@ -41,6 +41,10 @@ func (cd *CustomDomain) Insert(d db.QueryReceiver) error {
 }
 
 func Destroy(db *db.Database, containerID, id int64) error {
+	if id == -1 {
+		_, err := db.Exec(`DELETE FROM custom_domains WHERE container_id = $1;`, containerID)
+		return err
+	}
 	_, err := db.Exec(`DELETE FROM custom_domains WHERE id = $1 AND container_id = $2;`, id, containerID)
 	return err
 }

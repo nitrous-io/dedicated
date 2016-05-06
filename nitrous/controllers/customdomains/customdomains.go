@@ -94,8 +94,7 @@ func delete(cn *container.Container, h *host.Host, env *middleware.Env, w http.R
 		return errInvalidPort
 	}
 
-	err = customdomain.Destroy(env.DB, cn.ID, customDomainID)
-	if err != nil {
+	if err := customdomain.Destroy(env.DB, cn.ID, customDomainID); err != nil {
 		return err
 	}
 
