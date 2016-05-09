@@ -1063,8 +1063,9 @@ func (s *Server) uploadContainerFile(w http.ResponseWriter, r *http.Request) err
 }
 
 func (s *Server) httpForward(w http.ResponseWriter, r *http.Request) error {
-	if r.TLS != nil {
-		r.Header.Set("X-Forwarded-Proto", "https")
+	containerProto := r.Header.Get(freighter.ContainerProtoHeader)
+	if containerProto != "" {
+		r.Header.Set("X-Forwarded-Proto", containerProto)
 	}
 
 	containerSlug := r.Header.Get(freighter.ContainerSlugHeader)
