@@ -212,6 +212,10 @@ var _ = Describe("controllers/customdomains", func() {
 			params.Set("domain", "http://www.gomama.c.c..c.c.com")
 			res = doRequest(params)
 			Expect(res.Code).To(Equal(http.StatusBadRequest))
+
+			params.Set("domain", "http://www.gomama.internationalol")
+			res = doRequest(params)
+			Expect(res.Code).To(Equal(http.StatusBadRequest))
 		})
 
 		It("returns error if port is invalid", func() {
