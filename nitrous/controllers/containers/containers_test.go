@@ -20,6 +20,7 @@ import (
 	"github.com/nitrous-io/dedicated/nitrous/envvars"
 	"github.com/nitrous-io/dedicated/nitrous/middleware"
 	"github.com/nitrous-io/dedicated/nitrous/models/container"
+	"github.com/nitrous-io/dedicated/nitrous/models/customdomain"
 	"github.com/nitrous-io/dedicated/nitrous/models/cvolume"
 	"github.com/nitrous-io/dedicated/nitrous/models/host"
 	"github.com/nitrous-io/dedicated/nitrous/models/image"
@@ -3317,6 +3318,27 @@ var _ = Describe("controllers/containers", func() {
 
 			_, err = image.Find(db, u, hs.H, c.Image)
 			Expect(err).To(Equal(sql.ErrNoRows))
+		})
+
+		It("deletes the container's custom domains record", func() {
+			cd := &customdomain.CustomDomain{
+				ContainerID:   c.ID,
+				Domain:        "www.gomama.com",
+				Port:          80,
+				ContainerPort: 4000,
+			}
+			err := cd.Insert(db)
+			Expect(err).To(BeNil())
+
+			customDomains, err := customdomain.FindAll(db, c.ID)
+			Expect(err).To(BeNil())
+			Expect(len(customDomains)).To(Equal(1))
+
+			doRequest()
+
+			customDomains, err = customdomain.FindAll(db, c.ID)
+			Expect(err).To(BeNil())
+			Expect(len(customDomains)).To(Equal(0))
 		})
 
 		It("publishes a container destroyed event with the destroyed container", func() {
