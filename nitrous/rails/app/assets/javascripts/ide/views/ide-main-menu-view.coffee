@@ -72,6 +72,22 @@ App.IdeMainMenuView = Em.View.extend
         url: "https://#{App.get 'container.preview_hostname'}"
         target: '_blank'
         track: Mp.EventIDEUserClickedPreviewLink
+      menuItem "Port 4000",
+        url: "http://#{App.get 'container.preview_hostname'}:4000"
+        target: '_blank'
+        track: Mp.EventIDEUserClickedPreviewLink
+      menuItem "Port 4567",
+        url: "http://#{App.get 'container.preview_hostname'}:4567"
+        target: '_blank'
+        track: Mp.EventIDEUserClickedPreviewLink
+      menuItem "Port 8080",
+        url: "http://#{App.get 'container.preview_hostname'}:8080"
+        target: '_blank'
+        track: Mp.EventIDEUserClickedPreviewLink
+      menuItem "Port 8888",
+        url: "http://#{App.get 'container.preview_hostname'}:8888"
+        target: '_blank'
+        track: Mp.EventIDEUserClickedPreviewLink
       separator,
       menuItem 'Preview Help',
         url: 'https://community.nitrous.io/docs/preview-your-app'
