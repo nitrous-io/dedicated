@@ -49,7 +49,7 @@ const (
 	userMountPoint = "/mnt/userdata"
 
 	updateTimeout            = 30 * time.Second
-	resizeVolumeTimeout      = 30 * time.Minute
+	resizeVolumeTimeout      = 60 * time.Minute
 	startTimeout             = 5 * time.Minute
 	stopTimeout              = 10 * time.Minute
 	allocateElasticIPTimeout = 3 * time.Minute
