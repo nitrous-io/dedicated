@@ -63,7 +63,7 @@ func SerializeContainer(c *container.Container) *Container {
 		Name:            c.Name.String,
 		IPAddress:       c.IPAddress,
 		GatewayIP:       c.GatewayIP,
-		State:           c.ResolvedState().String(),
+		State:           c.State,
 		Cmd:             c.Cmd,
 		User:            c.User,
 		Entrypoint:      c.Entrypoint,
