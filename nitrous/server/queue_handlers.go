@@ -375,22 +375,24 @@ func (s *Server) handleStopMessage(m *queue.Message) error {
 			return err
 		}
 
-		cns, err := container.FindAllByHostID(db, h.ID)
-		if err != nil {
-			return err
-		}
-
 		info := &hostcontrol.HostInfo{ID: queueInfo.Host.ID}
 		if err := hostcontrol.OnStopped(s.db, h, info, queueInfo.RequesterID); err != nil {
 			return err
 		}
 
+		cns, err := container.FindAllByHostID(db, h.ID)
+		if err != nil {
+			return err
+		}
+
 		for _, cn := range cns {
-			state := container.State(cn.TempState.Int64)
-			if !cn.TempState.Valid || (cn.TempState.Valid && state != container.StateStopping) {
+			if cn.State == container.StateStopping {
+				if err := cn.UpdateColumn(db, "state", container.StateStopped); err != nil {
+					logrus.Debugf("queue_handlers.handleStopMessage: failed to update state to %v: %v", container.StateStopped, err)
+				}
 				cn.State = container.StateStopped
-				err := s.PublishContainerEvent(controllers.EventContainerStopped, cn, &queueInfo)
-				if err != nil {
+
+				if err := s.PublishContainerEvent(controllers.EventContainerStopped, cn, &queueInfo); err != nil {
 					logrus.Debugf("uuid=%s queueTracer: failed to send an event(%s) for container(%+v)", m.UUID, controllers.EventContainerStopped, cn)
 				}
 			}
@@ -403,6 +405,7 @@ func (s *Server) handleStopMessage(m *queue.Message) error {
 			u.Topic(),
 		)
 		logrus.Debugf("uuid=%s queueTracer: published host stopped event", m.UUID)
+
 	case controllers.EventHostStopping:
 		logrus.Debugf("uuid=%s queueTracer: stopping a host(%s) with message(%+v)", m.UUID, queueInfo.Slug, m)
 
@@ -417,11 +420,13 @@ func (s *Server) handleStopMessage(m *queue.Message) error {
 		}
 
 		for _, cn := range cns {
-			state := container.State(cn.TempState.Int64)
-			if !cn.TempState.Valid || (cn.TempState.Valid && state != container.StateStopping) {
+			if cn.State == container.StateRunning {
+				if err := cn.UpdateColumn(db, "state", container.StateStopping); err != nil {
+					logrus.Debugf("queue_handlers.handleStopMessage: failed to update state to %v: %v", container.StateStopping, err)
+				}
 				cn.State = container.StateStopping
-				err := s.PublishContainerEvent(controllers.EventContainerStopping, cn, &queueInfo)
-				if err != nil {
+
+				if err := s.PublishContainerEvent(controllers.EventContainerStopping, cn, &queueInfo); err != nil {
 					logrus.Debugf("uuid=%s queueTracer: failed to send an event(%s) for container(%+v)", m.UUID, controllers.EventContainerStopping, cn)
 				}
 			}

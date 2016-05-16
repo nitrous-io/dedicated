@@ -738,6 +738,7 @@ var _ = Describe("HostQueueHandler", func() {
 				CID:    "beefface",
 				Slug:   "rails-box",
 				Image:  "nitrous-base",
+				State:  container.StateRunning,
 				UserID: u.ID,
 				HostID: h.ID,
 			}
@@ -822,7 +823,7 @@ var _ = Describe("HostQueueHandler", func() {
 						evtData, ok := event.Data.(map[string]interface{})
 						Expect(ok).To(BeTrue())
 						cn, ok := evtData["container"].(*serializers.Container)
-						Expect(cn.State).To(Equal(container.StateStopping.String()))
+						Expect(cn.State).To(Equal(container.StateStopping))
 					}
 
 					evtData, ok := events[2].Data.(map[string]*serializers.Host)
@@ -860,6 +861,13 @@ var _ = Describe("HostQueueHandler", func() {
 					ResourceID:   "host-1234",
 					Payload:      payload,
 				}
+
+				c1.State = container.StateStopping
+				err = c1.UpdateColumn(db, "state", container.StateStopping)
+				Expect(err).To(BeNil())
+				c2.State = container.StateStopping
+				err = c2.UpdateColumn(db, "state", container.StateStopping)
+				Expect(err).To(BeNil())
 			})
 
 			It("updates the host to be stopped", func() {
@@ -922,13 +930,13 @@ var _ = Describe("HostQueueHandler", func() {
 
 				select {
 				case <-time.After(50 * time.Millisecond):
-					Fail("Timeout while getting image created event")
+					Fail("Timeout while getting container stopped and host stopped event")
 				case events := <-evtCh:
 					for _, event := range events[0:2] {
 						evtData, ok := event.Data.(map[string]interface{})
 						Expect(ok).To(BeTrue())
 						cn, ok := evtData["container"].(*serializers.Container)
-						Expect(cn.State).To(Equal(container.StateStopped.String()))
+						Expect(cn.State).To(Equal(container.StateStopped))
 					}
 
 					evtData, ok := events[2].Data.(map[string]*serializers.Host)
@@ -937,7 +945,7 @@ var _ = Describe("HostQueueHandler", func() {
 				}
 			})
 
-			It("publishes containaer stopped event to collaborator", func() {
+			It("publishes container stopped event to collaborator", func() {
 				ch := svr.Events.Subscribe(collaborator.Topic())
 				defer svr.Events.Unsubscribe(ch, collaborator.Topic())
 
@@ -962,13 +970,13 @@ var _ = Describe("HostQueueHandler", func() {
 
 				select {
 				case <-time.After(50 * time.Millisecond):
-					Fail("Timeout while getting image created event")
+					Fail("Timeout while getting container stopped event")
 				case events := <-evtCh:
 					for _, event := range events {
 						evtData, ok := event.Data.(map[string]interface{})
 						Expect(ok).To(BeTrue())
 						cn, ok := evtData["container"].(*serializers.Container)
-						Expect(cn.State).To(Equal(container.StateStopped.String()))
+						Expect(cn.State).To(Equal(container.StateStopped))
 					}
 				}
 			})

@@ -180,7 +180,7 @@ var _ = Describe("controllers/maintenance", func() {
 			Context("should emit container events", func() {
 				type evInfo struct {
 					Event          controllers.EventName
-					ContainerState container.State
+					ContainerState string
 				}
 				hMap := map[string]evInfo{
 					host.StateStopped:    evInfo{controllers.EventContainerStopped, container.StateStopped},
@@ -236,7 +236,7 @@ var _ = Describe("controllers/maintenance", func() {
 							cn, ok := evtData["container"].(*serializers.Container)
 							Expect(ok).To(BeTrue())
 							Expect(cn.ID).To(Equal(c.ID))
-							Expect(cn.State).To(Equal(evState.ContainerState.String()))
+							Expect(cn.State).To(Equal(evState.ContainerState))
 						}
 					})
 				}

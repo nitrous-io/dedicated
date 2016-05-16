@@ -152,7 +152,7 @@ var _ = Describe("controllers/hosts", func() {
 		evtData, ok := evt.Data.(map[string]interface{})
 		Expect(ok).To(BeTrue())
 		cn, ok := evtData["container"].(*serializers.Container)
-		Expect(cn.State).To(Equal(container.StateStopped.String()))
+		Expect(cn.State).To(Equal(container.StateStopped))
 		return cn.Slug
 	}
 
@@ -1253,6 +1253,12 @@ var _ = Describe("controllers/hosts", func() {
 					Expect(h.Slug).To(Equal(deleted.Slug))
 					Expect(h.State).To(Equal(deleted.State))
 					Expect(h.State).To(Equal(host.StateTerminated))
+
+					cns, err := container.FindAllByHostID(db, h.ID)
+					Expect(err).To(BeNil())
+					for _, cn := range cns {
+						Expect(cn.State).To(Equal(container.StateTerminated))
+					}
 				}
 			})
 
@@ -1895,6 +1901,7 @@ var _ = Describe("controllers/hosts", func() {
 					CID:    "beefface",
 					Slug:   "rails-box",
 					Image:  "nitrous-base",
+					State:  container.StateStopping,
 					UserID: hs.U.ID,
 					HostID: hs.H.ID,
 				}
@@ -1909,9 +1916,6 @@ var _ = Describe("controllers/hosts", func() {
 					HostID: hs.H.ID,
 				}
 				err = c2.Insert(db)
-				Expect(err).To(BeNil())
-				c1.TempState = sql.NullInt64{int64(container.StateStopping), true}
-				err = c1.Update(db)
 				Expect(err).To(BeNil())
 			})
 
@@ -1959,6 +1963,7 @@ var _ = Describe("controllers/hosts", func() {
 					CID:    "beefface",
 					Slug:   "rails-box",
 					Image:  "nitrous-base",
+					State:  container.StateStarting,
 					UserID: hs.U.ID,
 					HostID: hs.H.ID,
 				}
@@ -1973,9 +1978,6 @@ var _ = Describe("controllers/hosts", func() {
 					HostID: hs.H.ID,
 				}
 				err = c2.Insert(db)
-				Expect(err).To(BeNil())
-				c1.TempState = sql.NullInt64{int64(container.StateStarting), true}
-				err = c1.Update(db)
 				Expect(err).To(BeNil())
 			})
 
@@ -2482,6 +2484,7 @@ var _ = Describe("controllers/hosts", func() {
 					CID:    "beefface",
 					Slug:   "rails-box",
 					Image:  "nitrous-base",
+					State:  container.StateStopping,
 					UserID: hs.U.ID,
 					HostID: hs.H.ID,
 				}
@@ -2496,9 +2499,6 @@ var _ = Describe("controllers/hosts", func() {
 					HostID: hs.H.ID,
 				}
 				err = c2.Insert(db)
-				Expect(err).To(BeNil())
-				c1.TempState = sql.NullInt64{int64(container.StateStopping), true}
-				err = c1.Update(db)
 				Expect(err).To(BeNil())
 			})
 
@@ -2574,6 +2574,7 @@ var _ = Describe("controllers/hosts", func() {
 					CID:    "beefface",
 					Slug:   "rails-box",
 					Image:  "nitrous-base",
+					State:  container.StateStarting,
 					UserID: hs.U.ID,
 					HostID: hs.H.ID,
 				}
@@ -2588,9 +2589,6 @@ var _ = Describe("controllers/hosts", func() {
 					HostID: hs.H.ID,
 				}
 				err = c2.Insert(db)
-				Expect(err).To(BeNil())
-				c1.TempState = sql.NullInt64{int64(container.StateStarting), true}
-				err = c1.Update(db)
 				Expect(err).To(BeNil())
 			})
 

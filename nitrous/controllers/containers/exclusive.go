@@ -55,13 +55,13 @@ func doExclusive(locker taskFn, unlocker taskFn, errHandler errorHandlerFn, task
  * container row in database. Since it returns a task function
  * the actual locking is only done when that function is called.
  */
-func lockerFn(cn *container.Container, env *middleware.Env, timeout time.Duration, tempState container.State) taskFn {
+func lockerFn(cn *container.Container, env *middleware.Env, timeout time.Duration, state string) taskFn {
 	return func() error {
 		if cn.LockedUntil != nil && time.Now().After(*cn.LockedUntil) {
 			logrus.Warnf("Attempt to lock container with expired lock: %+v", cn)
 		}
 
-		if err := cn.Lock(tempState, timeout, env.DB); err != nil {
+		if err := cn.Lock(state, timeout, env.DB); err != nil {
 			if err == container.ErrLocked {
 				return errContainerLocked
 			}
@@ -91,12 +91,12 @@ func unlockerFn(cn *container.Container, env *middleware.Env) taskFn {
  * Returns a logger function to log errors in locking/unlocking
  * and also errors returned by critical section task.
  */
-func errorLoggerFn(cn *container.Container, tempState container.State) errorHandlerFn {
+func errorLoggerFn(cn *container.Container, state string) errorHandlerFn {
 	return func(err error) {
 		if err == errContainerLocked {
 			logrus.Infof("Failed to lock container: container is already locked. %+v", cn)
 		} else {
-			logrus.Errorf("Error in container transition state %s for container %+v: %s", tempState, cn, err)
+			logrus.Errorf("Error in container transition state %s for container %+v: %s", state, cn, err)
 		}
 	}
 }
@@ -107,11 +107,11 @@ func errorLoggerFn(cn *container.Container, tempState container.State) errorHand
  * and logger functions and call doExclusive to perform the actual
  * exclusive task.
  */
-func doContainerExclusive(cn *container.Container, env *middleware.Env, tempState container.State, lockTime time.Duration, task taskFn) error {
+func doContainerExclusive(cn *container.Container, env *middleware.Env, state string, lockTime time.Duration, task taskFn) error {
 	return doExclusive(
-		lockerFn(cn, env, lockTime, tempState),
+		lockerFn(cn, env, lockTime, state),
 		unlockerFn(cn, env),
-		errorLoggerFn(cn, tempState),
+		errorLoggerFn(cn, state),
 		task)
 }
 
@@ -153,11 +153,11 @@ func doSyncOrAsyncExclusive(async bool, locker taskFn, unlocker taskFn, errHandl
 }
 
 // Async version of doContainerExclusive
-func doContainerSyncOrAsyncExclusive(async bool, cn *container.Container, env *middleware.Env, tempState container.State, lockTime time.Duration, task taskFn) error {
+func doContainerSyncOrAsyncExclusive(async bool, cn *container.Container, env *middleware.Env, state string, lockTime time.Duration, task taskFn) error {
 	return doSyncOrAsyncExclusive(
 		async,
-		lockerFn(cn, env, lockTime, tempState),
+		lockerFn(cn, env, lockTime, state),
 		unlockerFn(cn, env),
-		errorLoggerFn(cn, tempState),
+		errorLoggerFn(cn, state),
 		task)
 }

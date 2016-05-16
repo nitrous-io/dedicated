@@ -1,7 +1,6 @@
 package containers
 
 import (
-	"database/sql"
 	"net/http"
 	"strconv"
 	"time"
@@ -114,17 +113,13 @@ func reconfigureContainer(ctx *reconfigContext, env *middleware.Env) (err error)
 	liveContainer, err = cl.Reconfig(cn.CID, config)
 	if err != nil {
 		if liveContainer != nil {
-			cn.TempState = sql.NullInt64{0, false}
-			cn = hydrateContainer(cn, liveContainer, h)
+			cn = hydrateContainer(env, cn, liveContainer, h)
 		}
 		err = expandFreighterClientError(db, cn, err)
 		return err
 	}
 
-	// reset the temp state, so freigther state will be exposed
-	cn.TempState = sql.NullInt64{0, false}
-
-	cn = hydrateContainer(cn, liveContainer, h)
+	cn = hydrateContainer(env, cn, liveContainer, h)
 
 	var newConfig *freighterclient.ContainerConfig
 	newConfig, err = cl.Config(cn.CID)
