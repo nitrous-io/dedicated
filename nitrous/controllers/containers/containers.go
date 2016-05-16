@@ -179,10 +179,6 @@ func listContainers(env *middleware.Env, w http.ResponseWriter, r *http.Request,
 
 			if h.State != host.StateRunning {
 				for _, sc := range savedContainers {
-					sc.State = container.StateUnknown
-					if h.State == host.StateStopped {
-						sc.State = container.StateHostStopped
-					}
 					containersRespMu.Lock()
 					containersResp = append(containersResp, serializers.SerializeContainer(sc))
 					containersRespMu.Unlock()
@@ -205,7 +201,6 @@ func listContainers(env *middleware.Env, w http.ResponseWriter, r *http.Request,
 				// info to the frontend
 				if err == controllers.ErrHostNotRunning || err == controllers.ErrHostIPUnknown {
 					for _, sc := range savedContainers {
-						sc.State = container.StateHostStopped
 						containersRespMu.Lock()
 						containersResp = append(containersResp, serializers.SerializeContainer(sc))
 						containersRespMu.Unlock()
@@ -233,7 +228,7 @@ func listContainers(env *middleware.Env, w http.ResponseWriter, r *http.Request,
 				}
 				var cn *container.Container
 				if savedContainer != nil {
-					cn = hydrateContainer(savedContainer, lc, h)
+					cn = hydrateContainer(env, savedContainer, lc, h)
 				} else {
 					if onlySaved {
 						continue
@@ -785,8 +780,14 @@ func requiresRunningHost(fn hostFn) func(h *host.Host, env *middleware.Env, w ht
 	}
 }
 
-func hydrateContainer(c *container.Container, fc *freighterclient.Container, h *host.Host) *container.Container {
-	c.SetState(fc.State)
+func hydrateContainer(env *middleware.Env, c *container.Container, fc *freighterclient.Container, h *host.Host) *container.Container {
+	// always sync state from freighter to state container model
+	if c.State != fc.State &&
+		(fc.State == container.StateRunning || fc.State == container.StateStopped) &&
+		!c.IsLocked() {
+		c.State = fc.State
+	}
+
 	c.CID = fc.ID
 	if c.Image == "" || !ignoredImageNames.MatchString(fc.Image) {
 		c.Image = fc.Image
@@ -809,6 +810,7 @@ func mkContainer(fc *freighterclient.Container, h *host.Host) *container.Contain
 		CID:        fc.ID,
 		Image:      fc.Image,
 		Slug:       fc.Name,
+		State:      fc.State,
 		IPAddress:  fc.Host,
 		GatewayIP:  fc.Gateway,
 		UserID:     h.UserID,
@@ -820,7 +822,6 @@ func mkContainer(fc *freighterclient.Container, h *host.Host) *container.Contain
 		StartedAt:  timePtr(fc.StartedAt),
 		FinishedAt: timePtr(fc.FinishedAt),
 	}
-	c.SetState(fc.State)
 	return c
 }
 
