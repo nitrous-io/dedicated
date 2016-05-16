@@ -152,6 +152,7 @@ func createAtomic(h *host.Host, env *middleware.Env, w http.ResponseWriter, r *h
 		Slug:   slug,
 		Name:   sql.NullString{name, true},
 		Image:  repository,
+		State:  container.StateCreating,
 	}
 	if snapshotID != 0 {
 		cn.SnapshotID = sql.NullInt64{snapshotID, true}
@@ -162,8 +163,7 @@ func createAtomic(h *host.Host, env *middleware.Env, w http.ResponseWriter, r *h
 	}
 
 	// Save record to db first to reserve slug (since it's globally unique).
-	if err := cn.Insert(tx); err != nil {
-		tx.Rollback()
+	if err := cn.Insert(env.DB); err != nil {
 		if e, ok := err.(*pq.Error); ok && e.Code.Name() == "unique_violation" {
 			if validationErr, ok := validations[e.Constraint]; ok {
 				return validationErr
@@ -187,6 +187,10 @@ func createAtomic(h *host.Host, env *middleware.Env, w http.ResponseWriter, r *h
 				}),
 				topic,
 			)
+
+			if err := cn.UpdateColumn(env.DB, "state", container.StateCreateFailed); err != nil {
+				logrus.Errorf("container.CreateAtomic: failed to update state to %v: %v", container.StateCreateFailed, err)
+			}
 		}
 
 		env.Events.Publish(
@@ -231,6 +235,7 @@ func createAtomic(h *host.Host, env *middleware.Env, w http.ResponseWriter, r *h
 		cn.IPAddress = created.Host
 		cn.GatewayIP = created.Gateway
 		cn.Cmd = created.Cmd
+		cn.State = container.StateRunning
 		cn.Entrypoint = created.Entrypoint
 		cn.ExitCode = created.ExitCode
 		cn.StartedAt = timePtr(created.StartedAt)
@@ -241,10 +246,6 @@ func createAtomic(h *host.Host, env *middleware.Env, w http.ResponseWriter, r *h
 			logrus.Errorf("containers.create: failed to get port mappings: %v", err)
 		} else {
 			cn.PortMappings = portMappings
-		}
-
-		if ok := cn.SetState(created.State); !ok { // log and continue
-			logrus.Errorf("containers.create: freighter returned container with unexpected state: %v", created.State)
 		}
 
 		if err := cn.Update(tx); err != nil { // log and continue
