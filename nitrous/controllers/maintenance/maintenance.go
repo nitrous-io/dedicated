@@ -90,7 +90,7 @@ func publishHostEvent(env *middleware.Env, u *user.User, name controllers.EventN
 	)
 }
 
-func publishContainersEvent(env *middleware.Env, name controllers.EventName, state container.State, h *host.Host) {
+func publishContainersEvent(env *middleware.Env, name controllers.EventName, state string, h *host.Host) {
 	cns, err := container.FindAllByHostID(env.DB, h.ID)
 	if err != nil {
 		logrus.Errorf("Unable to list host containers: %v", err)

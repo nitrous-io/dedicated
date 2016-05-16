@@ -350,6 +350,7 @@ var _ = Describe("controllers/containers", func() {
 				UserID: u.ID,
 				HostID: hs.H.ID,
 				Name:   sql.NullString{"Rails app server", true},
+				State:  container.StateStopped,
 				Metadata: hstore.Hstore{
 					Map: map[string]sql.NullString{
 						"C": {"1", true},
@@ -687,7 +688,7 @@ var _ = Describe("controllers/containers", func() {
 				// so the freighter API call didn't happen
 				Expect(j.Containers[0].IPAddress).To(Equal(""))
 				Expect(j.Containers[0].GatewayIP).To(Equal(""))
-				Expect(j.Containers[0].State).To(Equal(container.StateHostStopped.String()))
+				Expect(j.Containers[0].State).To(Equal(container.StateStopped))
 
 				Expect(j.Containers[0].Cmd).To(BeNil())
 				Expect(j.Containers[0].Entrypoint).To(BeNil())
@@ -722,7 +723,7 @@ var _ = Describe("controllers/containers", func() {
 				Expect(j.Containers[0].CID).To(Equal("deadbeef"))
 				Expect(j.Containers[0].IPAddress).To(Equal(""))
 				Expect(j.Containers[0].GatewayIP).To(Equal(""))
-				Expect(j.Containers[0].State).To(Equal(container.StateUnknown.String()))
+				Expect(j.Containers[0].State).To(Equal(container.StateStopped))
 			})
 		})
 
@@ -751,6 +752,7 @@ var _ = Describe("controllers/containers", func() {
 					UserID: u.ID,
 					HostID: hs1.H.ID,
 					Name:   sql.NullString{"Rails app server", true},
+					State:  container.StateStopped,
 				}
 				err = c1.Insert(db)
 				Expect(err).To(BeNil())
@@ -784,7 +786,7 @@ var _ = Describe("controllers/containers", func() {
 				// so the freighter API call didn't happen
 				Expect(j.Containers[0].IPAddress).To(Equal(""))
 				Expect(j.Containers[0].GatewayIP).To(Equal(""))
-				Expect(j.Containers[0].State).To(Equal(container.StateHostStopped.String()))
+				Expect(j.Containers[0].State).To(Equal(container.StateStopped))
 
 				Expect(j.Containers[0].Cmd).To(BeNil())
 				Expect(j.Containers[0].Entrypoint).To(BeNil())
@@ -820,6 +822,7 @@ var _ = Describe("controllers/containers", func() {
 					UserID: u.ID,
 					HostID: hs1.H.ID,
 					Name:   sql.NullString{"Rails app server", true},
+					State:  container.StateStopped,
 				}
 				err = c1.Insert(db)
 				Expect(err).To(BeNil())
@@ -865,7 +868,7 @@ var _ = Describe("controllers/containers", func() {
 				// so the freighter API call didn't happen
 				Expect(j.Containers[0].IPAddress).To(Equal(""))
 				Expect(j.Containers[0].GatewayIP).To(Equal(""))
-				Expect(j.Containers[0].State).To(Equal(container.StateHostStopped.String()))
+				Expect(j.Containers[0].State).To(Equal(container.StateStopped))
 
 				Expect(j.Containers[1].ID).To(Equal(c1.ID))
 				Expect(j.Containers[1].CID).To(Equal("cafedead"))
@@ -881,7 +884,7 @@ var _ = Describe("controllers/containers", func() {
 				// so the freighter API call didn't happen
 				Expect(j.Containers[1].IPAddress).To(Equal(""))
 				Expect(j.Containers[1].GatewayIP).To(Equal(""))
-				Expect(j.Containers[1].State).To(Equal(container.StateHostStopped.String()))
+				Expect(j.Containers[1].State).To(Equal(container.StateStopped))
 			})
 		})
 
@@ -1030,6 +1033,7 @@ var _ = Describe("controllers/containers", func() {
 				UserID: u.ID,
 				HostID: hs.H.ID,
 				Name:   sql.NullString{"Rails app server", true},
+				State:  container.StateStopped,
 				Metadata: hstore.Hstore{
 					Map: map[string]sql.NullString{
 						"C": {"1", true},
@@ -1204,6 +1208,7 @@ var _ = Describe("controllers/containers", func() {
 				UserID: u.ID,
 				HostID: hs1.H.ID,
 				Name:   sql.NullString{"Rails app server", true},
+				State:  container.StateStopped,
 			}
 			err = c1.Insert(db)
 			Expect(err).To(BeNil())
@@ -1235,7 +1240,7 @@ var _ = Describe("controllers/containers", func() {
 			Expect(j.Containers[0].Image).To(Equal("nitrous-base"))
 			Expect(j.Containers[0].Slug).To(Equal("dominant-intercooler-42"))
 			Expect(j.Containers[0].IPAddress).To(Equal(""))
-			Expect(j.Containers[0].State).To(Equal("host_stopped"))
+			Expect(j.Containers[0].State).To(Equal(container.StateStopped))
 			Expect(j.Containers[0].UserUsername).To(Equal("foo"))
 			Expect(j.Containers[0].UserGravatarHash).To(Equal("b48def645758b95537d4424c84d1a9ff"))
 
@@ -1243,7 +1248,7 @@ var _ = Describe("controllers/containers", func() {
 			Expect(j.Containers[1].Image).To(Equal("nitrous-base"))
 			Expect(j.Containers[1].Slug).To(Equal("forever-container-21"))
 			Expect(j.Containers[1].IPAddress).To(Equal(""))
-			Expect(j.Containers[1].State).To(Equal("host_stopped"))
+			Expect(j.Containers[1].State).To(Equal(container.StateStopped))
 			Expect(j.Containers[1].UserUsername).To(Equal("foo"))
 			Expect(j.Containers[1].UserGravatarHash).To(Equal("b48def645758b95537d4424c84d1a9ff"))
 		})
@@ -1854,82 +1859,6 @@ var _ = Describe("controllers/containers", func() {
 			})
 		})
 
-		Context("when host is not running", func() {
-			BeforeEach(func() {
-				hs.H.State = host.StateStopped
-				err := hs.H.Update(db)
-				Expect(err).To(BeNil())
-				UnstubFreighterFn()
-			})
-
-			It("responds with the container with its state set to host_stopped", func() {
-				doRequest()
-				Expect(res.Code).To(Equal(http.StatusOK))
-
-				var j struct {
-					Container *serializers.Container `json:"container"`
-				}
-				err := json.NewDecoder(res.Body).Decode(&j)
-				Expect(err).To(BeNil())
-
-				Expect(j.Container.ID).To(Equal(c.ID))
-				Expect(j.Container.CID).To(Equal("deadbeef"))
-				Expect(j.Container.UserID).To(Equal(u.ID))
-				Expect(j.Container.HostID).To(Equal(hs.H.ID))
-				Expect(j.Container.Image).To(Equal("nitrous-base"))
-				Expect(j.Container.Slug).To(Equal(slug))
-				Expect(j.Container.Name).To(Equal("Elixir server"))
-				Expect(j.Container.IPAddress).To(Equal(""))
-				Expect(j.Container.GatewayIP).To(Equal(""))
-				Expect(j.Container.State).To(Equal(container.StateHostStopped.String()))
-				Expect(j.Container.ExitCode).To(Equal(0))
-				Expect(j.Container.User).To(Equal(""))
-				Expect(j.Container.StartedAt).To(BeNil())
-				Expect(j.Container.FinishedAt).To(BeNil())
-				Expect(j.Container.CreatedAt).NotTo(BeNil())
-				Expect(j.Container.UpdatedAt).NotTo(BeNil())
-				Expect(j.Container.TerminatedAt).To(BeNil())
-			})
-		})
-
-		Context("when host IP address is not available", func() {
-			BeforeEach(func() {
-				hs.H.IPAddress = sql.NullString{}
-				err := hs.H.Update(db)
-				Expect(err).To(BeNil())
-				UnstubFreighterFn()
-			})
-
-			It("responds with the container with its state set to host_stopped", func() {
-				doRequest()
-				Expect(res.Code).To(Equal(http.StatusOK))
-
-				var j struct {
-					Container *serializers.Container `json:"container"`
-				}
-				err := json.NewDecoder(res.Body).Decode(&j)
-				Expect(err).To(BeNil())
-
-				Expect(j.Container.ID).To(Equal(c.ID))
-				Expect(j.Container.CID).To(Equal("deadbeef"))
-				Expect(j.Container.UserID).To(Equal(u.ID))
-				Expect(j.Container.HostID).To(Equal(hs.H.ID))
-				Expect(j.Container.Image).To(Equal("nitrous-base"))
-				Expect(j.Container.Slug).To(Equal(slug))
-				Expect(j.Container.Name).To(Equal("Elixir server"))
-				Expect(j.Container.IPAddress).To(Equal(""))
-				Expect(j.Container.GatewayIP).To(Equal(""))
-				Expect(j.Container.State).To(Equal(container.StateHostStopped.String()))
-				Expect(j.Container.ExitCode).To(Equal(0))
-				Expect(j.Container.User).To(Equal(""))
-				Expect(j.Container.StartedAt).To(BeNil())
-				Expect(j.Container.FinishedAt).To(BeNil())
-				Expect(j.Container.CreatedAt).NotTo(BeNil())
-				Expect(j.Container.UpdatedAt).NotTo(BeNil())
-				Expect(j.Container.TerminatedAt).To(BeNil())
-			})
-		})
-
 		Context("oauth token failure modes", func() {
 			BeforeEach(func() {
 				authTokenInputs.Path = fmt.Sprintf("/api/v0/containers/%s", slug)
@@ -1944,7 +1873,7 @@ var _ = Describe("controllers/containers", func() {
 		action             string
 		actionCounter      *int
 		actionError        *error
-		tempState          string
+		transitionalState  string
 		expectedState      string
 		expectedEventNames []controllers.EventName
 	}
@@ -2069,7 +1998,7 @@ var _ = Describe("controllers/containers", func() {
 				cn, ok := data["container"].(*serializers.Container)
 				Expect(ok).To(BeTrue())
 				Expect(cn.ID).To(Equal(c.ID))
-				Expect(cn.State).To(Equal(inputs.tempState))
+				Expect(cn.State).To(Equal(inputs.transitionalState))
 
 				// evt2 - after completing the action
 				evt2, ok := msgs[1].(*controllers.Event)
@@ -2122,7 +2051,7 @@ var _ = Describe("controllers/containers", func() {
 				cn, ok := data["container"].(*serializers.Container)
 				Expect(ok).To(BeTrue())
 				Expect(cn.ID).To(Equal(c.ID))
-				Expect(cn.State).To(Equal(inputs.tempState))
+				Expect(cn.State).To(Equal(inputs.transitionalState))
 
 				// evt2 - after completing the action
 				evt2, ok := msgs[1].(*controllers.Event)
@@ -2696,6 +2625,7 @@ var _ = Describe("controllers/containers", func() {
 					UserID: u.ID,
 					HostID: hs.H.ID,
 					Name:   sql.NullString{"Elixir server", true},
+					State:  container.StateStopped,
 				}
 				err := cn.Insert(db)
 				Expect(err).To(BeNil())
@@ -2730,7 +2660,6 @@ var _ = Describe("controllers/containers", func() {
 
 						cn2 = getContainerInfo()
 						Expect(cn2.State).To(Equal("starting"))
-
 						// DoExclusive() already acquired the container lock
 						// when we enter this function. So naturally any other
 						// requests that require lock would fail.
@@ -2823,7 +2752,6 @@ var _ = Describe("controllers/containers", func() {
 						defer GinkgoRecover()
 
 						res := doRequest("start")
-
 						Expect(res.Code).To(Equal(http.StatusConflict))
 
 						cn2 = getContainerInfo()
@@ -2875,7 +2803,7 @@ var _ = Describe("controllers/containers", func() {
 			i.action = "start"
 			i.actionCounter = &mockClient.StartCalled
 			i.actionError = &mockClient.StartError
-			i.tempState = "starting"
+			i.transitionalState = "starting"
 			i.expectedState = "running"
 			i.expectedEventNames = []controllers.EventName{controllers.EventContainerStarting, controllers.EventContainerStarted}
 		})
@@ -3035,7 +2963,7 @@ var _ = Describe("controllers/containers", func() {
 			i.action = "stop"
 			i.actionCounter = &mockClient.StopCalled
 			i.actionError = &mockClient.StopError
-			i.tempState = "stopping"
+			i.transitionalState = "stopping"
 			i.expectedState = "stopped"
 			i.expectedEventNames = []controllers.EventName{controllers.EventContainerStopping, controllers.EventContainerStopped}
 		})
@@ -3050,7 +2978,7 @@ var _ = Describe("controllers/containers", func() {
 			i.action = "restart"
 			i.actionCounter = &mockClient.RestartCalled
 			i.actionError = &mockClient.RestartError
-			i.tempState = "restarting"
+			i.transitionalState = "restarting"
 			i.expectedState = "running"
 			i.expectedEventNames = []controllers.EventName{controllers.EventContainerRestarting, controllers.EventContainerRestarted}
 		})
@@ -3231,7 +3159,7 @@ var _ = Describe("controllers/containers", func() {
 			Expect(cn.Name).To(Equal("Elixir server"))
 			Expect(cn.IPAddress).To(Equal(""))
 			Expect(cn.GatewayIP).To(Equal(""))
-			Expect(cn.State).To(Equal(container.StateTerminated.String()))
+			Expect(cn.State).To(Equal(container.StateTerminated))
 			Expect(cn.Cmd).To(Equal([]string{"/sbin/init"}))
 			Expect(cn.Entrypoint).To(Equal([]string{"/bin/blah"}))
 			Expect(cn.ExitCode).To(Equal(126))
@@ -3772,7 +3700,7 @@ var _ = Describe("controllers/containers", func() {
 			Expect(cn.Image).To(Equal("nitrous-base"))
 			Expect(cn.Slug).To(Equal(containerName))
 			Expect(cn.IPAddress).To(Equal("1.2.3.4"))
-			Expect(cn.State).To(Equal("running"))
+			Expect(cn.State).To(Equal("reconfiguring"))
 			Expect(cn.Name).To(Equal("Elixir server"))
 			Expect(cn.UpdatedAt).NotTo(BeNil())
 			Expect(cn.UserID).To(Equal(u.ID))

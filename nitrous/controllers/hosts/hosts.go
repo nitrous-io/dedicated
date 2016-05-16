@@ -209,13 +209,24 @@ func Destroy(h *host.Host, env *middleware.Env, w http.ResponseWriter, r *http.R
 		}
 	}
 
+	cns, err := container.FindAllByHostID(env.DB, h.ID)
+	if err != nil {
+		return err
+	}
+
+	for _, cn := range cns {
+		if err := cn.UpdateColumn(env.DB, "state", container.StateTerminated); err != nil {
+			logrus.Debugf("hosts.Destroy: failed to update container state to %v: %v", container.StateStopped, err)
+		}
+	}
+
 	origState := h.State
 	if err := h.UpdateState(env.DB, host.StateTerminating); err != nil {
 		return err
 	}
 	PublishHostEvent(env, controllers.EventHostDestroying, h)
 
-	err := env.DB.WithTransaction(func(tx *sqlx.Tx) error {
+	err = env.DB.WithTransaction(func(tx *sqlx.Tx) error {
 		return hostcontrol.Terminate(tx, h, hostbuilderHeaders(env), env.User.ID, origState)
 	})
 
@@ -395,9 +406,13 @@ func Restart(h *host.Host, env *middleware.Env, w http.ResponseWriter, r *http.R
 	}
 
 	PublishHostEvent(env, controllers.EventHostRestarted, h)
+
 	for _, cn := range cns {
-		state := container.State(cn.TempState.Int64)
-		if !cn.TempState.Valid || (cn.TempState.Valid && state != container.StateStopping) {
+		if err := cn.UpdateColumn(db, "state", container.StateStopped); err != nil {
+			logrus.Debugf("hosts.Restart: failed to update container state to %v: %v", container.StateStopped, err)
+		}
+
+		if cn.State != container.StateStopping {
 			PublishContainerStopped(env, cn)
 		}
 	}
@@ -645,7 +660,7 @@ func trackWorkspaces(env *middleware.Env, userID int64) {
 func getTransientContainerSlugs(cns []*container.Container) string {
 	transientContainers := make([]*container.Container, 0)
 	for _, cn := range cns {
-		if cn.TempState.Valid {
+		if cn.State != container.StateRunning && cn.State != container.StateStopped {
 			transientContainers = append(transientContainers, cn)
 		}
 	}
