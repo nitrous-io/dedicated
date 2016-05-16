@@ -124,7 +124,7 @@ var _ = Describe("CreateAtomic", func() {
 		Expect(slugbuilder.IsValid(cn.Slug)).To(BeTrue())
 		Expect(cn.IPAddress).To(Equal(""))
 		Expect(cn.GatewayIP).To(Equal(""))
-		Expect(cn.State).To(Equal(container.StateRunning.String()))
+		Expect(cn.State).To(Equal(container.StateRunning))
 	}
 
 	Describe("POST /api/v0/containers/create_atomic", func() {
@@ -1009,21 +1009,7 @@ var _ = Describe("CreateAtomic", func() {
 				mockClient.CreateError = errors.New("you are not worthy")
 			})
 
-			It("does not create a container record", func() {
-				params := &url.Values{}
-				params.Set("host", hs.H.Slug)
-				params.Set("name", "rails-project")
-				params.Set("image", "rails")
-
-				res := doRequest(params)
-				Expect(res.Code).To(Equal(http.StatusAccepted))
-
-				cntrs, err := container.FindAllByHostID(db, hs.H.ID)
-				Expect(err).To(BeNil())
-				Expect(cntrs).To(HaveLen(0))
-			})
-
-			It("publishes a container create failed event", func() {
+			It("publishes a container create failed event and set state to create_failed", func() {
 				ch := svr.Events.Subscribe(u.Topic())
 				defer svr.Events.Unsubscribe(ch, u.Topic())
 
@@ -1069,6 +1055,11 @@ var _ = Describe("CreateAtomic", func() {
 					errStr, ok := evtData["error"].(string)
 					Expect(ok).To(BeTrue())
 					Expect(errStr).To(Equal("you are not worthy"))
+
+					cntrs, err := container.FindAllByHostID(db, hs.H.ID)
+					Expect(err).To(BeNil())
+					Expect(cntrs).To(HaveLen(1))
+					Expect(cntrs[0].State).To(Equal(container.StateCreateFailed))
 				}
 			})
 

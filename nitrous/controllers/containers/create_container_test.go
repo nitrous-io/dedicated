@@ -142,7 +142,7 @@ var _ = Describe("CreateContainer", func() {
 		Expect(slugbuilder.IsValid(cn.Slug)).To(BeTrue())
 		Expect(cn.IPAddress).To(Equal(""))
 		Expect(cn.GatewayIP).To(Equal(""))
-		Expect(cn.State).To(Equal(container.StateRunning.String()))
+		Expect(cn.State).To(Equal(container.StateRunning))
 		Expect(cn.Name).To(Equal("elixir-web"))
 	}
 
@@ -333,13 +333,14 @@ var _ = Describe("CreateContainer", func() {
 			mockClient.CreateError = errors.New("only Chuck Norris is allowed")
 		})
 
-		It("does not create a new container record", func() {
+		It("creates container record with create_failed state", func() {
 			_, err := containers.CreateContainer(h, params, env)
 			Expect(err).ToNot(BeNil())
 
 			cntrs, err := container.FindAllByHostID(db, h.ID)
 			Expect(err).To(BeNil())
-			Expect(cntrs).To(HaveLen(0))
+			Expect(cntrs).To(HaveLen(1))
+			Expect(cntrs[0].State).To(Equal(container.StateCreateFailed))
 		})
 
 		It("responds with the error", func() {
