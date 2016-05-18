@@ -47,7 +47,7 @@ App.AdminDialogsController = Em.Controller.extend
         App.snackbar.post("Successfully logged in as #{@get('login')}")
 
         Em.run.next ->
-          location.href = "/"
+          location.href = "/legacy"
       ).fail (jqxhr) =>
         App.postError(jqxhr.responseJSON, "Failed to switch user!")
         @set 'switching', false
