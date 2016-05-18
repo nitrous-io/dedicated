@@ -216,7 +216,7 @@ window.Nitrous = Em.Application.extend Em.Evented,
     @logoutRequest(userToken).then =>
       @setToken(adminToken)
       Em.run.next ->
-        location.href = "/"
+        location.href = "/legacy"
 
   setToken: (token) ->
     window.localStorage.setItem('token', token)
