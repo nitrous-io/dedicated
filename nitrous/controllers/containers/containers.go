@@ -240,6 +240,14 @@ func listContainers(env *middleware.Env, w http.ResponseWriter, r *http.Request,
 				containersResp = append(containersResp, serializers.SerializeContainer(cn))
 				containersRespMu.Unlock()
 			}
+
+			for _, sc := range savedContainers {
+				if sc.State == container.StateCreating {
+					containersRespMu.Lock()
+					containersResp = append(containersResp, serializers.SerializeContainer(sc))
+					containersRespMu.Unlock()
+				}
+			}
 		}(h)
 	}
 	wg.Wait()
