@@ -725,6 +725,34 @@ var _ = Describe("POST /api/v0/hosts", func() {
 			}
 		})
 
+		It("touches host when creating a host", func() {
+			ch := svr.Events.Subscribe(u.Topic())
+			defer svr.Events.Unsubscribe(ch, u.Topic())
+
+			doRequest(params)
+
+			hosts, err := host.FindAllByUser(db, u.ID)
+			Expect(err).To(BeNil())
+			Expect(hosts).To(HaveLen(1))
+			h := hosts[0]
+
+			msgs := []pubsub.Message{}
+			finished := make(chan struct{})
+			go func() {
+				msgs = append(msgs, <-ch, <-ch, <-ch)
+				close(finished)
+			}()
+
+			select {
+			case <-time.After(100 * time.Millisecond):
+				Fail("timed out waiting for events")
+			case <-finished:
+				h, err = host.FindByIdentifier(db, h.Slug)
+				Expect(err).To(BeNil())
+				Expect(h.LastPingedAt).ToNot(BeNil())
+			}
+		})
+
 		It("converts the 'name' form value to valid slug", func() {
 			params.Set("name", "Rails Host")
 			doRequest(params)

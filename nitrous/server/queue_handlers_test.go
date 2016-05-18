@@ -258,6 +258,7 @@ var _ = Describe("HostQueueHandler", func() {
 				Expect(updatedHost.HourlyPrice).To(Equal(int64(745)))
 				Expect(updatedHost.ProviderStorageIdentifier.String).To(Equal("volume-1234"))
 				Expect(updatedHost.Free).To(BeFalse())
+				Expect(updatedHost.LastPingedAt).ToNot(BeNil())
 			})
 
 			It("updates even if the host is running", func() {
