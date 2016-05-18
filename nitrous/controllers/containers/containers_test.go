@@ -426,6 +426,37 @@ var _ = Describe("controllers/containers", func() {
 			Expect(j.Containers[0].TerminatedAt).To(BeNil())
 		})
 
+		It("responds with the container at creating state", func() {
+			c1 := &container.Container{
+				CID:    "stinkbeef",
+				Slug:   "dominant-interhotter-42",
+				Image:  "nitrous-base",
+				UserID: u.ID,
+				HostID: hs.H.ID,
+				Name:   sql.NullString{"Rails app server", true},
+				State:  container.StateCreating,
+				Metadata: hstore.Hstore{
+					Map: map[string]sql.NullString{
+						"C": {"1", true},
+					},
+				},
+			}
+			err := c1.Insert(db)
+			Expect(err).To(BeNil())
+
+			doRequest("valid-token", "foo")
+
+			Expect(res.Code).To(Equal(http.StatusOK))
+
+			var j struct {
+				Containers []*serializers.Container `json:"containers"`
+			}
+			err = json.NewDecoder(res.Body).Decode(&j)
+			Expect(err).To(BeNil())
+			Expect(j.Containers).To(HaveLen(2))
+			Expect(j.Containers[1].State).To(Equal(container.StateCreating))
+		})
+
 		It("keeps the list ordered by slug", func() {
 			secondaryContainer := &freighterclient.Container{
 				ID:         "deadbeefy",
