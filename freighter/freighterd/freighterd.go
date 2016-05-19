@@ -75,7 +75,7 @@ func main() {
 		}
 	}
 	if conf.IdleThreshold == 0 {
-		conf.IdleThreshold = 900 // default to 15 mins
+		conf.IdleThreshold = 2400 // default to 40 mins
 	}
 
 	// setup data path
