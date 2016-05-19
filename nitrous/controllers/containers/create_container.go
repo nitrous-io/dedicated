@@ -133,7 +133,7 @@ func CreateContainer(h *host.Host, options url.Values, env *middleware.Env) (res
 	if err != nil {
 		return nil, err
 	}
-	if err := prepareConfig(config, options, hv); err != nil {
+	if err := prepareConfig(env, config, options, hv); err != nil {
 		return nil, err
 	}
 

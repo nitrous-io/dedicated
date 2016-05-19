@@ -133,7 +133,7 @@ func createAtomic(h *host.Host, env *middleware.Env, w http.ResponseWriter, r *h
 		tx.Rollback()
 		return err
 	}
-	if err := prepareConfig(containerCfg, r.PostForm, hostVols); err != nil {
+	if err := prepareConfig(env, containerCfg, r.PostForm, hostVols); err != nil {
 		tx.Rollback()
 		return err
 	}
