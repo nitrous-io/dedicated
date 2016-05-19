@@ -697,7 +697,7 @@ var _ = Describe("models/host", func() {
 
 		BeforeEach(func() {
 			now := time.Now()
-			t2 := now.Add(-900 * time.Second) // 900s = idle_timeout DEFAULT
+			t2 := now.Add(-2400 * time.Second) // 2400s = idle_timeout DEFAULT
 			t3 := t2.Add(1 * time.Minute)
 			t4 := t2.Add(-1 * time.Minute)
 
@@ -1946,7 +1946,7 @@ var _ = Describe("models/host", func() {
 
 		BeforeEach(func() {
 			t1 = time.Now()
-			t2 = t1.Add(-900 * time.Second) // 900s = idle_timeout DEFAULT
+			t2 = t1.Add(-2400 * time.Second) // 2400s = idle_timeout DEFAULT
 			t3 = t2.Add(1 * time.Minute)
 		})
 
