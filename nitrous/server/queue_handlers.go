@@ -91,6 +91,9 @@ func (s *Server) handleCreateMessage(m *queue.Message) error {
 		if err != nil {
 			return err
 		}
+		if err := h.Touch(db); err != nil {
+			return err
+		}
 
 		if h.State == host.StateRunning {
 			logrus.Printf("uuid=%s host running but received created event %+v", m.UUID, queueInfo)
@@ -141,6 +144,14 @@ func (s *Server) handleCreateMessage(m *queue.Message) error {
 			u.Topic(),
 		)
 	case controllers.EventHostCreating:
+		h, err := host.Find(db, u, queueInfo.Slug)
+		if err != nil {
+			return err
+		}
+		if err := h.Touch(db); err != nil {
+			return err
+		}
+
 		p := &progress{Stream: strings.TrimSpace(queueInfo.Message)}
 		d, err := json.Marshal(p)
 		if err != nil {
