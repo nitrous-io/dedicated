@@ -166,6 +166,34 @@ var _ = Describe("models/userprofile", func() {
 		})
 	})
 
+	Describe("UpdateGitConfig", func() {
+		BeforeEach(func() {
+			u = &user.User{
+				Username: "foo",
+				Email:    "foo@example.com",
+				Password: "123456",
+			}
+
+			err := WrapInTransaction(db, u.Insert)
+			Expect(err).To(BeNil())
+		})
+
+		It("updates git config", func() {
+			p, err := userprofile.Find(db, u.ID)
+			Expect(err).NotTo(HaveOccurred())
+			Expect(p).NotTo(BeNil())
+
+			p.GitName = sql.NullString{"food", true}
+			p.GitEmail = sql.NullString{"food@bad.com", true}
+
+			err = p.UpdateGitConfig(db)
+			Expect(err).NotTo(HaveOccurred())
+
+			Expect(p.GitName.String).To(Equal("food"))
+			Expect(p.GitEmail.String).To(Equal("food@bad.com"))
+		})
+	})
+
 	Describe("FindByGitHubUserName", func() {
 		BeforeEach(func() {
 			u = &user.User{

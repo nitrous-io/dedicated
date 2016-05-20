@@ -89,6 +89,17 @@ func (p *UserProfile) UpdateGithubInfo(d db.QueryReceiver) error {
 	return nstmt.QueryRowx(p).StructScan(p)
 }
 
+func (p *UserProfile) UpdateGitConfig(d db.QueryReceiver) error {
+	nstmt, err := d.PrepareNamed(`UPDATE user_profiles
+		SET (git_name, git_email)
+			= (:git_name, :git_email)
+		WHERE id = :id RETURNING *;`)
+	if err != nil {
+		return err
+	}
+	return nstmt.QueryRowx(p).StructScan(p)
+}
+
 func (p *UserProfile) Update(d db.QueryReceiver) error {
 	nstmt, err := d.PrepareNamed(`UPDATE user_profiles
 		SET (advanced, updated_at) = (:advanced, now())
