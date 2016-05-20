@@ -34,6 +34,9 @@ type UserProfile struct {
 	SubscribeNewsletter    bool `db:"subscribe_newsletter"`
 	SubscribeAnnouncements bool `db:"subscribe_announcements"`
 
+	GitName  sql.NullString `db:"git_name"`
+	GitEmail sql.NullString `db:"git_email"`
+
 	CreatedAt *time.Time `db:"created_at"`
 	UpdatedAt *time.Time `db:"updated_at"`
 }

@@ -161,6 +161,8 @@ var _ = Describe("user serializer", func() {
 				UserID:    10,
 				MaxHosts:  2,
 				Advanced:  false,
+				GitName:   sql.NullString{"foo", true},
+				GitEmail:  sql.NullString{"goo@bom.com", true},
 				CreatedAt: &createdAt,
 				UpdatedAt: &updatedAt,
 			}
@@ -194,7 +196,9 @@ var _ = Describe("user serializer", func() {
 					"user_id": 10,
 					"max_hosts": 2,
 					"advanced": false,
-					"can_delete_github_public_keys": false
+					"can_delete_github_public_keys": false,
+					"git_name": "foo",
+					"git_email": "goo@bom.com"
 				},
 				"billing_profile": {
 					"id": 9,
