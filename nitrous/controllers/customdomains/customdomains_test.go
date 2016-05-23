@@ -205,7 +205,7 @@ var _ = Describe("controllers/customdomains", func() {
 			params.Set("port", "80")
 			params.Set("container_port", "9000")
 
-			params.Set("domain", "www_.gomama._com")
+			params.Set("domain", "www.gomama.com-")
 			res := doRequest(params)
 			Expect(res.Code).To(Equal(http.StatusBadRequest))
 
@@ -213,7 +213,7 @@ var _ = Describe("controllers/customdomains", func() {
 			res = doRequest(params)
 			Expect(res.Code).To(Equal(http.StatusBadRequest))
 
-			params.Set("domain", "http://www.gomama.internationalol")
+			params.Set("domain", "http://www.gomama-.internationalol")
 			res = doRequest(params)
 			Expect(res.Code).To(Equal(http.StatusBadRequest))
 		})
