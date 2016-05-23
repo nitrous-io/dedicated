@@ -24,6 +24,8 @@ var _ = Describe("userprofile serializer", func() {
 			GitHubUserName:       sql.NullString{"foo", true},
 			GitHubOAuthTokenJson: sql.NullString{`{"access_token": "token"}`, true},
 			GitHubUserScopesJson: sql.NullString{`["user:email","repo","admin:public_key"]`, true},
+			GitName:              sql.NullString{"gitfoo", true},
+			GitEmail:             sql.NullString{"git@foo.com", true},
 			CreatedAt:            &createdAt,
 			UpdatedAt:            &updatedAt,
 		}
@@ -39,7 +41,9 @@ var _ = Describe("userprofile serializer", func() {
 				"max_hosts": 15,
 				"advanced": false,
 				"authorized_github_user_name": "foo",
-				"can_delete_github_public_keys": true
+				"can_delete_github_public_keys": true,
+				"git_name": "gitfoo",
+				"git_email": "git@foo.com"
 			}`))
 		})
 	})

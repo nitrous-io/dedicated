@@ -28,6 +28,7 @@ import (
 	"github.com/nitrous-io/dedicated/nitrous/models/host"
 	"github.com/nitrous-io/dedicated/nitrous/models/image"
 	"github.com/nitrous-io/dedicated/nitrous/models/usercontainerdata"
+	"github.com/nitrous-io/dedicated/nitrous/models/userprofile"
 	"github.com/nitrous-io/dedicated/nitrous/models/volume"
 	"github.com/nitrous-io/dedicated/nitrous/pkg/httperror"
 	"github.com/nitrous-io/dedicated/nitrous/pkg/pubsub"
@@ -482,7 +483,7 @@ func start(cn *container.Container, h *host.Host, env *middleware.Env, w http.Re
 	}
 	r.ParseForm()
 
-	if err := prepareConfig(config, r.PostForm, hv); err != nil {
+	if err := prepareConfig(nil, config, r.PostForm, hv); err != nil {
 		return err
 	}
 
@@ -875,7 +876,7 @@ func PublishContainerEventToUsers(events *pubsub.Pubsub, name controllers.EventN
 }
 
 // prepareConfig accepts a ContainerConfig and modifies it with user-specified settings
-func prepareConfig(c *freighterclient.ContainerConfig, form url.Values, hv map[string]*volume.Volume) error {
+func prepareConfig(env *middleware.Env, c *freighterclient.ContainerConfig, form url.Values, hv map[string]*volume.Volume) error {
 	c.Env = append(c.Env, readParam(form, "env[]")...)
 	c.PortBindings = append(c.PortBindings, readParam(form, "port[]")...)
 
@@ -926,6 +927,29 @@ func prepareConfig(c *freighterclient.ContainerConfig, form url.Values, hv map[s
 		}
 	}
 	c.Scripts = scripts
+
+	if env != nil {
+		u := env.User
+		profile, err := userprofile.Find(env.DB, u.ID)
+		if err != nil {
+			return err
+		}
+
+		gitConfig := map[string]string{}
+		if profile.GitName.Valid {
+			gitConfig["name"] = profile.GitName.String
+		} else {
+			gitConfig["name"] = u.Username
+		}
+
+		if profile.GitEmail.Valid {
+			gitConfig["email"] = profile.GitEmail.String
+		} else {
+			gitConfig["email"] = u.Email
+		}
+
+		c.GitConfig = gitConfig
+	}
 
 	return nil
 }

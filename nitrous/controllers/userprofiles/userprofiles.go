@@ -1,6 +1,7 @@
 package userprofiles
 
 import (
+	"database/sql"
 	"net/http"
 	"strconv"
 
@@ -30,10 +31,32 @@ func Update(env *middleware.Env, w http.ResponseWriter, r *http.Request) error {
 		return err
 	}
 
-	if v, err := strconv.ParseBool(r.FormValue("advanced")); err == nil {
-		p.Advanced = v
+	updateType := r.FormValue("update")
+	switch updateType {
+	case "settings":
+		if v, err := strconv.ParseBool(r.FormValue("advanced")); err == nil {
+			p.Advanced = v
 
-		if err := p.Update(db); err != nil {
+			if err := p.Update(db); err != nil {
+				return err
+			}
+		}
+	case "gitConfig":
+		gitName := r.FormValue("git_name")
+		gitEmail := r.FormValue("git_email")
+		if gitName == "" {
+			p.GitName = sql.NullString{"", false}
+		} else {
+			p.GitName = sql.NullString{gitName, true}
+		}
+
+		if gitEmail == "" {
+			p.GitEmail = sql.NullString{"", false}
+		} else {
+			p.GitEmail = sql.NullString{gitEmail, true}
+		}
+
+		if err := p.UpdateGitConfig(db); err != nil {
 			return err
 		}
 	}

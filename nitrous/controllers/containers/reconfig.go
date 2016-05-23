@@ -34,7 +34,7 @@ func reconfig(cn *container.Container, h *host.Host, env *middleware.Env, w http
 
 	r.ParseForm()
 	config := &freighterclient.ContainerConfig{}
-	if err := prepareConfig(config, r.PostForm, hv); err != nil {
+	if err := prepareConfig(nil, config, r.PostForm, hv); err != nil {
 		return err
 	}
 

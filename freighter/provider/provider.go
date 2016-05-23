@@ -158,6 +158,12 @@ type ContainerConfig struct {
 	//   "Empty Trash": "rm -r /tmp/*"
 	// }
 	Scripts map[string]string `json:"Scripts,omitempty"`
+	// GitConfig
+	// E.g. {
+	//   "name": "abc",
+	//   "email": "abc@gmail.com",
+	// }
+	GitConfig map[string]string `json:"GitConfig,omitempty"`
 }
 
 // DockerConfig is fields we care about from the container's Config on Docker;

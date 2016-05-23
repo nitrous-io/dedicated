@@ -411,6 +411,61 @@ var _ = Describe("CreateStart", func() {
 		Expect(string(out)).To(Equal("it works\n"))
 	})
 
+	It("creates .gitconfig file in user home directory", func() {
+		// Build a Docker image with a nitrous user
+		dockerfile := `
+			FROM nitrousio/ubuntu-bare:latest
+			ENV NITROUS_USERNAME nitrous
+			RUN adduser nitrous -D || true
+			ENTRYPOINT top`
+
+		buf := new(bytes.Buffer)
+		tw := tar.NewWriter(buf)
+
+		err := tw.WriteHeader(&tar.Header{
+			Name: "Dockerfile",
+			Size: int64(len(dockerfile)),
+		})
+		Expect(err).To(BeNil())
+		_, err = tw.Write([]byte(dockerfile))
+		Expect(err).To(BeNil())
+
+		err = tw.Close()
+		Expect(err).To(BeNil())
+
+		datadir, err := test.TempDir()
+		Expect(err).To(BeNil())
+		defer os.RemoveAll(datadir)
+		prov, err := docker.NewDockerProvider(datadir)
+		Expect(err).To(BeNil())
+
+		// Build the image.
+		err = prov.BuildImage(provider.BuildImageOptions{
+			Name:         "create-start-test",
+			InputStream:  buf,
+			OutputStream: ioutil.Discard,
+		})
+		defer exec.Command("docker", "rmi", "create-start-test:latest").Run()
+		Expect(err).To(BeNil())
+
+		configJSON := `{
+			"GitConfig": {
+				"name": "gitgitgit",
+				"email": "gitemail@gmail.com"
+			}
+		}`
+		containerName := test.RandomName("freighterd-test")
+		info, err := prov.CreateStart(containerName, "create-start-test:latest", "secret", configJSON)
+		defer test.CleanUpContainer(containerName)
+		Expect(err).To(BeNil())
+
+		cmd := exec.Command("docker", "exec", info.ID, "cat", "/home/nitrous/.gitconfig")
+		out, err := cmd.CombinedOutput()
+		Expect(err).To(BeNil(), "failed to run command %v in container, output: %s, err: %v", cmd, out, err)
+
+		Expect(string(out)).To(Equal(fmt.Sprintf("[user]\n  name = gitgitgit\n  email = gitemail@gmail.com")))
+	})
+
 	Context("when container is created but cannot be started", func() {
 		It("creates a stopped container and returns the container info and a StartFailedError", func() {
 			datadir, err := test.TempDir()

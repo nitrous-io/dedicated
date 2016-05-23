@@ -118,6 +118,7 @@ var _ = Describe("controllers/userprofiles", func() {
 
 		It("allows advanced settings", func() {
 			params := &url.Values{}
+			params.Set("update", "settings")
 			params.Set("advanced", "true")
 
 			res := doRequest(params)
@@ -131,6 +132,25 @@ var _ = Describe("controllers/userprofiles", func() {
 			Expect(j.UserProfile.Advanced).To(Equal(true))
 		})
 
+		It("updates git name or git email", func() {
+			params := &url.Values{}
+			params.Set("update", "gitConfig")
+			params.Set("git_name", "foo")
+			params.Set("git_email", "foo@bar.com")
+
+			res := doRequest(params)
+			Expect(res.Code).To(Equal(http.StatusOK))
+
+			j := struct {
+				UserProfile serializers.UserProfile `json:"user_profile"`
+			}{}
+			err := json.NewDecoder(res.Body).Decode(&j)
+			Expect(err).To(BeNil())
+
+			Expect(j.UserProfile.GitName).To(Equal("foo"))
+			Expect(j.UserProfile.GitEmail).To(Equal("foo@bar.com"))
+		})
+
 		Context("oauth token failure modes", func() {
 			BeforeEach(func() {
 				authTokenInputs.Path = "/api/v0/user/profile"
@@ -139,5 +159,6 @@ var _ = Describe("controllers/userprofiles", func() {
 
 			ItRequiresAuthToken(&authTokenInputs)
 		})
+
 	})
 })
