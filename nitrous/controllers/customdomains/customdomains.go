@@ -45,8 +45,7 @@ func create(cn *container.Container, h *host.Host, env *middleware.Env, w http.R
 	domain := r.FormValue("domain")
 	protocolRegex := regexp.MustCompile("^http://|^https://")
 	domain = protocolRegex.ReplaceAllString(domain, "")
-	domainRegExp := regexp.MustCompile(`^(([a-zA-Z]{1})|([a-zA-Z]{1}[a-zA-Z]{1})|([a-zA-Z]{1}[0-9]{1})|([0-9]{1}[a-zA-Z]{1})|([a-zA-Z0-9][a-zA-Z0-9-_]{1,61}[a-zA-Z0-9]))\.([a-zA-Z]{2,6}|[a-zA-Z0-9-]{2,30}\.[a-zA-Z]{2,13})$`)
-	if !domainRegExp.MatchString(domain) {
+	if !isDomainName(domain) {
 		return errInvalidDomain
 	}
 
@@ -103,4 +102,53 @@ func delete(cn *container.Container, h *host.Host, env *middleware.Env, w http.R
 		"status": "ok",
 	}
 	return nil
+}
+
+// Copy from https://github.com/golang/go/blob/0104a31b8fbcbe52728a08867b26415d282c35d2/src/net/dnsclient.go#L116
+func isDomainName(s string) bool {
+	// See RFC 1035, RFC 3696.
+	if len(s) == 0 {
+		return false
+	}
+	if len(s) > 255 {
+		return false
+	}
+
+	last := byte('.')
+	ok := false // Ok once we've seen a letter.
+	partlen := 0
+	for i := 0; i < len(s); i++ {
+		c := s[i]
+		switch {
+		default:
+			return false
+		case 'a' <= c && c <= 'z' || 'A' <= c && c <= 'Z' || c == '_':
+			ok = true
+			partlen++
+		case '0' <= c && c <= '9':
+			// fine
+			partlen++
+		case c == '-':
+			// Byte before dash cannot be dot.
+			if last == '.' {
+				return false
+			}
+			partlen++
+		case c == '.':
+			// Byte before dot cannot be dot, dash.
+			if last == '.' || last == '-' {
+				return false
+			}
+			if partlen > 63 || partlen == 0 {
+				return false
+			}
+			partlen = 0
+		}
+		last = c
+	}
+	if last == '-' || partlen > 63 {
+		return false
+	}
+
+	return ok
 }
