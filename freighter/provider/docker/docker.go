@@ -204,6 +204,28 @@ func (p *DockerProvider) CreateStart(name, imageName, secret, configJSON string)
 		return info, &provider.StartFailedError{Err: err}
 	}
 
+	// Create a .gitconfig file in user home directory with value from GitConfig
+	// in ContainerConfig
+	if cfg.GitConfig != nil {
+		cn, err := p.inspectContainer(startedCnr.ID)
+		if err != nil {
+			return nil, err
+		}
+		usr, ok := p.appUser(cn)
+		if !ok {
+			return nil, errors.New("cannot determine user")
+		}
+		containerGitConfigPath := filepath.Join("/", "home", usr, ".gitconfig")
+		gitconfig := fmt.Sprintf(
+			"[user]\n  name = %s\n  email = %s",
+			cfg.GitConfig["name"],
+			cfg.GitConfig["email"],
+		)
+		if err := cops.CopyToContainer(cn.ID, cn.Config.Env, containerGitConfigPath, bytes.NewReader([]byte(gitconfig))); err != nil {
+			logrus.Errorf("DockerProvider: failed to create .gitconfig in user home directory: %v", err)
+		}
+	}
+
 	return startedCnr, nil
 }
 

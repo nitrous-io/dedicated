@@ -285,13 +285,9 @@ var _ = Describe("CreateAtomic", func() {
 				Expect(err).To(BeNil())
 
 				Expect(j.Container.ID).NotTo(BeZero())
-
-				cn, err := container.Find(db, u, strconv.FormatInt(j.Container.ID, 10))
-				Expect(err).To(BeNil())
-				Expect(cn.HostID).To(Equal(hs.H.ID))
-				Expect(cn.Name.String).To(Equal("rails-project"))
-				Expect(cn.Image).To(Equal("rails"))
-
+				Expect(j.Container.HostID).To(Equal(hs.H.ID))
+				Expect(j.Container.Name).To(Equal("rails-project"))
+				Expect(j.Container.Image).To(Equal("rails"))
 				Expect(j.RequestID).To(Equal(res.Header().Get(constants.NitrousUUIDHeader)))
 			})
 

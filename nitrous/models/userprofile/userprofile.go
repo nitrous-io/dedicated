@@ -34,6 +34,9 @@ type UserProfile struct {
 	SubscribeNewsletter    bool `db:"subscribe_newsletter"`
 	SubscribeAnnouncements bool `db:"subscribe_announcements"`
 
+	GitName  sql.NullString `db:"git_name"`
+	GitEmail sql.NullString `db:"git_email"`
+
 	CreatedAt *time.Time `db:"created_at"`
 	UpdatedAt *time.Time `db:"updated_at"`
 }
@@ -79,6 +82,17 @@ func (p *UserProfile) UpdateGithubInfo(d db.QueryReceiver) error {
 	nstmt, err := d.PrepareNamed(`UPDATE user_profiles
 		SET (github_user_name, github_oauth_token_json, github_user_scopes_json)
 			= (:github_user_name, :github_oauth_token_json, :github_user_scopes_json)
+		WHERE id = :id RETURNING *;`)
+	if err != nil {
+		return err
+	}
+	return nstmt.QueryRowx(p).StructScan(p)
+}
+
+func (p *UserProfile) UpdateGitConfig(d db.QueryReceiver) error {
+	nstmt, err := d.PrepareNamed(`UPDATE user_profiles
+		SET (git_name, git_email)
+			= (:git_name, :git_email)
 		WHERE id = :id RETURNING *;`)
 	if err != nil {
 		return err

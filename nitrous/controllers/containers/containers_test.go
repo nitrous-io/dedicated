@@ -27,6 +27,7 @@ import (
 	"github.com/nitrous-io/dedicated/nitrous/models/token"
 	"github.com/nitrous-io/dedicated/nitrous/models/user"
 	"github.com/nitrous-io/dedicated/nitrous/models/usercontainerdata"
+	"github.com/nitrous-io/dedicated/nitrous/models/userprofile"
 	"github.com/nitrous-io/dedicated/nitrous/models/volume"
 	"github.com/nitrous-io/dedicated/nitrous/pkg/pubsub"
 	"github.com/nitrous-io/dedicated/nitrous/pkg/securerandom"
@@ -3511,7 +3512,11 @@ var _ = Describe("controllers/containers", func() {
 
 		getConfs := func() *freighterclient.ContainerConfig {
 			config := &freighterclient.ContainerConfig{}
-			err := containers.PrepareConfig(config, form, hv)
+			env := &middleware.Env{
+				DB:   db,
+				User: u,
+			}
+			err := containers.PrepareConfig(env, config, form, hv)
 			Expect(err).To(BeNil())
 			return config
 		}
@@ -3547,7 +3552,7 @@ var _ = Describe("controllers/containers", func() {
 			It("returns error if host volume requested is absent", func() {
 				delete(hv, "backups")
 				config := &freighterclient.ContainerConfig{}
-				err := containers.PrepareConfig(config, form, hv)
+				err := containers.PrepareConfig(nil, config, form, hv)
 				Expect(err).To(Equal(containers.ErrVolumeNotFound))
 			})
 		})
@@ -3608,7 +3613,7 @@ var _ = Describe("controllers/containers", func() {
 				It(fmt.Sprintf("handles input: %s", c.input), func() {
 					form.Add("cmd", c.input)
 					config := &freighterclient.ContainerConfig{}
-					err := containers.PrepareConfig(config, form, hv)
+					err := containers.PrepareConfig(nil, config, form, hv)
 					if c.errMsg != "" {
 						Expect(err).NotTo(BeNil())
 						Expect(err.Error()).To(ContainSubstring(c.errMsg))
@@ -3629,6 +3634,27 @@ var _ = Describe("controllers/containers", func() {
 			Expect(cfg.Scripts).To(HaveLen(2))
 			Expect(cfg.Scripts["start"]).To(Equal("rails s"))
 			Expect(cfg.Scripts["list all teh things"]).To(Equal("ls -al"))
+		})
+
+		It("populates config's GitConfig with username and email", func() {
+			cfg := getConfs()
+
+			Expect(cfg.GitConfig).To(HaveLen(2))
+			Expect(cfg.GitConfig["name"]).To(Equal("foo"))
+			Expect(cfg.GitConfig["email"]).To(Equal("foo@example.com"))
+		})
+
+		It("populates config's GitConfig with userprofile git_name and git_email", func() {
+			profile, err := userprofile.Find(db, u.ID)
+			Expect(err).To(BeNil())
+			profile.GitName = sql.NullString{"gitname", true}
+			profile.GitEmail = sql.NullString{"git@email.com", true}
+			profile.UpdateGitConfig(db)
+			cfg := getConfs()
+
+			Expect(cfg.GitConfig).To(HaveLen(2))
+			Expect(cfg.GitConfig["name"]).To(Equal("gitname"))
+			Expect(cfg.GitConfig["email"]).To(Equal("git@email.com"))
 		})
 	})
 
