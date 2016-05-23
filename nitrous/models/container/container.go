@@ -38,12 +38,7 @@ type Container struct {
 	Slug       string         `db:"slug"`
 	Name       sql.NullString `db:"name"`
 	Secret     string         `db:"secret"`
-
-	// TempState can be used to overlay the actual container state.
-	// ResolvedState() returns this value when set.
-	// Eg: When TempState is set to 'starting` and container state in Freighter is 'stopped',
-	// ResolvedState() would return 'starting'.
-	TempState sql.NullInt64 `db:"temp_state"`
+	State      string         `db:"state"`
 
 	Metadata hstore.Hstore `db:"metadata"`
 
@@ -59,7 +54,6 @@ type Container struct {
 	PublicKeyFingerprint sql.NullString `db:"public_key_fingerprint"`
 
 	// These fields come from Freighter.
-	State      State
 	User       string
 	IPAddress  string
 	GatewayIP  string
@@ -198,8 +192,8 @@ func (c *Container) Insert(d db.QueryReceiver) error {
 		c.Secret = sec[:255]
 	}
 	nstmt, err := d.PrepareNamed(`INSERT INTO containers
-		(cid, user_id, host_id, snapshot_id, image, slug, name, secret, metadata)
-		VALUES (:cid, :user_id, :host_id, :snapshot_id, :image, :slug, :name, :secret, :metadata)
+		(cid, user_id, host_id, snapshot_id, image, slug, name, state, secret, metadata)
+		VALUES (:cid, :user_id, :host_id, :snapshot_id, :image, :slug, :name, :state, :secret, :metadata)
 		RETURNING *;`)
 	if err != nil {
 		return err
@@ -209,8 +203,8 @@ func (c *Container) Insert(d db.QueryReceiver) error {
 
 func (c *Container) Update(d db.QueryReceiver) error {
 	nstmt, err := d.PrepareNamed(`UPDATE containers
-		SET (cid, slug, name, image, temp_state, touched_at, updated_at, port_mappings)
-		= (:cid, :slug, :name, :image, :temp_state, :touched_at, now(), :port_mappings)
+		SET (cid, slug, name, image, state, touched_at, updated_at, port_mappings)
+		= (:cid, :slug, :name, :image, :state, :touched_at, now(), :port_mappings)
 		WHERE id = :id
 		RETURNING *;`)
 	if err != nil {
@@ -230,7 +224,12 @@ func (c *Container) Delete(d db.QueryReceiver) error {
 	if _, err := d.Exec(`DELETE FROM container_volumes WHERE container_id = $1`, c.ID); err != nil {
 		return err
 	}
-	nstmt, err := d.PrepareNamed(`UPDATE containers SET terminated_at = now() WHERE id = :id RETURNING *;`)
+	nstmt, err := d.PrepareNamed(`
+		UPDATE containers
+		SET (terminated_at, state)
+		= (now(), :state)
+		WHERE id = :id RETURNING *;
+	`)
 	if err != nil {
 		return err
 	}
@@ -257,28 +256,6 @@ func (c *Container) Validate() error {
 	return nil
 }
 
-func (c *Container) SetState(state string) bool {
-	var ok bool
-	switch state {
-	case "running":
-		c.State, ok = StateRunning, true
-	case "stopped":
-		c.State, ok = StateStopped, true
-	}
-	return ok
-}
-
-func (c *Container) ResolvedState() State {
-	if c.TerminatedAt != nil {
-		return StateTerminated
-	}
-
-	if c.TempState.Valid && c.IsLocked() {
-		return State(c.TempState.Int64)
-	}
-	return c.State
-}
-
 func (c *Container) IsLocked() bool {
 	if c.LockedUntil == nil {
 		return false
@@ -287,13 +264,13 @@ func (c *Container) IsLocked() bool {
 	}
 }
 
-func (c *Container) Lock(state State, expiresIn time.Duration, d db.QueryReceiver) error {
+func (c *Container) Lock(state string, expiresIn time.Duration, d db.QueryReceiver) error {
 	now := time.Now()
 	expiredAt := now.Add(expiresIn)
 
 	res, err := d.Exec(`
-		UPDATE containers SET (temp_state, locked_until) = ($1, $2) WHERE id = $3 AND (locked_until IS NULL OR locked_until < $4)
-	`, int64(state), expiredAt, c.ID, now)
+		UPDATE containers SET (state, locked_until) = ($1, $2) WHERE id = $3 AND (locked_until IS NULL OR locked_until < $4)
+	`, state, expiredAt, c.ID, now)
 
 	if err != nil {
 		return err
@@ -304,12 +281,12 @@ func (c *Container) Lock(state State, expiresIn time.Duration, d db.QueryReceive
 		return ErrLocked
 	}
 	c.LockedUntil = &expiredAt
-	c.TempState = sql.NullInt64{int64(state), true}
+	c.State = state
 	return nil
 }
 
 func (c *Container) Unlock(d db.QueryReceiver) error {
-	nstmt, err := d.PrepareNamed(`UPDATE containers SET (temp_state, locked_until) = (null, null) WHERE id = :id RETURNING *;`)
+	nstmt, err := d.PrepareNamed(`UPDATE containers SET (locked_until) = (null) WHERE id = :id RETURNING *;`)
 	if err != nil {
 		return err
 	}

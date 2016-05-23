@@ -79,7 +79,7 @@ var _ = Describe("container serializer", func() {
 				"name": "Rails dev box",
 				"ip_address": "1.2.3.4",
 				"gateway_ip": "1.2.3.0",
-				"state": "%s",
+				"state": "stopped",
 				"user": "guest",
 				"cmd": ["/sbin/init"],
 				"entrypoint": ["/bin/blah"],
@@ -105,7 +105,7 @@ var _ = Describe("container serializer", func() {
 					"publish_all": true,
 					"scripts": null
 				}
-			}`, model.ResolvedState(), model.PreviewHostname())))
+			}`, model.PreviewHostname())))
 		})
 
 		Context("snapshot id is null", func() {
@@ -136,7 +136,7 @@ var _ = Describe("container serializer", func() {
 				"name": "Rails dev box",
 				"ip_address": "1.2.3.4",
 				"gateway_ip": "1.2.3.0",
-				"state": "%s",
+				"state": "stopped",
 				"user": "guest",
 				"cmd": ["/sbin/init"],
 				"entrypoint": ["/bin/blah"],
@@ -162,7 +162,7 @@ var _ = Describe("container serializer", func() {
 					"publish_all": true,
 					"scripts": null
 				}
-			}`, model.ResolvedState(), model.PreviewHostname())))
+			}`, model.PreviewHostname())))
 			})
 		})
 	})

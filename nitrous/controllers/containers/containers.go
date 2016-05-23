@@ -179,10 +179,6 @@ func listContainers(env *middleware.Env, w http.ResponseWriter, r *http.Request,
 
 			if h.State != host.StateRunning {
 				for _, sc := range savedContainers {
-					sc.State = container.StateUnknown
-					if h.State == host.StateStopped {
-						sc.State = container.StateHostStopped
-					}
 					containersRespMu.Lock()
 					containersResp = append(containersResp, serializers.SerializeContainer(sc))
 					containersRespMu.Unlock()
@@ -205,7 +201,6 @@ func listContainers(env *middleware.Env, w http.ResponseWriter, r *http.Request,
 				// info to the frontend
 				if err == controllers.ErrHostNotRunning || err == controllers.ErrHostIPUnknown {
 					for _, sc := range savedContainers {
-						sc.State = container.StateHostStopped
 						containersRespMu.Lock()
 						containersResp = append(containersResp, serializers.SerializeContainer(sc))
 						containersRespMu.Unlock()
@@ -233,7 +228,7 @@ func listContainers(env *middleware.Env, w http.ResponseWriter, r *http.Request,
 				}
 				var cn *container.Container
 				if savedContainer != nil {
-					cn = hydrateContainer(savedContainer, lc, h)
+					cn = hydrateContainer(env, savedContainer, lc, h)
 				} else {
 					if onlySaved {
 						continue
@@ -244,6 +239,14 @@ func listContainers(env *middleware.Env, w http.ResponseWriter, r *http.Request,
 				containersRespMu.Lock()
 				containersResp = append(containersResp, serializers.SerializeContainer(cn))
 				containersRespMu.Unlock()
+			}
+
+			for _, sc := range savedContainers {
+				if sc.State == container.StateCreating {
+					containersRespMu.Lock()
+					containersResp = append(containersResp, serializers.SerializeContainer(sc))
+					containersRespMu.Unlock()
+				}
 			}
 		}(h)
 	}
@@ -360,7 +363,7 @@ func commit(cn *container.Container, h *host.Host, env *middleware.Env, w http.R
 	if err != nil {
 		return err
 	}
-	cn = hydrateContainer(cn, liveContainer, h)
+	cn = hydrateContainer(env, cn, liveContainer, h)
 
 	env.Events.Publish(controllers.NewEvent(controllers.EventImageCreated, map[string]*serializers.Image{
 		"image": sImg,
@@ -396,8 +399,6 @@ func show(cn *container.Container, h *host.Host, env *middleware.Env, w http.Res
 	cl, err := controllers.NewFreighterClient(env.DB, h, env.UUID)
 	if err != nil {
 		if err == controllers.ErrHostNotRunning || err == controllers.ErrHostIPUnknown {
-			cn.State = container.StateHostStopped
-
 			env.Status = http.StatusOK
 			env.Data = map[string]interface{}{
 				"container": serializers.SerializeContainer(cn),
@@ -416,7 +417,7 @@ func show(cn *container.Container, h *host.Host, env *middleware.Env, w http.Res
 		}
 		return err
 	}
-	cn = hydrateContainer(cn, liveContainer, h)
+	cn = hydrateContainer(env, cn, liveContainer, h)
 
 	config, err := cl.Config(cn.CID)
 	if err != nil {
@@ -516,9 +517,8 @@ func start(cn *container.Container, h *host.Host, env *middleware.Env, w http.Re
 				logger.Errorf("container.start: Failed to get preview port for container(%+v) : %+v", liveContainer, err)
 			}
 
-			// reset the temp state, so freighter state will be exposed
-			cn.TempState = sql.NullInt64{0, false}
-			cn = hydrateContainer(cn, liveContainer, h)
+			cn = hydrateContainer(env, cn, liveContainer, h)
+			cn = syncState(env, cn, liveContainer)
 
 			PublishContainerEvent(env, controllers.EventContainerStarted, cn, nil)
 			env.Status = http.StatusOK
@@ -531,7 +531,7 @@ func start(cn *container.Container, h *host.Host, env *middleware.Env, w http.Re
 
 type actionFn func(env *middleware.Env, cl *controllers.FreighterClient, cn *container.Container) (*freighterclient.Container, error)
 
-func controlActionHandler(action actionFn, tempState container.State, eventName controllers.EventName) containerHandler {
+func controlActionHandler(action actionFn, state string, transitionalEventName, eventName controllers.EventName) containerHandler {
 	return func(cn *container.Container, h *host.Host, env *middleware.Env, w http.ResponseWriter, r *http.Request) error {
 		cl, err := controllers.NewFreighterClient(env.DB, h, env.UUID)
 		if err != nil {
@@ -539,14 +539,9 @@ func controlActionHandler(action actionFn, tempState container.State, eventName 
 		}
 
 		return doContainerExclusive(
-			cn, env, tempState, transitionLockTime,
+			cn, env, state, transitionLockTime,
 			func() error {
-				// Publish transitioning state
-				evtName, err := getEventName(tempState)
-				if err != nil {
-					return err
-				}
-				PublishContainerEvent(env, evtName, cn, nil)
+				PublishContainerEvent(env, transitionalEventName, cn, nil)
 
 				liveContainer, err := action(env, cl, cn)
 				if err != nil {
@@ -556,10 +551,8 @@ func controlActionHandler(action actionFn, tempState container.State, eventName 
 					return err
 				}
 
-				// reset the temp state, so freigther state will be exposed
-				cn.TempState = sql.NullInt64{0, false}
-
-				cn = hydrateContainer(cn, liveContainer, h)
+				cn = hydrateContainer(env, cn, liveContainer, h)
+				cn = syncState(env, cn, liveContainer)
 
 				PublishContainerEvent(env, eventName, cn, nil)
 				env.Status = http.StatusOK
@@ -575,8 +568,9 @@ func controlActionHandler(action actionFn, tempState container.State, eventName 
 var stop = controlActionHandler(
 	func(env *middleware.Env, cl *controllers.FreighterClient, cn *container.Container) (*freighterclient.Container, error) {
 		return cl.Stop(cn.CID)
-
-	}, container.StateStopping, controllers.EventContainerStopped)
+	}, container.StateStopping,
+	controllers.EventContainerStopping,
+	controllers.EventContainerStopped)
 
 var restart = controlActionHandler(
 	func(env *middleware.Env, cl *controllers.FreighterClient, cn *container.Container) (*freighterclient.Container, error) {
@@ -604,7 +598,9 @@ var restart = controlActionHandler(
 
 		return liveContainer, nil
 
-	}, container.StateRestarting, controllers.EventContainerRestarted)
+	}, container.StateRestarting,
+	controllers.EventContainerRestarting,
+	controllers.EventContainerRestarted)
 
 func destroy(cn *container.Container, h *host.Host, env *middleware.Env, w http.ResponseWriter, r *http.Request) error {
 	db := env.DB
@@ -632,9 +628,7 @@ func destroy(cn *container.Container, h *host.Host, env *middleware.Env, w http.
 				return err
 			}
 
-			// reset the temp state, so freighter state will be exposed
-			cn.TempState = sql.NullInt64{0, false}
-
+			cn.State = container.StateTerminated
 			if err := cn.Delete(db); err != nil {
 				return err
 			}
@@ -660,7 +654,7 @@ func destroy(cn *container.Container, h *host.Host, env *middleware.Env, w http.
 				logger.Errorf("failed to delete custom domains from database, err: %v", err)
 			}
 
-			cn = hydrateContainer(cn, liveContainer, h)
+			cn = hydrateContainer(env, cn, liveContainer, h)
 
 			PublishContainerEvent(env, controllers.EventContainerDestroyed, cn, nil)
 			env.Status = http.StatusOK
@@ -785,8 +779,14 @@ func requiresRunningHost(fn hostFn) func(h *host.Host, env *middleware.Env, w ht
 	}
 }
 
-func hydrateContainer(c *container.Container, fc *freighterclient.Container, h *host.Host) *container.Container {
-	c.SetState(fc.State)
+func hydrateContainer(env *middleware.Env, c *container.Container, fc *freighterclient.Container, h *host.Host) *container.Container {
+	// always sync state from freighter to state container model
+	if c.State != fc.State &&
+		(fc.State == container.StateRunning || fc.State == container.StateStopped) &&
+		!c.IsLocked() {
+		c.State = fc.State
+	}
+
 	c.CID = fc.ID
 	if c.Image == "" || !ignoredImageNames.MatchString(fc.Image) {
 		c.Image = fc.Image
@@ -809,6 +809,7 @@ func mkContainer(fc *freighterclient.Container, h *host.Host) *container.Contain
 		CID:        fc.ID,
 		Image:      fc.Image,
 		Slug:       fc.Name,
+		State:      fc.State,
 		IPAddress:  fc.Host,
 		GatewayIP:  fc.Gateway,
 		UserID:     h.UserID,
@@ -820,7 +821,18 @@ func mkContainer(fc *freighterclient.Container, h *host.Host) *container.Contain
 		StartedAt:  timePtr(fc.StartedAt),
 		FinishedAt: timePtr(fc.FinishedAt),
 	}
-	c.SetState(fc.State)
+	return c
+}
+
+func syncState(env *middleware.Env, c *container.Container, fc *freighterclient.Container) *container.Container {
+	if c.State != fc.State &&
+		(fc.State == container.StateRunning || fc.State == container.StateStopped) {
+		c.State = fc.State
+		if err := c.UpdateColumn(env.DB, "state", fc.State); err != nil {
+			logrus.Errorf("container.action: failed to update state to %v: %v", fc.State, err)
+		}
+	}
+
 	return c
 }
 
@@ -975,17 +987,6 @@ func expandFreighterClientError(d db.QueryReceiver, cn *container.Container, err
 	return err
 }
 
-func getEventName(s container.State) (controllers.EventName, error) {
-	switch s {
-	case container.StateStopping:
-		return controllers.EventContainerStopping, nil
-	case container.StateRestarting:
-		return controllers.EventContainerRestarting, nil
-	default:
-		return "", fmt.Errorf("there's no associated event for the given state - %s", s)
-	}
-}
-
 // given a container and an error from freighterclient, determines if the error
 // means that the container was not found in Docker and delete if so
 func deleteIfNotFound(d db.QueryReceiver, cn *container.Container, fcErr error) error {
@@ -996,7 +997,7 @@ func deleteIfNotFound(d db.QueryReceiver, cn *container.Container, fcErr error) 
 		"container": cn.ID,
 		"host":      cn.HostID,
 	}).Errorf("container is marked as terminated in workspace")
-	cn.TempState = sql.NullInt64{0, false}
+	cn.State = container.StateTerminated
 	if err := cn.Delete(d); err != nil {
 		logrus.Errorf("unable to mark the container as terminated in db: %v", err)
 	}

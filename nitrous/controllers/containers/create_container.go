@@ -100,6 +100,7 @@ func CreateContainer(h *host.Host, options url.Values, env *middleware.Env) (res
 		Slug:   slug,
 		Name:   sql.NullString{name, true},
 		Image:  imageSlug,
+		State:  container.StateCreating,
 	}
 	// populate config with template-predefined settings
 	config := &freighterclient.ContainerConfig{}
@@ -142,7 +143,7 @@ func CreateContainer(h *host.Host, options url.Values, env *middleware.Env) (res
 	}
 
 	// Save record to db first to reserve name (since it's globally unique).
-	if err := cn.Insert(tx); err != nil {
+	if err := cn.Insert(env.DB); err != nil {
 		if e, ok := err.(*pq.Error); ok && e.Code.Name() == "unique_violation" {
 			if validationErr, ok := validations[e.Constraint]; ok {
 				return nil, validationErr
@@ -176,6 +177,11 @@ func CreateContainer(h *host.Host, options url.Values, env *middleware.Env) (res
 			if err == freighterclient.ErrImageNotFound {
 				return nil, errImageNotFound
 			}
+
+			if err := cn.UpdateColumn(env.DB, "state", container.StateCreateFailed); err != nil {
+				logrus.Errorf("container.CreateContainer: failed to update state to %v: %v", container.StateCreateFailed, err)
+			}
+
 			return nil, err
 		}
 	}
@@ -186,6 +192,7 @@ func CreateContainer(h *host.Host, options url.Values, env *middleware.Env) (res
 	cn.IPAddress = created.Host
 	cn.GatewayIP = created.Gateway
 	cn.Cmd = created.Cmd
+	cn.State = container.StateRunning
 	cn.Entrypoint = created.Entrypoint
 	cn.ExitCode = created.ExitCode
 	cn.StartedAt = timePtr(created.StartedAt)
@@ -197,10 +204,6 @@ func CreateContainer(h *host.Host, options url.Values, env *middleware.Env) (res
 		cn.PortMappings = portMappings
 	} else if err != nil {
 		logrus.Errorf("containers.create: Failed to get preview port: %+v", err)
-	}
-
-	if ok := cn.SetState(created.State); !ok { // log and continue
-		logrus.Errorf("containers.create: Freighter returned container with unexpected state: %v", created.State)
 	}
 
 	if err := cn.Update(tx); err != nil { // log and continue
