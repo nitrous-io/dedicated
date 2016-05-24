@@ -1,9 +1,11 @@
 ---
 - hosts: userhosts
   vars:
-    - freighterd_version: 1.8.1.1+1459843233-541-1c734b8
+    - freighterd_version: 1.8.1.1+1463551212-554-9caa736
   gather_facts: no
   sudo: yes
+  serial: 4
+  strategy: free
   tasks:
   - name: remove apt lists in case there are corrupted ones
     shell: rm -rf /var/lib/apt/lists/*
