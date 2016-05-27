@@ -643,10 +643,20 @@ var _ = Describe("models/host", func() {
 		})
 	})
 
-	Describe("FindAllWithoutOrphaned()", func() {
-		var u *user.User
+	Describe("FindAllWithoutOrphanedAndOrg()", func() {
+		var (
+			u *user.User
+			o *org.Org
+		)
 
 		BeforeEach(func() {
+			o = &org.Org{
+				Slug:  "my-org",
+				Name:  "MyOrg",
+				Email: "org@example.com",
+			}
+			Expect(o.Insert(db)).To(BeNil())
+
 			u = &user.User{
 				Username: "foo",
 				Email:    "foo@example.com",
@@ -679,10 +689,16 @@ var _ = Describe("models/host", func() {
 				VALUES ($1, $2, $3, $4, $5);`,
 				u.ID, "my-host-4", hs.R.ID, hs.P.ID, hs.PT.ID)
 			Expect(err).To(BeNil())
+
+			_, err = db.Exec(`INSERT INTO hosts
+				(user_id, slug, region_id, plan_id, provider_template_id, org_id)
+				VALUES ($1, $2, $3, $4, $5, $6);`,
+				u.ID, "my-host-5", hs.R.ID, hs.P.ID, hs.PT.ID, o.ID)
+			Expect(err).To(BeNil())
 		})
 
-		It("returns all non-terminated and non-orphan hosts", func() {
-			hosts, err := host.FindAllWithoutOrphaned(db, u.ID)
+		It("returns all non-terminated, non-org and non-orphan hosts", func() {
+			hosts, err := host.FindAllWithoutOrphanedAndOrg(db, u.ID)
 			Expect(err).To(BeNil())
 			Expect(hosts).To(HaveLen(2))
 			Expect(hosts[0].Slug).To(Equal("my-host-1"))
