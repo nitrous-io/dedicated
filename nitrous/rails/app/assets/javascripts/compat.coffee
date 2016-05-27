@@ -11,6 +11,7 @@ localStorageSupported = false
 }`
 
 return if supported && localStorageSupported
+return if document.cookie.indexOf("dismiss_warning=true") != -1
 
 style = document.createElement('style')
 css = """
@@ -89,6 +90,7 @@ div.id = 'browser-warning'
 window.dismissBrowserWarning = ->
   el = document.getElementById('browser-warning')
   el.parentNode.removeChild(el)
+  document.cookie = "dismiss_warning=true"
 
 if supported && !localStorageSupported
   div.innerHTML = """
@@ -107,6 +109,7 @@ if supported && !localStorageSupported
     storage = {}
 else
   div.innerHTML = """
+    <a style='float: right' href='#' onclick='dismissBrowserWarning()'>x</a>
     <h3>Warning: Your browser is not supported!</h1>
     <p>Nitrous uses the latest standard in HTML5 technologies and requires an up-to-date web browser.</p>
     <p>Please upgrade to one of the following supported web browsers and try again:</p>
