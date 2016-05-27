@@ -206,8 +206,8 @@ func Create(env *middleware.Env, w http.ResponseWriter, r *http.Request) error {
 		}
 	}
 
-	// Check if user has any existing hosts.
-	hosts, err := host.FindAllWithoutOrphaned(db, u.ID)
+	// Check if user has any existing non org hosts.
+	hosts, err := host.FindAllWithoutOrphanedAndOrg(db, u.ID)
 	if err != nil {
 		return err
 	}

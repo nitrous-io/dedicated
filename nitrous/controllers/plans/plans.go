@@ -25,7 +25,7 @@ func Index(env *middleware.Env, w http.ResponseWriter, r *http.Request) error {
 		finder = plan.AllPlansForProvider
 	case bp.IsFreeTier(), bp.IsPaid():
 		// Show all plans for free tier or paid user that has no existing hosts.
-		hosts, err := host.FindAllWithoutOrphaned(db, u.ID)
+		hosts, err := host.FindAllWithoutOrphanedAndOrg(db, u.ID)
 		if err != nil {
 			return err
 		}

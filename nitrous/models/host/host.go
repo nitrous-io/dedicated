@@ -243,11 +243,12 @@ func FindAllWithTerminated(db *db.Database, userID int64) ([]*Host, error) {
 	return hosts, nil
 }
 
-func FindAllWithoutOrphaned(db *db.Database, userID int64) ([]*Host, error) {
+func FindAllWithoutOrphanedAndOrg(db *db.Database, userID int64) ([]*Host, error) {
 	hosts := []*Host{}
 	err := db.Select(&hosts, `SELECT * FROM hosts
 		WHERE user_id = $1
 			AND state != $2
+			AND org_id IS NULL
 			AND terminated_at IS NULL
 		ORDER BY id;`,
 		userID, StateOrphan)
