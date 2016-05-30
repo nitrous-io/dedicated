@@ -21,7 +21,7 @@ class Container
   end
 
   def self.query
-    DB[:containers].
+    NITROUS_DB[:containers].
       select_all(:containers, :users, :hosts).
       select_more(:users__username___username).
       select_more(:hosts__slug___host_slug).

@@ -68,7 +68,7 @@ class User
   #   subscriptions.state => sub_state
   #   hosts.state => host_state
   def self.query
-    DB[:users].distinct(:users__id).
+    NITROUS_DB[:users].distinct(:users__id).
       select_all(:users, :billing_profiles, :hosts, :subscriptions).
       select_more(:users__id___uid).
       select_more(:billing_profiles__state___bp_state).
