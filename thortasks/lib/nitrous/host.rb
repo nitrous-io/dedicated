@@ -22,7 +22,7 @@ class Host
   end
 
   def self.query
-    DB[:hosts].
+    NITROUS_DB[:hosts].
       select_all(:hosts, :plans, :regions).
       select_more(:users__username___username).
       select_more(:hosts__slug___slug).

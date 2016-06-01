@@ -23,14 +23,14 @@ class Users < Thor
     u = User.find(ident) {|ds| ds.where(users__deleted_at: nil) }
     halt "User #{u.username} is not suspicious" if !u.suspicious
     old_suspicious = u.suspicious
-    DB.transaction do
-      r = DB[:users].where(id: u.uid).update(suspicious: nil)
+    NITROUS_DB.transaction do
+      r = NITROUS_DB[:users].where(id: u.uid).update(suspicious: nil)
       rows_expected!(r, 1)
       puts "#{u.summary}: suspicious '#{old_suspicious}' => null"
       if u.bp_state == 'delinquent'
         # users from brazil and turkey are set to delinquent when adding their card
         # we need to change them back to 'paid' state
-        r = DB[:billing_profiles].where(user_id: u.uid).update(state: 'paid')
+        r = NITROUS_DB[:billing_profiles].where(user_id: u.uid).update(state: 'paid')
         puts "#{u.summary}: bp state 'delinquent' => 'paid'"
       end
     end
@@ -40,14 +40,14 @@ class Users < Thor
   desc "grant_bonus IDENT BONUS [SECONDS]",  "Grants bonus to user by adding to usage_quota and inserting earned_bonus record"
   def grant_bonus(ident, bonus, amount=nil)
     u = User.find(ident) {|ds| ds.where(users__deleted_at: nil) }
-    DB.transaction do
-      bn = DB[:bonuses].where(slug: bonus).first
+    NITROUS_DB.transaction do
+      bn = NITROUS_DB[:bonuses].where(slug: bonus).first
       bonusAmount = amount || bn[:amount]
-      r = DB[:users].where(id: u.uid).update(usage_quota: u.usage_quota + bonusAmount.to_i)
+      r = NITROUS_DB[:users].where(id: u.uid).update(usage_quota: u.usage_quota + bonusAmount.to_i)
       rows_expected!(r, 1)
       u1 = User.find(ident) {|ds| ds.where(users__deleted_at: nil) }
       begin
-        DB[:earned_bonuses].insert(bonus_id: bn[:id], user_id: u.uid)
+        NITROUS_DB[:earned_bonuses].insert(bonus_id: bn[:id], user_id: u.uid)
         puts "#{u.summary}:"
         puts "\tusage_quota updated from #{u.usage_quota} to #{u1.usage_quota}"
         puts "\tearned_bonuses record inserted"
@@ -73,7 +73,7 @@ class Users < Thor
 
   desc "to_cancel", "Lists users whose subscriptions are eligible to cancel"
   def to_cancel
-    rs = DB[:users].distinct(:subscriptions__updated_at).
+    rs = NITROUS_DB[:users].distinct(:subscriptions__updated_at).
       select_more(:billing_profiles__stripe_id___customer_id).
       select_more(:subscriptions__stripe_id___sub_id).
       join(:billing_profiles, user_id: :users__id).
@@ -93,7 +93,7 @@ class Users < Thor
   desc "flatiron_token IDENT", "Returns most recent token for flatiron user IDENT. Creates token if none present"
   def flatiron_token(ident)
     u = User.find(ident) {|ds| ds.where(users__deleted_at: nil) }
-    r = DB[:orgs].
+    r = NITROUS_DB[:orgs].
       select_more(:users__id___uid).
       join(:org_memberships, org_id: :orgs__id).
       join(:users, id: :org_memberships__user_id).
@@ -101,13 +101,13 @@ class Users < Thor
       where(orgs__slug: 'flatiron-org').
       where(users__id: u.uid)
     halt "no flatiron user found for IDENT #{ident}" if r.count != 1
-    
+
     # SecureRandom has some issues, but should suffice for these purposes:
     # https://bugs.ruby-lang.org/issues/9569
     tokenstr = SecureRandom::base64(191)[0..254]
     h = {:user_id => u.uid, :token => tokenstr, :type => 'login', :scope => 'full'}
     begin
-      DB[:tokens] << h
+      NITROUS_DB[:tokens] << h
       puts "created token #{h}"
     rescue Sequel::DatabaseError => e
       puts "error creating token #{h}: #{e}"
@@ -121,10 +121,10 @@ class Users < Thor
     halt "User #{u.username} is already a paying user: billing profile state (#{u.bp_state})" if u.bp_state != 'no_card'
 
     old_authed, old_bp_state = u.phone_authed, u.bp_state
-    DB.transaction do
-      r = DB[:users].where(id: u.uid).update(phone_authed: true)
+    NITROUS_DB.transaction do
+      r = NITROUS_DB[:users].where(id: u.uid).update(phone_authed: true)
       rows_expected!(r, 1)
-      r = DB[:billing_profiles].where(user_id: u.uid).update(state: 'free')
+      r = NITROUS_DB[:billing_profiles].where(user_id: u.uid).update(state: 'free')
       rows_expected!(r, 1)
     end
 
@@ -133,10 +133,10 @@ class Users < Thor
 
   desc "set_usage_quota IDENT SECONDS", "set usage quota for a user"
   def set_usage_quota(ident, usage_quota)
-    DB.transaction do
+    NITROUS_DB.transaction do
       u = User.find(ident) {|ds| ds.where(users__deleted_at: nil )}
       old_usage_quota = u.usage_quota
-      r = DB[:users].where(id: u.uid).update(usage_quota: usage_quota)
+      r = NITROUS_DB[:users].where(id: u.uid).update(usage_quota: usage_quota)
       rows_expected!(r, 1)
       puts "#{u.summary}: usage_quota #{old_usage_quota} => #{usage_quota}"
     end
@@ -144,11 +144,11 @@ class Users < Thor
 
   desc "reset_quota IDENT", "reset the current quota period for a user"
   def reset_quota(ident)
-    DB.transaction do
+    NITROUS_DB.transaction do
       u = User.find(ident) {|ds| ds.where(users__deleted_at: nil )}
       old_period = u.usage_quota_restored_at
       new_period = Time.now
-      r = DB[:users].where(id: u.uid).update(usage_quota_restored_at: new_period)
+      r = NITROUS_DB[:users].where(id: u.uid).update(usage_quota_restored_at: new_period)
       rows_expected!(r, 1)
       puts "#{u.summary}: usage_quota_restored_at #{old_period} => #{new_period}"
     end
