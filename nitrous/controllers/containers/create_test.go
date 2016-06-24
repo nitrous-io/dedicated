@@ -1005,7 +1005,7 @@ var _ = Describe("CreateAtomic", func() {
 				mockClient.CreateError = errors.New("you are not worthy")
 			})
 
-			It("publishes a container create failed event and set state to create_failed", func() {
+			It("publishes a container create failed event and set state to terminated", func() {
 				ch := svr.Events.Subscribe(u.Topic())
 				defer svr.Events.Unsubscribe(ch, u.Topic())
 
@@ -1054,8 +1054,10 @@ var _ = Describe("CreateAtomic", func() {
 
 					cntrs, err := container.FindAllByHostID(db, hs.H.ID)
 					Expect(err).To(BeNil())
-					Expect(cntrs).To(HaveLen(1))
-					Expect(cntrs[0].State).To(Equal(container.StateCreateFailed))
+					Expect(cntrs).To(HaveLen(0))
+
+					_, err = container.Find(db, u, "rails-project")
+					Expect(err.Error()).To(Equal("sql: no rows in result set"))
 				}
 			})
 

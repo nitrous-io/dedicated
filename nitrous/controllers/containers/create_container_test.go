@@ -333,14 +333,17 @@ var _ = Describe("CreateContainer", func() {
 			mockClient.CreateError = errors.New("only Chuck Norris is allowed")
 		})
 
-		It("creates container record with create_failed state", func() {
+		It("creates container record with terminated state", func() {
+			params.Set("slug", "err-container")
 			_, err := containers.CreateContainer(h, params, env)
 			Expect(err).ToNot(BeNil())
 
 			cntrs, err := container.FindAllByHostID(db, h.ID)
 			Expect(err).To(BeNil())
-			Expect(cntrs).To(HaveLen(1))
-			Expect(cntrs[0].State).To(Equal(container.StateCreateFailed))
+			Expect(cntrs).To(HaveLen(0))
+
+			_, err = container.Find(db, u, "err-container")
+			Expect(err.Error()).To(Equal("sql: no rows in result set"))
 		})
 
 		It("responds with the error", func() {

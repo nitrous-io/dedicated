@@ -188,8 +188,9 @@ func createAtomic(h *host.Host, env *middleware.Env, w http.ResponseWriter, r *h
 				topic,
 			)
 
-			if err := cn.UpdateColumn(env.DB, "state", container.StateCreateFailed); err != nil {
-				logrus.Errorf("container.CreateAtomic: failed to update state to %v: %v", container.StateCreateFailed, err)
+			cn.State = container.StateTerminated
+			if err := cn.Delete(env.DB); err != nil {
+				logrus.Errorf("container.CreateAtomic: failed to update state to %v: %v", container.StateTerminated, err)
 			}
 		}
 

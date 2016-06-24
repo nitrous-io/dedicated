@@ -203,8 +203,8 @@ func (c *Container) Insert(d db.QueryReceiver) error {
 
 func (c *Container) Update(d db.QueryReceiver) error {
 	nstmt, err := d.PrepareNamed(`UPDATE containers
-		SET (cid, slug, name, image, state, touched_at, updated_at, port_mappings)
-		= (:cid, :slug, :name, :image, :state, :touched_at, now(), :port_mappings)
+		SET (cid, slug, name, image, state, terminated_at, touched_at, updated_at, port_mappings)
+		= (:cid, :slug, :name, :image, :state, :terminated_at, :touched_at, now(), :port_mappings)
 		WHERE id = :id
 		RETURNING *;`)
 	if err != nil {
