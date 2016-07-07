@@ -32,6 +32,7 @@ import (
 	"github.com/nitrous-io/dedicated/nitrous/controllers/promocodes"
 	"github.com/nitrous-io/dedicated/nitrous/controllers/providertemplates"
 	"github.com/nitrous-io/dedicated/nitrous/controllers/quickstart"
+	"github.com/nitrous-io/dedicated/nitrous/controllers/referralcodes"
 	"github.com/nitrous-io/dedicated/nitrous/controllers/regions"
 	"github.com/nitrous-io/dedicated/nitrous/controllers/registries"
 	"github.com/nitrous-io/dedicated/nitrous/controllers/snapshots"
@@ -154,6 +155,7 @@ func (s *Server) drawRoutes() {
 				"/user/login_token":                        r("users.GetLoginToken", users.GetLoginToken),
 				"/user/promo_codes":                        r("promocodes.PendingPromoCodes", promocodes.PendingPromoCodes),
 				"/user/earned_bonuses":                     r("bonuses.EarnedByUser", bonuses.EarnedByUser),
+				"/user/referral_code":                      r("referralcodes.Show", referralcodes.Show),
 				"/bonuses":                                 r("bonuses.Index", bonuses.Index),
 				"/plans":                                   r("plans.Index", plans.Index),
 				"/hosts":                                   r("hosts.Index", hosts.Index),

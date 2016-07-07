@@ -21,11 +21,13 @@ import (
 	"github.com/nitrous-io/dedicated/nitrous/db"
 	"github.com/nitrous-io/dedicated/nitrous/envvars"
 	"github.com/nitrous-io/dedicated/nitrous/models/billingprofile"
+	"github.com/nitrous-io/dedicated/nitrous/models/bonus"
 	"github.com/nitrous-io/dedicated/nitrous/models/container"
 	"github.com/nitrous-io/dedicated/nitrous/models/containercollab"
 	"github.com/nitrous-io/dedicated/nitrous/models/oauthclient"
 	"github.com/nitrous-io/dedicated/nitrous/models/org"
 	"github.com/nitrous-io/dedicated/nitrous/models/orgmembership"
+	"github.com/nitrous-io/dedicated/nitrous/models/referralcode"
 	"github.com/nitrous-io/dedicated/nitrous/models/token"
 	"github.com/nitrous-io/dedicated/nitrous/models/user"
 	"github.com/nitrous-io/dedicated/nitrous/models/userprofile"
@@ -372,6 +374,146 @@ var _ = Describe("controllers/users", func() {
 			Expect(err).To(BeNil())
 			Expect(j["error"]).To(Equal("email_banned"))
 			Expect(j["error_description"]).To(Equal("this email address is banned"))
+		})
+
+		Context("when referred by existing user", func() {
+			It("inserts referral code uses record", func() {
+				var code string
+				err := db.Get(&code, `SELECT code FROM referral_codes WHERE user_id = $1`, u.ID)
+				Expect(err).To(BeNil())
+
+				params.Set("referral_code", code)
+				doRequest()
+
+				Expect(res.Code).To(Equal(http.StatusCreated))
+
+				u2, err := user.FindByUsername(db, "foo")
+				Expect(err).To(BeNil())
+				Expect(u2.ConfirmedAt.Valid).To(BeTrue())
+
+				rc := &referralcode.ReferralCode{}
+				err = db.Get(rc, `SELECT * FROM referral_codes WHERE code = $1`, code)
+				Expect(err).To(BeNil())
+
+				rcu := &referralcode.ReferralCodeUse{}
+				err = db.Get(rcu, `SELECT * FROM referral_code_uses WHERE user_id = $1`, u2.ID)
+				Expect(err).To(BeNil())
+
+				Expect(rcu.UserID).To(Equal(u2.ID))
+				Expect(rcu.ReferralCodeID).To(Equal(rc.ID))
+			})
+
+			It("grants bonus to referer and referee", func() {
+				var code string
+				err := db.Get(&code, `SELECT code FROM referral_codes WHERE user_id = $1`, u.ID)
+				Expect(err).To(BeNil())
+
+				params.Set("referral_code", code)
+				doRequest()
+
+				Expect(res.Code).To(Equal(http.StatusCreated))
+
+				u2, err := user.FindByUsername(db, "foo")
+				Expect(err).To(BeNil())
+				Expect(u2.ConfirmedAt.Valid).To(BeTrue())
+
+				rc := &referralcode.ReferralCode{}
+				err = db.Get(rc, `SELECT * FROM referral_codes WHERE code = $1`, code)
+				Expect(err).To(BeNil())
+				Expect(rc.Bonus > 0).To(Equal(true))
+
+				var updatedQuota int64
+				err = db.Get(&updatedQuota, `SELECT usage_quota FROM users WHERE id = $1`, u.ID)
+				Expect(err).To(BeNil())
+				Expect(updatedQuota).To(Equal(180000 + rc.Bonus))
+
+				var updatedQuota2 int64
+				err = db.Get(&updatedQuota2, `SELECT usage_quota FROM users WHERE id = $1`, u2.ID)
+				Expect(err).To(BeNil())
+				Expect(updatedQuota2).To(Equal(180000 + rc.Bonus))
+			})
+
+			It("returns error if bonus has been earned", func() {
+				var bnID int64
+				err := db.Get(&bnID, `INSERT INTO bonuses (slug, amount) VALUES ('refer-friend', 108000) returning id;`)
+				Expect(err).To(BeNil())
+
+				ebn := &bonus.EarnedBonus{
+					BonusID: bnID,
+					UserID:  u.ID,
+				}
+				Expect(ebn.Insert(db)).To(BeNil())
+
+				var code string
+				err = db.Get(&code, `SELECT code FROM referral_codes WHERE user_id = $1`, u.ID)
+				Expect(err).To(BeNil())
+
+				_, err = db.Exec(`UPDATE referral_codes SET cap = 0 WHERE code = $1;`, code)
+				Expect(err).To(BeNil())
+
+				params.Set("referral_code", code)
+				doRequest()
+
+				Expect(res.Code).To(Equal(http.StatusBadRequest))
+
+				errSlug, errDesc := test.ErrorSlug(res.Body)
+				Expect(errSlug).To(Equal("referral_limit_reached"))
+				Expect(errDesc).To(Equal("the referral code is invalid"))
+			})
+
+			It("returns error if code is invalid", func() {
+				params.Set("referral_code", "invalid-code")
+				doRequest()
+
+				Expect(res.Code).To(Equal(http.StatusBadRequest))
+
+				errSlug, errDesc := test.ErrorSlug(res.Body)
+				Expect(errSlug).To(Equal("invalid_ref_code"))
+				Expect(errDesc).To(Equal("the referral code is invalid"))
+			})
+
+			It("does not insert referral code uses record if code is invalid", func() {
+				params.Set("referral_code", "invalid-code")
+				doRequest()
+
+				Expect(res.Code).To(Equal(http.StatusBadRequest))
+
+				u2, err := user.FindByUsername(db, "foo")
+				Expect(err).To(BeNil())
+				Expect(u2.ConfirmedAt.Valid).To(BeFalse())
+
+				rcu := &referralcode.ReferralCodeUse{}
+				err = db.Get(rcu, `SELECT * FROM referral_code_uses WHERE user_id = $1`, u2.ID)
+				Expect(err).To(Equal(sql.ErrNoRows))
+			})
+
+			It("does not grant bonuses if code is invalid", func() {
+				params.Set("referral_code", "invalid-code")
+				doRequest()
+
+				Expect(res.Code).To(Equal(http.StatusBadRequest))
+
+				u2, err := user.FindByUsername(db, "foo")
+				Expect(err).To(BeNil())
+				Expect(u2.ConfirmedAt.Valid).To(BeFalse())
+
+				var code string
+				err = db.Get(&code, `SELECT code FROM referral_codes WHERE user_id = $1`, u.ID)
+
+				rc := &referralcode.ReferralCode{}
+				err = db.Get(rc, `SELECT * FROM referral_codes WHERE code = $1`, code)
+				Expect(err).To(BeNil())
+
+				var updatedQuota int64
+				err = db.Get(&updatedQuota, `SELECT usage_quota FROM users WHERE id = $1`, u.ID)
+				Expect(err).To(BeNil())
+				Expect(updatedQuota).To(Equal(int64(180000)))
+
+				var updatedQuota2 int64
+				err = db.Get(&updatedQuota2, `SELECT usage_quota FROM users WHERE id = $1`, u2.ID)
+				Expect(err).To(BeNil())
+				Expect(updatedQuota2).To(Equal(int64(180000)))
+			})
 		})
 
 		Context("invited by container collaborator", func() {

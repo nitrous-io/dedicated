@@ -20,6 +20,7 @@ import (
 	"github.com/nitrous-io/dedicated/nitrous/envvars"
 	"github.com/nitrous-io/dedicated/nitrous/models/billingprofile"
 	"github.com/nitrous-io/dedicated/nitrous/models/bonus"
+	"github.com/nitrous-io/dedicated/nitrous/models/referralcode"
 	"github.com/nitrous-io/dedicated/nitrous/models/userprofile"
 	"github.com/nitrous-io/dedicated/nitrous/pkg/bcrypt"
 	"github.com/nitrous-io/dedicated/nitrous/pkg/blacklist"
@@ -357,6 +358,10 @@ func (u *User) Insert(tx *sqlx.Tx) error {
 	}
 
 	if err := userprofile.Create(tx, u.ID); err != nil {
+		return err
+	}
+
+	if _, err := referralcode.Create(tx, u.ID); err != nil {
 		return err
 	}
 
