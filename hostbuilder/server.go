@@ -28,7 +28,7 @@ const NitrousUUIDHeader = "X-NITROUS-UUID"
 var (
 	okResponse = &Response{StatusCode: http.StatusOK, Status: "ok"}
 
-	FreighterPingTimeout  = 1 * time.Second
+	FreighterPingTimeout  = 5 * time.Second
 	FreighterPingAttempts = []time.Duration{
 		2 * time.Second, // Ping eagerly at the start because most of the time
 		2 * time.Second, // Freighter should be available pretty quickly.
