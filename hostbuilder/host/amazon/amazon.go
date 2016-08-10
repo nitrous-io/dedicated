@@ -73,7 +73,7 @@ var (
 		// aws.SAEast.Name:       aws.SAEast,
 	}
 
-	freighterPingTimeout  = 1 * time.Second
+	freighterPingTimeout  = 5 * time.Second
 	freighterPingAttempts = []time.Duration{
 		2 * time.Second, // Ping eagerly at the start because most of the time
 		2 * time.Second, // Freighter should be available pretty quickly.
