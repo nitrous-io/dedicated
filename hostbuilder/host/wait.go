@@ -4,9 +4,11 @@ import (
 	"crypto/tls"
 	"net/http"
 	"time"
+
+	"github.com/Sirupsen/logrus"
 )
 
-var transport = http.Transport{
+var tr = http.Transport{
 	DisableKeepAlives: true,
 	TLSClientConfig:   &tls.Config{InsecureSkipVerify: true},
 }
@@ -21,7 +23,7 @@ func WaitForServer(url string, clientTimeout time.Duration, attempts []time.Dura
 	}
 
 	client := &http.Client{
-		Transport: &transport,
+		Transport: &tr,
 		Timeout:   clientTimeout,
 	}
 
@@ -37,10 +39,17 @@ func WaitForServer(url string, clientTimeout time.Duration, attempts []time.Dura
 			if resp.StatusCode == http.StatusOK {
 				return true
 			}
+
+			logrus.Warnf("WaitForServer: got non-200 response from server at %q, status: %v", url, resp.StatusCode)
+		} else {
+			logrus.Warnf("WaitForServer: failed to connect to server at %q, err: %v", url, err)
 		}
 		if i < len(attempts)-1 {
 			time.Sleep(duration)
 		}
 	}
+
+	logrus.Warnf("WaitForServer: could not connect to server at %q after %d attempts", url, len(attempts))
+
 	return false
 }

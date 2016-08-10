@@ -33,7 +33,7 @@ func WaitForSSH(ctx *HostContext) error {
 	label := l.MetricsLabel("ssh_wait")
 	defer mh.UpdateSince(label, time.Now())
 
-	l.Printf("Waiting for SSH to be ready")
+	l.Printf("Waiting for SSH to be ready, address: %q", config.Address())
 	connInterval := 5 * time.Second
 	sshConn, err := sshutil.WaitForSSH(config.Address(), config.Username,
 		config.PrivateKey, connInterval, timeout, l)

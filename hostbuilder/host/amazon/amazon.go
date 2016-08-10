@@ -824,10 +824,10 @@ func checkFreighterHTTP(ctx *host.HostContext) error {
 	label := h.MetricsLabel("check-freighter-http")
 	defer mh.UpdateSince(label, start)
 
-	h.Printf("checking that Freighter is reachable via HTTP")
 	fURL := fmt.Sprintf("https://%s:%d", h.instance.PublicIpAddress, host.DefaultPort)
+	h.Printf("checking that Freighter is reachable via HTTPS, URL: %q", fURL)
 	if !host.WaitForServer(fURL, freighterPingTimeout, freighterPingAttempts) {
-		return errors.New("failed to connect to Freighter via HTTP")
+		return fmt.Errorf("failed to connect to Freighter via HTTPS, URL: %q", fURL)
 	}
 	h.Printf("connected to Freighter after %v", time.Since(start))
 
