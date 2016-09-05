@@ -178,8 +178,9 @@ func CreateContainer(h *host.Host, options url.Values, env *middleware.Env) (res
 				return nil, errImageNotFound
 			}
 
-			if err := cn.UpdateColumn(env.DB, "state", container.StateCreateFailed); err != nil {
-				logrus.Errorf("container.CreateContainer: failed to update state to %v: %v", container.StateCreateFailed, err)
+			cn.State = container.StateTerminated
+			if err := cn.Delete(env.DB); err != nil {
+				logrus.Errorf("container.CreateContainer: failed to update state to %v: %v", container.StateTerminated, err)
 			}
 
 			return nil, err
