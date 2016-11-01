@@ -13,11 +13,18 @@ if [[ ! -f ./gof3r ]]; then
   chmod +x ./gof3r
 fi
 
-S3_KEY=$CONTAINER_HASH.tar.gz
+S3_KEY="$CONTAINER_HASH.tar.gz"
 
-docker cp $CONTAINER:/home/nitrous - | \
-  gzip --stdout -8 | \
-  ./gof3r put --bucket $BUCKET --key $S3_KEY --endpoint s3-accelerate.amazonaws.com --acl public-read
+fifo1=$(mktemp -u)
+fifo2=$(mktemp -u)
+mkfifo -m 600 "$fifo1"
+mkfifo -m 600 "$fifo2"
+trap 'rm "$fifo1"' EXIT INT TERM HUP
+trap 'rm "$fifo2"' EXIT INT TERM HUP
+
+docker cp $CONTAINER:/home/nitrous - > $fifo1 &
+gzip --stdout -8 < $fifo1 > $fifo2 &
+./gof3r put --bucket $BUCKET --key $S3_KEY --endpoint s3-accelerate.amazonaws.com --acl public-read < $fifo2
 
 echo "SUCCESS. Container $CONTAINER backed up to s3://$BUCKET/$S3_KEY."
 
