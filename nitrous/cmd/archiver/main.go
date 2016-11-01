@@ -1,13 +1,16 @@
 package main
 
 import (
+	"crypto/rand"
 	"crypto/sha256"
 	"database/sql"
+	"encoding/csv"
 	"encoding/hex"
 	"errors"
 	"fmt"
 	"io"
 	"os"
+	"strconv"
 	"strings"
 	"sync"
 	"time"
@@ -30,6 +33,8 @@ var (
 	s3Bucket          string
 	hostbuilderURL    string
 	hostbuilderClient *hostbuilderclient.Hostbuilder
+
+	csvWriter *csv.Writer
 )
 
 type job struct {
@@ -70,8 +75,28 @@ func run() error {
 		log.Fatalf("failed to connect to database, err: %v", err)
 	}
 
+	// Log to a global CSV file. We'll use this to send emails to users with
+	// links to their container archives.
+	csvFile := fmt.Sprintf("archiver-%d.csv", time.Now().Unix())
+	log.Infof("Logging results to CSV file at %q", csvFile)
+	f, err := os.Create(csvFile)
+	if err != nil {
+		return err
+	}
+	defer f.Close()
+
+	csvWriter = csv.NewWriter(f)
+	csvWriter.Write([]string{
+		"email", "username", "container slug", "container name",
+		"archive URL", "archive created at",
+	})
+	csvWriter.Flush()
+	if err := csvWriter.Error(); err != nil {
+		return err
+	}
+
 	var (
-		numWorkers = 5 // At most 5 workers will run at any one time.
+		numWorkers = 10 // At most 10 workers will run at any one time.
 		wg         sync.WaitGroup
 		jobs       = make(chan *job, 100)
 	)
@@ -92,7 +117,7 @@ func run() error {
 			users.deleted_at IS NULL
 			AND users.service_account = false
 			AND hosts.terminated_at IS NULL
-		ORDER BY ID;
+		ORDER BY id;
 	`); err != nil {
 		return err
 	}
@@ -143,6 +168,34 @@ func archive(db *db.Database, u *user.User, h *host.Host) error {
 
 	hostLog.Printf("Host ID %d: in the %q state", h.ID, h.State)
 
+	var stopAfter bool
+	defer func() {
+		if stopAfter {
+			hostLog.Printf("Host ID %d: returning to stopped state...", h.ID)
+			_, err := hostbuilderClient.Stop(
+				h.Provider, h.MachineConfig(), nil, nil)
+			if err != nil {
+				log.Errorf("Host ID %d: failed to stop host, err: %v", h.ID, err)
+				return
+			}
+
+			h.State = host.StateStopped
+			h.ProviderIdentifier = sql.NullString{}
+			h.IPAddress = sql.NullString{}
+			h.FreighterdPort = sql.NullInt64{}
+			if err := db.WithTransaction(func(tx *sqlx.Tx) error {
+				columnsToUpdate := []string{"state", "provider_identifier", "ip_address", "freighterd_port"}
+				if err := h.UpdateSpecifiedColumns(tx, columnsToUpdate); err != nil {
+					return err
+				}
+				return hosttransition.Record(tx, h, host.StateStopping, *h.UpdatedAt, 0)
+			}); err != nil {
+				log.Errorf("Host ID %d: failed update after stopping, err: %v", h.ID, err)
+				return
+			}
+		}
+	}()
+
 	switch h.State {
 	case host.StateStopped:
 		hostLog.Printf("Host ID %d: starting...", h.ID)
@@ -153,9 +206,9 @@ func archive(db *db.Database, u *user.User, h *host.Host) error {
 		}
 
 		h.State = host.StateRunning
-		h.ProviderIdentifier = sql.NullString{info.ID, true}
-		h.IPAddress = sql.NullString{info.IPAddress, true}
-		h.FreighterdPort = sql.NullInt64{int64(info.FreighterdPort), true}
+		h.ProviderIdentifier = sql.NullString{String: info.ID, Valid: true}
+		h.IPAddress = sql.NullString{String: info.IPAddress, Valid: true}
+		h.FreighterdPort = sql.NullInt64{Int64: int64(info.FreighterdPort), Valid: true}
 		if err := db.WithTransaction(func(tx *sqlx.Tx) error {
 			columnsToUpdate := []string{"state", "provider_identifier", "ip_address", "freighterd_port"}
 			if err := h.UpdateSpecifiedColumns(tx, columnsToUpdate); err != nil {
@@ -165,6 +218,8 @@ func archive(db *db.Database, u *user.User, h *host.Host) error {
 		}); err != nil {
 			return err
 		}
+
+		stopAfter = true
 
 		hostLog.Printf("Host ID %d: successfully started: %#v", h.ID, info)
 	case host.StateRunning:
@@ -189,11 +244,13 @@ func archive(db *db.Database, u *user.User, h *host.Host) error {
 
 	privKeyPEM, err := hk.PrivatePEM()
 	if err != nil {
+		log.Errorf("error getting private key in PEM format: %v", err)
 		return err
 	}
 
 	signer, err := ssh.ParsePrivateKey(privKeyPEM)
 	if err != nil {
+		log.Errorf("error getting parsing private key: %v", err)
 		return err
 	}
 
@@ -203,12 +260,14 @@ func archive(db *db.Database, u *user.User, h *host.Host) error {
 		Auth: []ssh.AuthMethod{ssh.PublicKeys(signer)},
 	})
 	if err != nil {
+		log.Errorf("error connecting to host at %v: %v", hk.Address(), err)
 		return err
 	}
 	hostLog.Printf("Host ID %d: SSH success.", h.ID)
 
 	hostLog.Printf("Host ID %d: uploading shell script...", h.ID)
 	if err := uploadShellScript(client); err != nil {
+		log.Errorf("error uploading shell script: %v", err)
 		return err
 	}
 	hostLog.Printf("Host ID %d: shell script uploaded.", h.ID)
@@ -217,7 +276,9 @@ func archive(db *db.Database, u *user.User, h *host.Host) error {
 		start := time.Now()
 
 		// TODO We can also use S3 pre-signed URLs but those expire in 7 days.
-		containerHash := genContainerHash(cn.Slug, u.EncryptedPassword)
+		containerHash := genContainerHash(cn.Slug)
+		containerFilename := fmt.Sprintf("user-%d-%s/%s-%s",
+			u.ID, u.Username, cn.Slug, containerHash)
 
 		env := []string{
 			"AWS_ACCESS_KEY_ID=" + awsAccessKey,
@@ -225,7 +286,7 @@ func archive(db *db.Database, u *user.User, h *host.Host) error {
 			"AWS_REGION=us-east-1",
 			"BUCKET=" + s3Bucket,
 			"CONTAINER=" + cn.Slug,
-			"CONTAINER_HASH=" + cn.Slug + "-" + containerHash,
+			"CONTAINER_HASH=" + containerFilename,
 		}
 		envStr := strings.Join(env, " ")
 		cmd := "sudo " + envStr + " ./backup-container.sh"
@@ -234,6 +295,7 @@ func archive(db *db.Database, u *user.User, h *host.Host) error {
 
 		session, err := client.NewSession()
 		if err != nil {
+			log.Errorf("error starting new SSH shession: %v", err)
 			return err
 		}
 		defer session.Close()
@@ -245,7 +307,22 @@ func archive(db *db.Database, u *user.User, h *host.Host) error {
 			return fmt.Errorf("error running script, err: %v", err)
 		}
 
-		hostLog.Printf("Host ID %d: backed up container %q to s3://%s/%s in %v", h.ID, cn.Slug, s3Bucket, containerHash, time.Since(start))
+		hostLog.Printf("Host ID %d: backed up container %q to s3://%s/%s in %v", h.ID, cn.Slug, s3Bucket, containerFilename, time.Since(start))
+
+		uri := fmt.Sprintf("https://s3.amazonaws.com/%s/%s.tar.gz",
+			s3Bucket, containerFilename)
+
+		// email, username, container slug, container name, URL, timestamp of backup
+		csvWriter.Write([]string{
+			u.Email, u.Username, cn.Slug, cn.Name.String,
+			uri, strconv.FormatInt(start.Unix(), 10),
+		})
+		csvWriter.Flush()
+
+		if err := csvWriter.Error(); err != nil {
+			log.Errorf("error writing to CSV: %v", err)
+			return err
+		}
 	}
 
 	return nil
@@ -286,10 +363,34 @@ func uploadShellScript(client *ssh.Client) error {
 	return nil
 }
 
-func genContainerHash(container, password string) string {
+func genContainerHash(container string) string {
+	// Generate a randomly long enough string. We don't care about repeatability
+	// because we'll save the generated hash.
+
 	h := sha256.New()
 	h.Write([]byte(container))
 	h.Write([]byte("-"))
-	h.Write([]byte(password))
-	return hex.EncodeToString(h.Sum(nil))
+
+	rand, _ := alphanumeric(256)
+	h.Write([]byte(rand))
+
+	hash := hex.EncodeToString(h.Sum(nil))
+
+	rand, _ = alphanumeric(100)
+
+	return hash + rand
+}
+
+const alphanumericDict = "0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz"
+
+func alphanumeric(n uint) (string, error) {
+	b := make([]byte, n)
+	if _, err := rand.Read(b); err != nil {
+		return "", err
+	}
+	bl := byte(len(alphanumericDict))
+	for k, v := range b {
+		b[k] = alphanumericDict[v%bl]
+	}
+	return string(b), nil
 }
