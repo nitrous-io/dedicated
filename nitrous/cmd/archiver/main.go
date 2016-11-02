@@ -35,6 +35,12 @@ var (
 	hostbuilderClient *hostbuilderclient.Hostbuilder
 
 	csvWriter *csv.Writer
+
+	okFile *os.File
+	okMu   sync.Mutex
+
+	failedFile *os.File
+	failedMu   sync.Mutex
 )
 
 type job struct {
@@ -75,9 +81,24 @@ func run() error {
 		log.Fatalf("failed to connect to database, err: %v", err)
 	}
 
+	ts := time.Now().Unix()
+
+	// Record successful/failed host backups to files.
+	okFile, err = os.Create(fmt.Sprintf("successful-hosts-%d.txt", ts))
+	if err != nil {
+		return err
+	}
+	defer okFile.Close()
+
+	failedFile, err = os.Create(fmt.Sprintf("failed-hosts-%d.csv", ts))
+	if err != nil {
+		return err
+	}
+	defer failedFile.Close()
+
 	// Log to a global CSV file. We'll use this to send emails to users with
 	// links to their container archives.
-	csvFile := fmt.Sprintf("archiver-%d.csv", time.Now().Unix())
+	csvFile := fmt.Sprintf("archiver-%d.csv", ts)
 	log.Infof("Logging results to CSV file at %q", csvFile)
 	f, err := os.Create(csvFile)
 	if err != nil {
@@ -96,10 +117,14 @@ func run() error {
 	}
 
 	var (
-		numWorkers = 10 // At most 10 workers will run at any one time.
+		numWorkers = 10
 		wg         sync.WaitGroup
 		jobs       = make(chan *job, 100)
 	)
+
+	if d, err := strconv.ParseInt(os.Getenv("NUM_WORKERS"), 10, 64); err == nil {
+		numWorkers = int(d)
+	}
 
 	// Start workers.
 	for i := 0; i < numWorkers; i++ {
@@ -146,6 +171,20 @@ func worker(db *db.Database, wg *sync.WaitGroup, jobs chan *job) {
 		err := archive(db, jb.user, jb.host)
 		if err != nil {
 			log.Errorf("error archiving host ID %d, err: %v", jb.host.ID, err)
+
+			failedMu.Lock()
+			if _, err := failedFile.WriteString(fmt.Sprintf("%d, %v\n", jb.host.ID, err)); err != nil {
+				log.Errorf("error writing to host ID %d failure to record file: %v", jb.host.ID, err)
+			}
+			failedFile.Sync()
+			failedMu.Unlock()
+		} else {
+			okMu.Lock()
+			if _, err := okFile.WriteString(fmt.Sprintf("%d\n", jb.host.ID)); err != nil {
+				log.Errorf("error writing to host ID %d success to record file: %v", jb.host.ID, err)
+			}
+			okFile.Sync()
+			okMu.Unlock()
 		}
 
 		wg.Done()
@@ -265,12 +304,24 @@ func archive(db *db.Database, u *user.User, h *host.Host) error {
 	}
 	hostLog.Printf("Host ID %d: SSH success.", h.ID)
 
-	hostLog.Printf("Host ID %d: uploading shell script...", h.ID)
-	if err := uploadShellScript(client); err != nil {
-		log.Errorf("error uploading shell script: %v", err)
+	hostLog.Printf("Host ID %d: uploading container archiver binary...", h.ID)
+	binPath, err := uploadBinary(client)
+	if err != nil {
+		log.Errorf("error uploading container archiver binary: %v", err)
 		return err
 	}
-	hostLog.Printf("Host ID %d: shell script uploaded.", h.ID)
+	defer func() {
+		session, err := client.NewSession()
+		if err != nil {
+			log.Errorf("error starting new SSH session: %v", err)
+		}
+		defer session.Close()
+
+		if err := session.Run(fmt.Sprintf(`rm "%s"`, binPath)); err != nil {
+			log.Errorf("error deleting container archiver binary: %v", err)
+		}
+	}()
+	hostLog.Printf("Host ID %d: container archiver binary uploaded.", h.ID)
 
 	for _, cn := range containers {
 		start := time.Now()
@@ -289,13 +340,13 @@ func archive(db *db.Database, u *user.User, h *host.Host) error {
 			"CONTAINER_HASH=" + containerFilename,
 		}
 		envStr := strings.Join(env, " ")
-		cmd := "sudo " + envStr + " ./backup-container.sh"
+		cmd := "sudo " + envStr + " " + binPath
 
 		hostLog.Printf("Host ID %d: backing up container %q...", h.ID, cn.Slug)
 
 		session, err := client.NewSession()
 		if err != nil {
-			log.Errorf("error starting new SSH shession: %v", err)
+			log.Errorf("error starting new SSH session: %v", err)
 			return err
 		}
 		defer session.Close()
@@ -328,39 +379,41 @@ func archive(db *db.Database, u *user.User, h *host.Host) error {
 	return nil
 }
 
-func uploadShellScript(client *ssh.Client) error {
+func uploadBinary(client *ssh.Client) (string, error) {
 	session, err := client.NewSession()
 	if err != nil {
-		return err
+		return "", err
 	}
 	defer session.Close()
 
-	f, err := os.Open("./backup-container.sh")
+	f, err := os.Open("./containerarchiver")
 	if err != nil {
-		return err
+		return "", err
 	}
 	defer f.Close()
 
 	stat, err := f.Stat()
 	if err != nil {
-		return err
+		return "", err
 	}
 
 	go func() {
 		w, _ := session.StdinPipe()
 		defer w.Close()
 
-		fmt.Fprintf(w, "C0764 %d %s\n", stat.Size(), "backup-container.sh")
+		fmt.Fprintf(w, "C0764 %d %s\n", stat.Size(), "containerarchiver")
 		io.Copy(w, f)
 		fmt.Fprint(w, "\x00")
 	}()
 
-	cmd := fmt.Sprintf("scp -t %s", "/home/ubuntu/backup-container.sh")
+	path := fmt.Sprintf("/home/ubuntu/containerarchiver-%d", time.Now().Unix())
+
+	cmd := fmt.Sprintf(`scp -t "%s"`, path)
 	if out, err := session.CombinedOutput(cmd); err != nil {
-		return fmt.Errorf("error scp-ing shell script to host, err: %v, output: %s", err, out)
+		return "", fmt.Errorf("error scp-ing binary to host, err: %v, output: %s", err, out)
 	}
 
-	return nil
+	return path, nil
 }
 
 func genContainerHash(container string) string {
