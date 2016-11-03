@@ -1,15 +1,16 @@
 package main
 
 import (
+	"bytes"
 	"crypto/rand"
 	"crypto/sha256"
 	"database/sql"
 	"encoding/csv"
 	"encoding/hex"
-	"errors"
 	"fmt"
 	"io"
 	"os"
+	"runtime/debug"
 	"strconv"
 	"strings"
 	"sync"
@@ -18,6 +19,7 @@ import (
 	log "github.com/Sirupsen/logrus"
 	"github.com/jmoiron/sqlx"
 	"github.com/nitrous-io/dedicated/nitrous/db"
+	"github.com/nitrous-io/dedicated/nitrous/hostcontrol"
 	"github.com/nitrous-io/dedicated/nitrous/models/container"
 	"github.com/nitrous-io/dedicated/nitrous/models/host"
 	"github.com/nitrous-io/dedicated/nitrous/models/hosttransition"
@@ -109,7 +111,7 @@ func run() error {
 	csvWriter = csv.NewWriter(f)
 	csvWriter.Write([]string{
 		"email", "username", "container slug", "container name",
-		"archive URL", "archive created at",
+		"archive URL", "archive created at", "host ID",
 	})
 	csvWriter.Flush()
 	if err := csvWriter.Error(); err != nil {
@@ -167,6 +169,12 @@ func run() error {
 }
 
 func worker(db *db.Database, wg *sync.WaitGroup, jobs chan *job) {
+	defer func() {
+		if r := recover(); r != nil {
+			log.Errorf("worker panicked, err: %v, stacktrace: %s", r, debug.Stack())
+		}
+	}()
+
 	for jb := range jobs {
 		err := archive(db, jb.user, jb.host)
 		if err != nil {
@@ -209,30 +217,17 @@ func archive(db *db.Database, u *user.User, h *host.Host) error {
 
 	var stopAfter bool
 	defer func() {
-		if stopAfter {
-			hostLog.Printf("Host ID %d: returning to stopped state...", h.ID)
-			_, err := hostbuilderClient.Stop(
-				h.Provider, h.MachineConfig(), nil, nil)
-			if err != nil {
-				log.Errorf("Host ID %d: failed to stop host, err: %v", h.ID, err)
-				return
-			}
-
-			h.State = host.StateStopped
-			h.ProviderIdentifier = sql.NullString{}
-			h.IPAddress = sql.NullString{}
-			h.FreighterdPort = sql.NullInt64{}
-			if err := db.WithTransaction(func(tx *sqlx.Tx) error {
-				columnsToUpdate := []string{"state", "provider_identifier", "ip_address", "freighterd_port"}
-				if err := h.UpdateSpecifiedColumns(tx, columnsToUpdate); err != nil {
-					return err
-				}
-				return hosttransition.Record(tx, h, host.StateStopping, *h.UpdatedAt, 0)
-			}); err != nil {
-				log.Errorf("Host ID %d: failed update after stopping, err: %v", h.ID, err)
-				return
-			}
+		if !stopAfter {
+			return
 		}
+
+		hostLog.Printf("Host ID %d: returning to stopped state...", h.ID)
+		err := hostcontrol.StopWithQueue(db, h, nil, 1)
+		if err != nil {
+			log.Errorf("Host ID %d: failed to stop host, err: %v", h.ID, err)
+			return
+		}
+		hostLog.Printf("Host ID %d: stopped", h.ID)
 	}()
 
 	switch h.State {
@@ -267,7 +262,7 @@ func archive(db *db.Database, u *user.User, h *host.Host) error {
 		// TODO We should log to a machine-readable logfile so that we
 		// can do re-processing, inform user of errors, etc.
 		hostLog.Printf("Host ID %d: in the %q state, skipping...", h.ID, h.State)
-		return errors.New("host is in an unprocessable state")
+		return fmt.Errorf("host is in an unprocessable state of %q", h.State)
 	}
 
 	// TODO Should we check state NOT IN ('created_failed', 'creating').
@@ -351,11 +346,14 @@ func archive(db *db.Database, u *user.User, h *host.Host) error {
 		}
 		defer session.Close()
 
-		session.Stdout = mw
-		session.Stderr = mw
+		var buf bytes.Buffer
+		out := io.MultiWriter(mw, &buf)
+
+		session.Stdout = out
+		session.Stderr = out
 
 		if err := session.Run(cmd); err != nil {
-			return fmt.Errorf("error running script, err: %v", err)
+			return fmt.Errorf("error running script, err: %v, out: %s", err, buf.String())
 		}
 
 		hostLog.Printf("Host ID %d: backed up container %q to s3://%s/%s in %v", h.ID, cn.Slug, s3Bucket, containerFilename, time.Since(start))
@@ -367,6 +365,7 @@ func archive(db *db.Database, u *user.User, h *host.Host) error {
 		csvWriter.Write([]string{
 			u.Email, u.Username, cn.Slug, cn.Name.String,
 			uri, strconv.FormatInt(start.Unix(), 10),
+			strconv.FormatInt(h.ID, 10),
 		})
 		csvWriter.Flush()
 
